@@ -19,7 +19,5 @@ From the root folder of this repository, run:
 docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v $PWD:$PWD -w $PWD \
-    $(
-        docker build -f .dagger/Dockerfile  -q .dagger 
-    )
+    "$(docker build -f .dagger/Dockerfile  -q .dagger)"
 ```

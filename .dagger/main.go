@@ -28,7 +28,9 @@ func main() {
 			log.Fatalf("fail to resolve absolute path of %s: %v", os.Args[1], err)
 		}
 	}
-	src := client.Host().Directory(dir, dagger.HostDirectoryOpts{Exclude: []string{".git"}})
+	src := client.Host().Directory(dir,
+		dagger.HostDirectoryOpts{Exclude: []string{".git", ".dagger"}},
+	)
 
 	// start postgres container
 	postgres := client.Container().

@@ -20,7 +20,7 @@ func TestMultiTenantKeyRotation(t *testing.T) {
 	template, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
 	require.NoError(t, err, "should create prf based key template")
 	mgr := keyset.NewManager()
-	newHandle := func() *keyset.Handle {
+	rotateKey := func() *keyset.Handle {
 		id, err := mgr.Add(template)
 		require.NoError(t, err, "should add template")
 
@@ -35,7 +35,7 @@ func TestMultiTenantKeyRotation(t *testing.T) {
 
 	t.Run("encrypt", func(t *testing.T) {
 		m := multiTenantKeyset[primitiveAEAD]{
-			master:      newHandle(),
+			master:      rotateKey(),
 			constructur: newPrimitiveAEAD,
 		}
 		aead, err := m.GetPrimitive(tenantID)
@@ -47,7 +47,7 @@ func TestMultiTenantKeyRotation(t *testing.T) {
 
 	t.Run("decrypt", func(t *testing.T) {
 		m := multiTenantKeyset[primitiveAEAD]{
-			master:      newHandle(),
+			master:      rotateKey(),
 			constructur: newPrimitiveAEAD,
 		}
 		aead, err := m.GetPrimitive(tenantID)

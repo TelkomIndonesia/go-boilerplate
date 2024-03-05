@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = c.Start(ctx); err != nil {
+	if err = c.Exec(ctx); err != nil {
 		log.Println(err)
 	}
 }

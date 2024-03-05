@@ -8,10 +8,9 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/tink-crypto/tink-go/v2/keyset"
-	"github.com/tink-crypto/tink-go/v2/mac"
 )
 
-func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) PostgresOptFunc {
+func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.aead = multiTenantKeyset[primitiveAEAD]{master: aeadKey, constructur: newPrimitiveAEAD}
 		if _, err = p.aead.GetPrimitive(uuid.UUID{}); err != nil {
@@ -26,14 +25,14 @@ func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) PostgresOptFunc 
 	}
 }
 
-func WithConnString(connStr string) PostgresOptFunc {
+func WithConnString(connStr string) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.db, err = sql.Open("postgres", connStr)
 		return
 	}
 }
 
-type PostgresOptFunc func(*Postgres) error
+type OptFunc func(*Postgres) error
 
 type Postgres struct {
 	db   *sql.DB
@@ -41,10 +40,10 @@ type Postgres struct {
 	mac  multiTenantKeyset[primitiveMAC]
 }
 
-func NewPostgres(opts ...PostgresOptFunc) (*Postgres, error) {
-	p := &Postgres{}
+func New(opts ...OptFunc) (p *Postgres, err error) {
+	p = &Postgres{}
 	for _, opt := range opts {
-		if err := opt(p); err != nil {
+		if err = opt(p); err != nil {
 			return p, err
 		}
 	}
@@ -56,26 +55,5 @@ func (p *Postgres) GetBlindIdxKeys(tenantID uuid.UUID, key []byte) (idxs [][]byt
 	if err != nil {
 		return nil, fmt.Errorf("fail to get keyset handle for tenant %s: %w", tenantID, err)
 	}
-	h, err = copyHandle(h)
-	if err != nil {
-		return nil, err
-	}
-
-	idxs = make([][]byte, 0, len(h.KeysetInfo().GetKeyInfo()))
-	mgr := keyset.NewManagerFromHandle(h)
-	for _, i := range h.KeysetInfo().GetKeyInfo() {
-		mgr.SetPrimary(i.GetKeyId())
-		m, err := mac.New(h)
-		if err != nil {
-			return nil, fmt.Errorf("fail to instantiate primitive from key id %d: %w", i.GetKeyId(), err)
-		}
-
-		b, err := m.ComputeMAC(key)
-		if err != nil {
-			return nil, fmt.Errorf("fail to compute mac from key id %d: %w", i.GetKeyId(), err)
-		}
-
-		idxs = append(idxs, b)
-	}
-	return nil, nil
+	return getBlindIdxs(h, key)
 }

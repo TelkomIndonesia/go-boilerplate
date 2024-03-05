@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS profile (
     id UUID PRIMARY KEY,
-    tenant_ID UUID,
+    tenant_ID UUID NOT NULL,
     nin BYTEA,
     nin_bidx BYTEA,
     name BYTEA,
@@ -11,12 +11,12 @@ CREATE TABLE IF NOT EXISTS profile (
     email_bidx BYTEA,
     dob BYTEA,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS outbox (
     id UUID PRIMARY KEY,
-    tenant_ID UUID,
+    tenant_id UUID NOT NULL,
     type VARCHAR(128) NOT NULL,
     content JSONB NOT NULL,
     is_delivered BOOLEAN DEFAULT FALSE,
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 
 CREATE TABLE IF NOT EXISTS text_heap (
-    tenant_ID UUID,
+    tenant_id UUID NOT NULL,
     type VARCHAR(128) NOT NULL,
     content TEXT NOT NULL, 
-    UNIQUE (type, content)
+    UNIQUE (tenant_id, type, content)
 )

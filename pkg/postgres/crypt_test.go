@@ -1,11 +1,11 @@
 package postgres
 
 import (
-	"bytes"
-	"log"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tink-crypto/tink-go/v2/aead"
 	"github.com/tink-crypto/tink-go/v2/keyderivation"
 	"github.com/tink-crypto/tink-go/v2/keyset"
@@ -13,68 +13,50 @@ import (
 )
 
 func TestMultiTenantKeyRotation(t *testing.T) {
-	message := []byte("secret")
-	adata := []byte(t.Name())
+	message, adata := []byte("secret"), []byte(t.Name())
 	tenantID, _ := uuid.NewV7()
 	var chipertext, plaintext []byte
 
 	template, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
-	if err != nil {
-		log.Fatal(err)
-	}
+	require.NoError(t, err, "should create prf based key template")
 	mgr := keyset.NewManager()
 	newHandle := func() *keyset.Handle {
 		id, err := mgr.Add(template)
-		if err != nil {
-			t.Fatal("generate new key failed", err)
-		}
+		require.NoError(t, err, "should add template")
 
 		mgr.SetPrimary(id)
 		t.Logf("new handle with id '%d' is set as primary", id)
 
 		h, err := mgr.Handle()
-		if err != nil {
-			t.Fatal("get handle failed", err)
-		}
+		require.NoError(t, err, "should return handle")
 
 		return h
 	}
 
 	t.Run("encrypt", func(t *testing.T) {
-		handle := newHandle()
 		m := multiTenantKeyset[primitiveAEAD]{
-			master:      handle,
+			master:      newHandle(),
 			constructur: newPrimitiveAEAD,
 		}
 		aead, err := m.GetPrimitive(tenantID)
-		if err != nil {
-			t.Fatal("should return aead primitive: %w", err)
-		}
-		chipertext, err = aead.Encrypt(message, adata)
-		if err != nil {
-			t.Fatal("should successfully encrypt plaintext: %w", err)
-		}
+		require.NoError(t, err, "should return aead primitive")
 
+		chipertext, err = aead.Encrypt(message, adata)
+		require.NoError(t, err, "should encrypt original message")
 	})
 
 	t.Run("decrypt", func(t *testing.T) {
-		handle := newHandle()
 		m := multiTenantKeyset[primitiveAEAD]{
-			master:      handle,
+			master:      newHandle(),
 			constructur: newPrimitiveAEAD,
 		}
 		aead, err := m.GetPrimitive(tenantID)
-		if err != nil {
-			t.Fatal("should return aead primitive: %w", err)
-		}
+		require.NoError(t, err, "should return aead primitive")
+
 		plaintext, err = aead.Decrypt(chipertext, adata)
-		if err != nil {
-			t.Fatal("should successfully decrypt chiper: %w", err)
-		}
+		require.NoError(t, err, "should decrypt chipertext")
 
 	})
 
-	if !bytes.Equal(message, plaintext) {
-		t.Errorf("decrypted message (%s) should be equal original message (%s)", message, chipertext)
-	}
+	assert.Equal(t, message, plaintext, "decrypted message should be equal to original message")
 }

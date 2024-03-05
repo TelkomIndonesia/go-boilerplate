@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/rucciva/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 )
 
 func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err error) {

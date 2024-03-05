@@ -29,9 +29,9 @@ func newPrimitiveMAC(h *keyset.Handle) (p primitiveMAC, err error) {
 
 type multiTenantKeyset[T primitiveAEAD | primitiveMAC] struct {
 	master      *keyset.Handle
+	constructur newPrimitive[T]
 	keys        sync.Map
 	primitives  sync.Map
-	constructur newPrimitive[T]
 }
 
 func (m *multiTenantKeyset[T]) GetHandle(tenantID uuid.UUID) (h *keyset.Handle, err error) {
@@ -74,8 +74,34 @@ func (m *multiTenantKeyset[T]) GetPrimitive(tenantID uuid.UUID) (p T, err error)
 	return
 }
 
-func copyHandle(h *keyset.Handle) (hc *keyset.Handle, err error) {
+func getBlindIdxs(h *keyset.Handle, key []byte) (idxs [][]byte, err error) {
+	h, err = cloneHandle(h)
+	if err != nil {
+		return nil, err
+	}
+
+	idxs = make([][]byte, 0, len(h.KeysetInfo().GetKeyInfo()))
+	mgr := keyset.NewManagerFromHandle(h)
+	for _, i := range h.KeysetInfo().GetKeyInfo() {
+		mgr.SetPrimary(i.GetKeyId())
+		m, err := mac.New(h)
+		if err != nil {
+			return nil, fmt.Errorf("fail to instantiate primitive from key id %d: %w", i.GetKeyId(), err)
+		}
+
+		b, err := m.ComputeMAC(key)
+		if err != nil {
+			return nil, fmt.Errorf("fail to compute mac from key id %d: %w", i.GetKeyId(), err)
+		}
+
+		idxs = append(idxs, b)
+	}
+	return nil, nil
+}
+
+func cloneHandle(h *keyset.Handle) (hc *keyset.Handle, err error) {
 	b := new(bytes.Buffer)
+
 	w := keyset.NewBinaryWriter(b)
 	err = insecurecleartextkeyset.Write(h, w)
 	if err != nil {

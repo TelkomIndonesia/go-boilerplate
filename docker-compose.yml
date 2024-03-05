@@ -3,7 +3,7 @@ volumes:
 
 services:
   postgres:
-    image: postgres:14
+    image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: profile
@@ -14,4 +14,11 @@ services:
       - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     ports: 
       - 5432:5432
+
+  server:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_started
+    restart: unless-stopped
       

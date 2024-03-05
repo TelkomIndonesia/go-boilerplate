@@ -3,6 +3,7 @@ package httpserver
 import (
 	"crypto/tls"
 	"fmt"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -31,12 +32,7 @@ func newCertWatcher(keyPath string, certPath string, logger func(error)) (cw *ce
 		return
 	}
 
-	go func() {
-		err = cw.watch()
-		if err != nil {
-			cw.log(err)
-		}
-	}()
+	go cw.watchLoop()
 	return
 }
 
@@ -50,10 +46,27 @@ func (cw *certWatcher) loadCert() error {
 	return nil
 }
 
+func (cw *certWatcher) watchLoop() {
+	for {
+		select {
+		case <-cw.done:
+			return
+
+		default:
+		}
+
+		if err := cw.watch(); err != nil {
+			cw.log(fmt.Errorf("cert watcher stopped due to error: %w", err))
+			<-time.After(time.Minute)
+		}
+	}
+
+}
+
 func (cw *certWatcher) watch() (err error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("fail to instantiate watcher: %w", err)
+		return fmt.Errorf("fail to instantiate fsnotify watcher: %w", err)
 	}
 	defer watcher.Close()
 
@@ -63,27 +76,44 @@ func (cw *certWatcher) watch() (err error) {
 	}
 
 	for {
-		select {
-		case e, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-			if !e.Has(fsnotify.Write) {
-				return
-			}
+		var event fsnotify.Event
 
-			err = cw.loadCert()
-			if err != nil {
-				cw.log(fmt.Errorf("fail to reload certificate: %w", err))
-			}
+		select {
+		case <-cw.done:
+			return
 
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return err
 			}
+			cw.log(fmt.Errorf("cert-watcher receives error event: %w", err))
+			continue
 
-		case <-cw.done:
-			return
+		case e, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+
+			event = e
+		}
+
+		switch {
+		default:
+			continue
+
+		case event.Has(fsnotify.Write):
+		case event.Has(fsnotify.Remove) || event.Has(fsnotify.Chmod):
+			if err := watcher.Remove(cw.certPath); err != nil {
+				return fmt.Errorf("fail to remove watched file: %w", err)
+			}
+			if err := watcher.Add(cw.certPath); err != nil {
+				return fmt.Errorf("fail to re-add watched file: %w", err)
+			}
+		}
+
+		err = cw.loadCert()
+		if err != nil {
+			cw.log(fmt.Errorf("fail to reload certificate: %w", err))
 		}
 	}
 }
@@ -93,11 +123,7 @@ func (cw *certWatcher) close() (err error) {
 		return
 	}
 
-	select {
-	case cw.done <- struct{}{}:
-	default:
-	}
-
+	close(cw.done)
 	return
 }
 

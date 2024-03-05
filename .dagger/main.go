@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-
 	ctx := context.Background()
 
 	// initialize Dagger client
@@ -20,7 +19,7 @@ func main() {
 	}
 	defer client.Close()
 
-	// source directory
+	// load source directory
 	dir := "."
 	if len(os.Args) > 1 {
 		dir, err = filepath.Abs(os.Args[1])

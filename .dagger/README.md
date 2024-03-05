@@ -6,9 +6,8 @@ From the root folder of this repository, run:
 
 ```bash
 cd .dagger \
-    && go build -o dagger . \
-    && cd .. \
-    && .dagger/dagger
+&& go run . "$(cd ..; pwd)" \
+&& cd .. 
 ```
 
 ### Using Docker

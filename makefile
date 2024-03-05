@@ -1,7 +1,13 @@
-.PHONY: cicd
+.PHONY: build test start stop
 
-cicd:
-	cd .dagger \
-    && go build -o dagger . \
-    && cd .. \
-    && .dagger/dagger
+build: 
+	go build ./...
+
+test: 
+	cd .dagger && go run . "$$(cd ..; pwd)"
+
+start: 
+	docker compose up --build -d --force-recreate
+
+stop:
+	docker compose down

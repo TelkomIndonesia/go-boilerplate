@@ -3,18 +3,17 @@ package httpserver
 import (
 	"crypto/tls"
 	"fmt"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 type certWatcher struct {
-	certMu   sync.RWMutex
 	cert     *tls.Certificate
 	certPath string
 	keyPath  string
-	log      func(error)
-	done     chan struct{}
+
+	log  func(error)
+	done chan struct{}
 }
 
 func newCertWatcher(keyPath string, certPath string, logger func(error)) (cw *certWatcher, err error) {
@@ -47,8 +46,6 @@ func (cw *certWatcher) loadCert() error {
 		return fmt.Errorf("fail to load x509 key pair: %w", err)
 	}
 
-	cw.certMu.Lock()
-	defer cw.certMu.Unlock()
 	cw.cert = &cert
 	return nil
 }
@@ -106,8 +103,6 @@ func (cw *certWatcher) close() (err error) {
 
 func (cw *certWatcher) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		cw.certMu.RLock()
-		defer cw.certMu.RUnlock()
 		return cw.cert, nil
 	}
 }

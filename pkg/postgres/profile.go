@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 )
 
@@ -47,13 +48,21 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	}
 
 	// text heap
-	if err = p.storeTextHeap(ctx, tx, pr.TenantID, "profile_name", pr.Name); err != nil {
+	if err = p.storeTextHeap(ctx, tx, textHeap{
+		tenantID:    pr.TenantID,
+		contentType: "profile_name",
+		content:     pr.Name,
+	}); err != nil {
 		return fmt.Errorf("fail to store profile name to text_heap: %w", err)
 	}
 
 	// outbox
-	msgFunc := argAsB64(p.argEncJSON(pr.TenantID, pr, pr.ID[:]))
-	if err = p.storeOutbox(ctx, tx, pr.TenantID, "profile_saved", msgFunc); err != nil {
+	if err = p.storeOutbox(ctx, tx, &outbox{
+		tenantID:    pr.TenantID,
+		contentType: "profile_stored",
+		content:     pr,
+		isEncrypted: true,
+	}); err != nil {
 		return fmt.Errorf("fail to store profile to outbox: %w", err)
 	}
 
@@ -86,19 +95,19 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 	}
 	name, err = paead.Decrypt(name, id[:])
 	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt nin : %w", err)
+		return nil, fmt.Errorf("fail to decrypt name : %w", err)
 	}
 	phone, err = paead.Decrypt(phone, id[:])
 	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt nin : %w", err)
+		return nil, fmt.Errorf("fail to decrypt phone : %w", err)
 	}
 	email, err = paead.Decrypt(email, id[:])
 	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt nin : %w", err)
+		return nil, fmt.Errorf("fail to decrypt email : %w", err)
 	}
 	dob, err = paead.Decrypt(dob, id[:])
 	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt nin : %w", err)
+		return nil, fmt.Errorf("fail to decrypt dob : %w", err)
 	}
 
 	pr = &profile.Profile{
@@ -110,8 +119,74 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 		Email:    string(email),
 	}
 	if err = pr.DOB.UnmarshalBinary(dob); err != nil {
-		return nil, fmt.Errorf("fail to unmarshal dat of birth: %w", err)
+		return nil, fmt.Errorf("fail to unmarshal dob: %w", err)
 	}
 
+	return
+}
+
+func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qname string) (names []string, err error) {
+	return p.findTextHeap(ctx, tenantID, "profile_name", qname)
+}
+
+func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, name string) (prs []*profile.Profile, err error) {
+	nameIdxs, err := p.GetBlindIdxKeys(tenantID, []byte(name))
+	if err != nil {
+		return nil, fmt.Errorf("fail to compute blind indexes from profile name: %w", err)
+	}
+
+	q := `SELECT id, nin, name, phone, email, dob FROM profile WHERE tenant_id = $1 and $2 <@ name_bidx`
+	rows, err := p.db.Query(q, tenantID, pq.Array(nameIdxs))
+	if err != nil {
+		return nil, fmt.Errorf("fail to query profile by name: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		var nin, name, phone, email, dob []byte
+		err = rows.Scan(&id, &nin, &name, &phone, &email, &dob)
+		if err != nil {
+			return nil, fmt.Errorf("fail to scan row: %w", err)
+		}
+
+		paead, err := p.aead.GetPrimitive(tenantID)
+		if err != nil {
+			return nil, err
+		}
+		nin, err = paead.Decrypt(nin, id[:])
+		if err != nil {
+			return nil, fmt.Errorf("fail to decrypt nin : %w", err)
+		}
+		name, err = paead.Decrypt(name, id[:])
+		if err != nil {
+			return nil, fmt.Errorf("fail to decrypt name : %w", err)
+		}
+		phone, err = paead.Decrypt(phone, id[:])
+		if err != nil {
+			return nil, fmt.Errorf("fail to decrypt phone : %w", err)
+		}
+		email, err = paead.Decrypt(email, id[:])
+		if err != nil {
+			return nil, fmt.Errorf("fail to decrypt email : %w", err)
+		}
+		dob, err = paead.Decrypt(dob, id[:])
+		if err != nil {
+			return nil, fmt.Errorf("fail to decrypt dob : %w", err)
+		}
+
+		pr := &profile.Profile{
+			ID:       id,
+			TenantID: tenantID,
+			NIN:      string(nin),
+			Name:     string(name),
+			Phone:    string(phone),
+			Email:    string(email),
+		}
+		if err = pr.DOB.UnmarshalBinary(dob); err != nil {
+			return nil, fmt.Errorf("fail to unmarshal dob: %w", err)
+		}
+		prs = append(prs, pr)
+	}
 	return
 }

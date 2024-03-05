@@ -21,4 +21,6 @@ type Profile struct {
 type ProfileRepository interface {
 	StoreProfile(ctx context.Context, pr *Profile) (err error)
 	FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (pr *Profile, err error)
+	FindProfileNames(ctx context.Context, tenantID uuid.UUID, query string) (names []string, err error)
+	FindProfilesByName(ctx context.Context, tenantID uuid.UUID, name string) (prs []*Profile, err error)
 }

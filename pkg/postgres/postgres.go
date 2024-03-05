@@ -49,11 +49,3 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	}
 	return p, nil
 }
-
-func (p *Postgres) GetBlindIdxKeys(tenantID uuid.UUID, key []byte) (idxs [][]byte, err error) {
-	h, err := p.mac.GetHandle(tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("fail to get keyset handle for tenant %s: %w", tenantID, err)
-	}
-	return getBlindIdxs(h, key)
-}

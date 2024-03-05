@@ -3,7 +3,6 @@ package httpserver
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -14,13 +13,19 @@ type certWatcher struct {
 	cert     *tls.Certificate
 	certPath string
 	keyPath  string
+	log      func(error)
 	done     chan struct{}
 }
 
-func newCertWatcher(keyPath, certPath string) (cw *certWatcher, err error) {
+func newCertWatcher(keyPath string, certPath string, logger func(error)) (cw *certWatcher, err error) {
+	if logger == nil {
+		logger = func(err error) {}
+	}
+
 	cw = &certWatcher{
 		certPath: certPath,
 		keyPath:  keyPath,
+		log:      logger,
 		done:     make(chan struct{}),
 	}
 	if err = cw.loadCert(); err != nil {
@@ -30,7 +35,7 @@ func newCertWatcher(keyPath, certPath string) (cw *certWatcher, err error) {
 	go func() {
 		err = cw.watch()
 		if err != nil {
-			log.Println(err)
+			cw.log(err)
 		}
 	}()
 	return
@@ -62,12 +67,17 @@ func (cw *certWatcher) watch() (err error) {
 
 	for {
 		select {
-		case _, ok := <-watcher.Events:
+		case e, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
-			if err = cw.loadCert(); err != nil {
-				return err
+			if !e.Has(fsnotify.Write) {
+				return
+			}
+
+			err = cw.loadCert()
+			if err != nil {
+				cw.log(fmt.Errorf("fail to reload certificate: %w", err))
 			}
 
 		case err, ok := <-watcher.Errors:

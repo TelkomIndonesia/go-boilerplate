@@ -21,7 +21,12 @@ func WithProfileRepository(pr profile.ProfileRepository) OptFunc {
 
 func WithTLS(keyPath, certPath string) OptFunc {
 	return func(h *HTTPServer) (err error) {
-		h.cw, err = newCertWatcher(keyPath, certPath)
+		logger := func(err error) {
+			// TODO: share logger with `h`
+			// e.g: h.logger().Log(err)
+		}
+
+		h.cw, err = newCertWatcher(keyPath, certPath, logger)
 		if err != nil {
 			return fmt.Errorf("failed to instantiate TLS Cert Watcher: %w", err)
 		}

@@ -104,7 +104,7 @@ func getBlindIdxs(h *keyset.Handle, key []byte) (idxs [][]byte, err error) {
 
 		idxs = append(idxs, b)
 	}
-	return nil, nil
+	return
 }
 
 func cloneHandle(h *keyset.Handle) (hc *keyset.Handle, err error) {

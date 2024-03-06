@@ -3,9 +3,8 @@ package httpserver
 import (
 	"crypto/tls"
 	"fmt"
-	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
 type certWatcher struct {
@@ -13,8 +12,7 @@ type certWatcher struct {
 	certPath string
 	keyPath  string
 
-	log  func(error)
-	done chan struct{}
+	fw util.FileWatcher
 }
 
 func newCertWatcher(keyPath string, certPath string, logger func(error)) (cw *certWatcher, err error) {
@@ -22,17 +20,20 @@ func newCertWatcher(keyPath string, certPath string, logger func(error)) (cw *ce
 		logger = func(err error) {}
 	}
 
-	cw = &certWatcher{
-		certPath: certPath,
-		keyPath:  keyPath,
-		log:      logger,
-		done:     make(chan struct{}),
-	}
+	cw = &certWatcher{certPath: certPath, keyPath: keyPath}
 	if err = cw.loadCert(); err != nil {
 		return
 	}
 
-	go cw.watchLoop()
+	fwcb := func() {
+		if err := cw.loadCert(); err != nil {
+			logger(err)
+		}
+	}
+	if cw.fw, err = util.NewFileWatcher(certPath, fwcb, logger); err != nil {
+		return
+	}
+
 	return
 }
 
@@ -46,85 +47,12 @@ func (cw *certWatcher) loadCert() error {
 	return nil
 }
 
-func (cw *certWatcher) watchLoop() {
-	for {
-		select {
-		case <-cw.done:
-			return
-
-		default:
-		}
-
-		if err := cw.watch(); err != nil {
-			cw.log(fmt.Errorf("cert watcher stopped due to error: %w", err))
-			<-time.After(time.Minute)
-		}
-	}
-
-}
-
-func (cw *certWatcher) watch() (err error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("fail to instantiate fsnotify watcher: %w", err)
-	}
-	defer watcher.Close()
-
-	err = watcher.Add(cw.certPath)
-	if err != nil {
-		return fmt.Errorf("fail to watch %s: %w", cw.certPath, err)
-	}
-
-	for {
-		var event fsnotify.Event
-
-		select {
-		case <-cw.done:
-			return
-
-		case err, ok := <-watcher.Errors:
-			if !ok {
-				return err
-			}
-			cw.log(fmt.Errorf("cert-watcher receives error event: %w", err))
-			continue
-
-		case e, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-
-			event = e
-		}
-
-		switch {
-		default:
-			continue
-
-		case event.Has(fsnotify.Write):
-		case event.Has(fsnotify.Remove) || event.Has(fsnotify.Chmod):
-			if err := watcher.Remove(cw.certPath); err != nil {
-				return fmt.Errorf("fail to remove watched file: %w", err)
-			}
-			if err := watcher.Add(cw.certPath); err != nil {
-				return fmt.Errorf("fail to re-add watched file: %w", err)
-			}
-		}
-
-		err = cw.loadCert()
-		if err != nil {
-			cw.log(fmt.Errorf("fail to reload certificate: %w", err))
-		}
-	}
-}
-
-func (cw *certWatcher) close() (err error) {
+func (cw *certWatcher) Close() (err error) {
 	if cw == nil {
 		return
 	}
 
-	close(cw.done)
-	return
+	return cw.fw.Close()
 }
 
 func (cw *certWatcher) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {

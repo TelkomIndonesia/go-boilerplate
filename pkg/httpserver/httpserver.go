@@ -91,5 +91,5 @@ func (h HTTPServer) Start(ctx context.Context) (err error) {
 }
 
 func (h HTTPServer) Close() error {
-	return h.cw.close()
+	return h.cw.Close()
 }

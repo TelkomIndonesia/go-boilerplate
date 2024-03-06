@@ -48,12 +48,12 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *outbox) (err
 
 	outboxQ := `
 		INSERT INTO outbox 
-		(id, tenant_id, type, content)
+		(id, tenant_id, type, content, is_encrypted)
 		VALUES
-		($1, $2, $3, $4)
+		($1, $2, $3, $4, $5)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.id, ob.tenantID, ob.contentType, content,
+		ob.id, ob.tenantID, ob.contentType, content, ob.isEncrypted,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS outbox (
     type VARCHAR(128) NOT NULL,
     content JSONB NOT NULL,
     is_delivered BOOLEAN DEFAULT FALSE,
+    is_encrypted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

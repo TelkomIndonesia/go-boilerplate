@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	env "github.com/caarlos0/env/v10"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
 type ServerOptFunc func(*Server) error
@@ -18,8 +18,16 @@ func ServerWithEnvPrefix(p string) ServerOptFunc {
 	}
 }
 
+func ServerWithOutDotEnv(p string) ServerOptFunc {
+	return func(s *Server) (err error) {
+		s.dotenv = false
+		return
+	}
+}
+
 type Server struct {
 	envPrefix string
+	dotenv    bool
 
 	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand"`
 	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH"`
@@ -34,18 +42,19 @@ type Server struct {
 }
 
 func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
-	s = &Server{envPrefix: "PROFILE_"}
+	s = &Server{envPrefix: "PROFILE_", dotenv: true}
 	for _, opt := range opts {
 		if err = opt(s); err != nil {
 			return
 		}
 	}
 
-	opt := env.Options{
+	err = util.LoadFromEnv(s, util.LoadEnvOptions{
 		Prefix: s.envPrefix,
-	}
-	if err = env.ParseWithOptions(s, opt); err != nil {
-		return nil, fmt.Errorf("fail to parse options: %w", err)
+		DotEnv: s.dotenv,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	if err = s.initPostgres(); err != nil {

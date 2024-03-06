@@ -22,10 +22,11 @@ func main() {
 	// load source directory
 	dir := "."
 	if len(os.Args) > 1 {
-		dir, err = filepath.Abs(os.Args[1])
-		if err != nil {
-			log.Fatalf("fail to resolve absolute path of %s: %v", os.Args[1], err)
-		}
+		dir = os.Args[1]
+	}
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		log.Fatalf("fail to resolve absolute path of %s: %v", dir, err)
 	}
 	src := client.Host().Directory(dir,
 		dagger.HostDirectoryOpts{Exclude: []string{".git", ".dagger"}},
@@ -52,6 +53,7 @@ func main() {
 		WithMountedCache("/root/.cache/go-build", client.CacheVolume("golang-build")).
 		WithServiceBinding("postgres", postgresService).
 		WithEnvVariable("POSTGRES_URL", "postgres://testing:testing@postgres:5432/testing?sslmode=disable").
+		WithWorkdir(dir).
 		WithMountedDirectory(".", src).
 		WithExec(
 			[]string{"go", "test", "-coverprofile", "coverage.out", "./..."},

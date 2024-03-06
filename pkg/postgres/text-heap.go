@@ -28,7 +28,7 @@ func (p *Postgres) storeTextHeap(ctx context.Context, tx *sql.Tx, th textHeap) (
 	(tenant_id, type, content)
 	VALUES
 	($1, $2, $3)
-	ON CONFLICT (type, content)
+	ON CONFLICT (tenant_id, type, content)
 	DO NOTHING
 `
 	_, err = tx.ExecContext(ctx, nameHeapQ,

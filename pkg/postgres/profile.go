@@ -82,8 +82,8 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 
 func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (pr *profile.Profile, err error) {
 	_, span := tracer.Start(ctx, "fetchProfile", trace.WithAttributes(
-		attribute.Stringer("tenantID", pr.TenantID),
-		attribute.Stringer("id", pr.ID),
+		attribute.Stringer("tenantID", tenantID),
+		attribute.Stringer("id", id),
 	))
 	defer span.End()
 
@@ -159,7 +159,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, n
 		return nil, fmt.Errorf("fail to compute blind indexes from profile name: %w", err)
 	}
 
-	q := `SELECT id, nin, name, phone, email, dob FROM profile WHERE tenant_id = $1 and $2 <@ name_bidx`
+	q := `SELECT id, nin, name, phone, email, dob FROM profile WHERE tenant_id = $1 and name_bidx = ANY($2)`
 	rows, err := p.db.Query(q, tenantID, pq.Array(nameIdxs))
 	if err != nil {
 		return nil, fmt.Errorf("fail to query profile by name: %w", err)

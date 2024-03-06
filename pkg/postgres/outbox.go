@@ -27,19 +27,16 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *outbox) (err
 	))
 	defer span.End()
 
-	var content any
-	switch ob.isEncrypted {
-	case true:
-		content, err = argAsB64(p.argEncJSON(ob.tenantID, ob, ob.id[:]))()
+	content := ob.content
+	if ob.isEncrypted {
+		content, err = p.argEncJSON(ob.tenantID, ob, ob.id[:])()
 		if err != nil {
 			return fmt.Errorf("fail to encrypt outbox content: %w", err)
 		}
-
-	case false:
-		content, err = json.Marshal(ob.content)
-		if err != nil {
-			return fmt.Errorf("fail to marshall content as json")
-		}
+	}
+	content, err = json.Marshal(content)
+	if err != nil {
+		return fmt.Errorf("fail to marshall content as json")
 	}
 
 	if len(ob.id) == 0 {
@@ -50,7 +47,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *outbox) (err
 	}
 
 	outboxQ := `
-		INSERT INTO text_heap 
+		INSERT INTO outbox 
 		(id, tenant_id, type, content)
 		VALUES
 		($1, $2, $3, $4)

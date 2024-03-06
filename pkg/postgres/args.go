@@ -47,7 +47,7 @@ func argAsB64(fn argFunc) argFunc {
 			return nil, fmt.Errorf("cannot convert a non byte arg to base64")
 		}
 
-		buf := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
+		buf := make([]byte, 0, base64.StdEncoding.EncodedLen(len(b)))
 		base64.StdEncoding.Encode(b, buf)
 		return buf, nil
 	}

@@ -3,27 +3,19 @@ package main
 import (
 	"context"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		done := make(chan os.Signal, 1)
-		signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
-		<-done
-		cancel()
-	}()
+	ctx := util.CancelOnExitSignal(context.Background())
 
 	c, err := cmd.NewServer()
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = c.Exec(ctx); err != nil {
+	if err = c.Run(ctx); err != nil {
 		log.Println(err)
 	}
 }

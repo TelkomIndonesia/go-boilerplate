@@ -2,7 +2,7 @@
 
 Features:
 
-- [x] Database (postgres) with Encryption at Rest
+- [x] Database (postgres) with Encryption at Rest (tink) and MultiTenancy
 - [x] CI/CD as Code (dagger)
 - [x] Dockerized
 - [x] Env Config

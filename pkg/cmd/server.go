@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
+	"github.com/telkomindonesia/go-boilerplate/pkg/otel"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
@@ -95,5 +96,6 @@ func (s *Server) initHTTPServer() (err error) {
 }
 
 func (s *Server) Run(ctx context.Context) (err error) {
+	defer otel.WithProviderDatadog()()
 	return s.h.Start(ctx)
 }

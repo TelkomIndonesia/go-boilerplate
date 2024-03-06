@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type textHeap struct {
@@ -15,6 +17,12 @@ type textHeap struct {
 }
 
 func (p *Postgres) storeTextHeap(ctx context.Context, tx *sql.Tx, th textHeap) (err error) {
+	_, span := tracer.Start(ctx, "storeTextHeap", trace.WithAttributes(
+		attribute.Stringer("tenantID", th.tenantID),
+		attribute.String("contentType", th.contentType),
+	))
+	defer span.End()
+
 	nameHeapQ := `
 	INSERT INTO text_heap 
 	(tenant_id, type, content)
@@ -34,6 +42,12 @@ func (p *Postgres) storeTextHeap(ctx context.Context, tx *sql.Tx, th textHeap) (
 }
 
 func (p *Postgres) findTextHeap(ctx context.Context, tenantID uuid.UUID, ctype string, qname string) (text []string, err error) {
+	_, span := tracer.Start(ctx, "storeTextHeap", trace.WithAttributes(
+		attribute.Stringer("tenantID", tenantID),
+		attribute.String("contentType", ctype),
+	))
+	defer span.End()
+
 	q := `SELECT content FROM text_heap WHERE tenand_id = $1 AND type = $2 AND content like %$3%`
 	rows, err := p.db.QueryContext(ctx, q, tenantID, ctype, qname)
 	if err != nil {

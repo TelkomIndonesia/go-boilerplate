@@ -8,9 +8,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err error) {
+	_, span := tracer.Start(ctx, "storeProfile", trace.WithAttributes(
+		attribute.Stringer("tenantID", pr.TenantID),
+		attribute.Stringer("id", pr.ID),
+	))
+	defer span.End()
+
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return fmt.Errorf("fail to open transaction: %w", err)
@@ -73,6 +81,12 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 }
 
 func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (pr *profile.Profile, err error) {
+	_, span := tracer.Start(ctx, "fetchProfile", trace.WithAttributes(
+		attribute.Stringer("tenantID", pr.TenantID),
+		attribute.Stringer("id", pr.ID),
+	))
+	defer span.End()
+
 	var nin, name, phone, email, dob []byte
 	q := `SELECT nin, name, phone, email, dob FROM profile WHERE id = $1 AND tenant_id = $2`
 	err = p.db.QueryRowContext(ctx, q,
@@ -126,10 +140,20 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 }
 
 func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qname string) (names []string, err error) {
+	_, span := tracer.Start(ctx, "findProfileNames", trace.WithAttributes(
+		attribute.Stringer("tenantID", tenantID),
+	))
+	defer span.End()
+
 	return p.findTextHeap(ctx, tenantID, "profile_name", qname)
 }
 
 func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, name string) (prs []*profile.Profile, err error) {
+	_, span := tracer.Start(ctx, "findProfilesByName", trace.WithAttributes(
+		attribute.Stringer("tenantID", tenantID),
+	))
+	defer span.End()
+
 	nameIdxs, err := p.GetBlindIdxKeys(tenantID, []byte(name))
 	if err != nil {
 		return nil, fmt.Errorf("fail to compute blind indexes from profile name: %w", err)

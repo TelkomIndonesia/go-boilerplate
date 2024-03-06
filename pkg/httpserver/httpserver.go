@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 )
 
 type OptFunc func(h *HTTPServer) error
@@ -42,12 +43,21 @@ func WithAddr(addr string) OptFunc {
 	}
 }
 
+func WithTracer(name string) OptFunc {
+	return func(h *HTTPServer) error {
+		h.tracerName = &name
+		return nil
+	}
+
+}
+
 type HTTPServer struct {
 	profileRepo profile.ProfileRepository
 
-	handler *echo.Echo
-	addr    string
-	cw      *certWatcher
+	addr       string
+	cw         *certWatcher
+	handler    *echo.Echo
+	tracerName *string
 }
 
 func New(opts ...OptFunc) (h *HTTPServer, err error) {
@@ -65,7 +75,11 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 }
 
 func (h HTTPServer) buildHandlers() (err error) {
-	// build all handler here
+	if h.tracerName != nil {
+		h.handler.Use(otelecho.Middleware(*h.tracerName))
+	}
+
+	//TODO: build all handler here
 	h.handler.GET("/healthz", func(c echo.Context) error {
 		return c.String(http.StatusOK, "")
 	})

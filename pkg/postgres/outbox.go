@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type outbox struct {
@@ -18,6 +20,13 @@ type outbox struct {
 }
 
 func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *outbox) (err error) {
+	_, span := tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
+		attribute.Stringer("tenantID", ob.tenantID),
+		attribute.Stringer("id", ob.id),
+		attribute.String("contentType", ob.contentType),
+	))
+	defer span.End()
+
 	var content any
 	switch ob.isEncrypted {
 	case true:

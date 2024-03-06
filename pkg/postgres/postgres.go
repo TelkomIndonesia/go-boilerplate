@@ -8,12 +8,15 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"go.opentelemetry.io/otel"
 
 	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
 	"github.com/tink-crypto/tink-go/v2/keyset"
 )
 
 var _ profile.ProfileRepository = &Postgres{}
+
+var tracer = otel.Tracer("postgres")
 
 func WithInsecureKeysetFiles(aeadPath string, macPath string) OptFunc {
 	return func(p *Postgres) error {

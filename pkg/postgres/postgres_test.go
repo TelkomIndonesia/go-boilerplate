@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,28 +14,40 @@ import (
 	"github.com/tink-crypto/tink-go/v2/prf"
 )
 
+var testPostgres *Postgres
+var testPostgresSync sync.Mutex
+
 func getPostgres(t *testing.T) *Postgres {
-	url, ok := os.LookupEnv("POSTGRES_URL")
-	if !ok {
-		t.Skip("no postgres url found")
+	if testPostgres == nil {
+		testPostgresSync.Lock()
+		defer testPostgresSync.Unlock()
 	}
 
-	aeadT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
-	require.NoError(t, err, "should create prf based key template")
-	aead, err := keyset.NewHandle(aeadT)
-	require.NoError(t, err, "should create aead handle")
+	if testPostgres == nil {
+		url, ok := os.LookupEnv("POSTGRES_URL")
+		if !ok {
+			t.Skip("no postgres url found")
+		}
 
-	macT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), mac.HMACSHA256Tag128KeyTemplate())
-	require.NoError(t, err, "should create prf based key template")
-	mac, err := keyset.NewHandle(macT)
-	require.NoError(t, err, "should create mac handle")
+		aeadT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
+		require.NoError(t, err, "should create prf based key template")
+		aead, err := keyset.NewHandle(aeadT)
+		require.NoError(t, err, "should create aead handle")
 
-	p, err := New(
-		WithConnString(url),
-		WithKeysets(aead, mac),
-	)
-	require.NoError(t, err, "should create postgres")
-	return p
+		macT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), mac.HMACSHA256Tag128KeyTemplate())
+		require.NoError(t, err, "should create prf based key template")
+		mac, err := keyset.NewHandle(macT)
+		require.NoError(t, err, "should create mac handle")
+
+		p, err := New(
+			WithConnString(url),
+			WithKeysets(aead, mac),
+		)
+		require.NoError(t, err, "should create postgres")
+		testPostgres = p
+	}
+
+	return testPostgres
 }
 
 func TestInstantiatePostgres(t *testing.T) {

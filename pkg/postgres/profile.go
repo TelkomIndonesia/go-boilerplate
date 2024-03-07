@@ -13,7 +13,7 @@ import (
 )
 
 func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err error) {
-	_, span := tracer.Start(ctx, "storeProfile", trace.WithAttributes(
+	_, span := p.tracer.Start(ctx, "storeProfile", trace.WithAttributes(
 		attribute.Stringer("tenantID", pr.TenantID),
 		attribute.Stringer("id", pr.ID),
 	))
@@ -81,7 +81,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 }
 
 func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (pr *profile.Profile, err error) {
-	_, span := tracer.Start(ctx, "fetchProfile", trace.WithAttributes(
+	_, span := p.tracer.Start(ctx, "fetchProfile", trace.WithAttributes(
 		attribute.Stringer("tenantID", tenantID),
 		attribute.Stringer("id", id),
 	))
@@ -140,7 +140,7 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 }
 
 func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qname string) (names []string, err error) {
-	_, span := tracer.Start(ctx, "findProfileNames", trace.WithAttributes(
+	_, span := p.tracer.Start(ctx, "findProfileNames", trace.WithAttributes(
 		attribute.Stringer("tenantID", tenantID),
 	))
 	defer span.End()
@@ -149,7 +149,7 @@ func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qna
 }
 
 func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, name string) (prs []*profile.Profile, err error) {
-	_, span := tracer.Start(ctx, "findProfilesByName", trace.WithAttributes(
+	_, span := p.tracer.Start(ctx, "findProfilesByName", trace.WithAttributes(
 		attribute.Stringer("tenantID", tenantID),
 	))
 	defer span.End()

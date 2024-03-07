@@ -3,12 +3,12 @@ package otel
 import (
 	"go.opentelemetry.io/otel"
 	ddotel "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentelemetry"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-func WithProviderDatadog() (deferer func()) {
-	provider := ddotel.NewTracerProvider()
-	deferer = func() { provider.Shutdown() }
-
+func withProviderDatadog(opts ...tracer.StartOption) func() {
+	provider := ddotel.NewTracerProvider(opts...)
 	otel.SetTracerProvider(provider)
-	return
+
+	return func() { provider.Shutdown() }
 }

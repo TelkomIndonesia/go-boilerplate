@@ -9,6 +9,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type OptFunc func(h *HTTPServer) error
@@ -43,12 +45,11 @@ func WithAddr(addr string) OptFunc {
 	}
 }
 
-func WithTracer(name string) OptFunc {
+func WithTracerName(name string) OptFunc {
 	return func(h *HTTPServer) error {
-		h.tracerName = &name
+		h.tracerName = name
 		return nil
 	}
-
 }
 
 type HTTPServer struct {
@@ -57,27 +58,28 @@ type HTTPServer struct {
 	addr       string
 	cw         *certWatcher
 	handler    *echo.Echo
-	tracerName *string
+	tracerName string
+	tracer     trace.Tracer
 }
 
 func New(opts ...OptFunc) (h *HTTPServer, err error) {
 	h = &HTTPServer{
-		handler: echo.New(),
-		addr:    ":80",
+		handler:    echo.New(),
+		addr:       ":80",
+		tracerName: "httpserver",
 	}
 	for _, opt := range opts {
 		if err = opt(h); err != nil {
 			return
 		}
 	}
+	h.tracer = otel.Tracer(h.tracerName)
 	err = h.buildHandlers()
 	return
 }
 
 func (h HTTPServer) buildHandlers() (err error) {
-	if h.tracerName != nil {
-		h.handler.Use(otelecho.Middleware(*h.tracerName))
-	}
+	h.handler.Use(otelecho.Middleware(h.tracerName))
 
 	//TODO: build all handler here
 	h.handler.GET("/healthz", func(c echo.Context) error {

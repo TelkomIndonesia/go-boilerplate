@@ -20,7 +20,7 @@ type outbox struct {
 }
 
 func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *outbox) (err error) {
-	_, span := tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
+	_, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
 		attribute.Stringer("tenantID", ob.tenantID),
 		attribute.Stringer("id", ob.id),
 		attribute.String("contentType", ob.contentType),

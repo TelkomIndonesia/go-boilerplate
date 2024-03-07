@@ -8,4 +8,4 @@ Features:
 - [x] Env Config
 - [x] Auto Load TLS certificate for HTTPS Server
 - [ ] Auto Load CA certificate for HTTPS Client
-- [x] Opentelemetry Tracing (datadog provider)
+- [x] Opentelemetry Tracing (datadog and console provider)

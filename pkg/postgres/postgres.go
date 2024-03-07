@@ -9,6 +9,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
 	"github.com/tink-crypto/tink-go/v2/keyset"
@@ -16,7 +17,12 @@ import (
 
 var _ profile.ProfileRepository = &Postgres{}
 
-var tracer = otel.Tracer("postgres")
+func WithTracerName(name string) OptFunc {
+	return func(p *Postgres) (err error) {
+		p.tracerName = name
+		return
+	}
+}
 
 func WithInsecureKeysetFiles(aeadPath string, macPath string) OptFunc {
 	return func(p *Postgres) error {
@@ -70,14 +76,20 @@ type Postgres struct {
 	db   *sql.DB
 	aead multiTenantKeyset[primitiveAEAD]
 	mac  multiTenantKeyset[primitiveMAC]
+
+	tracerName string
+	tracer     trace.Tracer
 }
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
-	p = &Postgres{}
+	p = &Postgres{
+		tracerName: "postgres",
+	}
 	for _, opt := range opts {
 		if err = opt(p); err != nil {
 			return p, err
 		}
 	}
+	p.tracer = otel.Tracer(p.tracerName)
 	return p, nil
 }

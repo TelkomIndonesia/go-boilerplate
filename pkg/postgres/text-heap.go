@@ -17,7 +17,7 @@ type textHeap struct {
 }
 
 func (p *Postgres) storeTextHeap(ctx context.Context, tx *sql.Tx, th textHeap) (err error) {
-	_, span := tracer.Start(ctx, "storeTextHeap", trace.WithAttributes(
+	_, span := p.tracer.Start(ctx, "storeTextHeap", trace.WithAttributes(
 		attribute.Stringer("tenantID", th.tenantID),
 		attribute.String("contentType", th.contentType),
 	))
@@ -42,7 +42,7 @@ func (p *Postgres) storeTextHeap(ctx context.Context, tx *sql.Tx, th textHeap) (
 }
 
 func (p *Postgres) findTextHeap(ctx context.Context, tenantID uuid.UUID, ctype string, qname string) (text []string, err error) {
-	_, span := tracer.Start(ctx, "storeTextHeap", trace.WithAttributes(
+	_, span := p.tracer.Start(ctx, "storeTextHeap", trace.WithAttributes(
 		attribute.Stringer("tenantID", tenantID),
 		attribute.String("contentType", ctype),
 	))

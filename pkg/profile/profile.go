@@ -5,7 +5,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 )
+
+var _ logger.Loggable = Profile{}
 
 type Profile struct {
 	TenantID uuid.UUID
@@ -16,6 +19,26 @@ type Profile struct {
 	Email string
 	Phone string
 	DOB   time.Time
+}
+
+func (p Profile) AsLog() any {
+	return struct {
+		TenantID uuid.UUID `json:"tenant_id"`
+		ID       uuid.UUID `json:"id"`
+		NIN      string    `json:"nin"`
+		Name     string    `json:"name"`
+		Email    string    `json:"email"`
+		Phone    string    `json:"phone"`
+		DOB      string    `json:"dob"`
+	}{
+		TenantID: p.TenantID,
+		ID:       p.ID,
+		NIN:      p.NIN[len(p.NIN)-3:],
+		Name:     p.Name[:3],
+		Email:    p.Email[:3],
+		Phone:    p.Phone[:3],
+		DOB:      p.DOB.Format(time.RFC3339)[:4],
+	}
 }
 
 type ProfileRepository interface {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
@@ -52,6 +53,12 @@ func WithTracerName(name string) OptFunc {
 		return nil
 	}
 }
+func WithLogger(logger logger.Logger) OptFunc {
+	return func(h *HTTPServer) error {
+		h.logger = logger
+		return nil
+	}
+}
 
 type HTTPServer struct {
 	profileRepo profile.ProfileRepository
@@ -62,6 +69,7 @@ type HTTPServer struct {
 	server     *http.Server
 	tracerName string
 	tracer     trace.Tracer
+	logger     logger.Logger
 }
 
 func New(opts ...OptFunc) (h *HTTPServer, err error) {
@@ -69,6 +77,7 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 		handler:    echo.New(),
 		addr:       ":80",
 		tracerName: "httpserver",
+		logger:     logger.Global(),
 	}
 	for _, opt := range opts {
 		if err = opt(h); err != nil {
@@ -85,6 +94,7 @@ func (h HTTPServer) buildHandlers() (err error) {
 
 	//TODO: build all handler here
 	h.handler.GET("/healthz", func(c echo.Context) error {
+		h.logger.Info("healthz requested", logger.String("hello", "world"))
 		return c.String(http.StatusOK, "")
 	})
 	h.server = &http.Server{

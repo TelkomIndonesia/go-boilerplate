@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
+	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -20,6 +21,12 @@ var _ profile.ProfileRepository = &Postgres{}
 func WithTracerName(name string) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.tracerName = name
+		return
+	}
+}
+func WithLogger(l logger.Logger) OptFunc {
+	return func(p *Postgres) (err error) {
+		p.logger = l
 		return
 	}
 }
@@ -79,11 +86,13 @@ type Postgres struct {
 
 	tracerName string
 	tracer     trace.Tracer
+	logger     logger.Logger
 }
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
 	p = &Postgres{
 		tracerName: "postgres",
+		logger:     logger.Global(),
 	}
 	for _, opt := range opts {
 		if err = opt(p); err != nil {

@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
+	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/logger/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
@@ -38,6 +40,7 @@ type Server struct {
 	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty"`
 	PostgresMACPath  string `env:"POSTGRES_MAC_KEY_PATH,required,notEmpty"`
 
+	l logger.Logger
 	h *httpserver.HTTPServer
 	p *postgres.Postgres
 }
@@ -58,6 +61,9 @@ func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
 		return nil, err
 	}
 
+	if err = s.initLogger(); err != nil {
+		return
+	}
 	if err = s.initPostgres(); err != nil {
 		return
 	}
@@ -68,10 +74,19 @@ func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
 	return
 }
 
+func (s *Server) initLogger() (err error) {
+	s.l, err = zap.New()
+	if err != nil {
+		return fmt.Errorf("fail to instantiate logger: %w", err)
+	}
+	return
+}
+
 func (s *Server) initPostgres() (err error) {
 	s.p, err = postgres.New(
 		postgres.WithConnString(s.PostgresUrl),
 		postgres.WithInsecureKeysetFiles(s.PostgresAEADPath, s.PostgresMACPath),
+		postgres.WithLogger(s.l),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate postges: %w", err)
@@ -83,6 +98,7 @@ func (s *Server) initHTTPServer() (err error) {
 	opts := []httpserver.OptFunc{
 		httpserver.WithAddr(s.HTTPAddr),
 		httpserver.WithProfileRepository(s.p),
+		httpserver.WithLogger(s.l),
 	}
 	if s.HTTPKeyPath != nil && s.HTTPCertPath != nil {
 		opts = append(opts, httpserver.WithTLS(*s.HTTPKeyPath, *s.HTTPCertPath))

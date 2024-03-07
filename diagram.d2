@@ -4,12 +4,21 @@ classes: {
   Layer: {
     shape: circle
     style: {
+      stroke: blue
       stroke-dash: 3
+      fill: honeydew
     }
   }
 
   Package: {
     shape: package
+  }
+
+  DependencyLine: {
+    style: {
+      stroke: green
+      stroke-dash: 3
+    }
   }
 }
 
@@ -29,43 +38,47 @@ l1: "" {
       l4: "" {
         class: Layer
 
-        profile: "pkg/profile"
+        profile: "pkg/profile" {
+          class: Package
+        }
       }
 
       httpserver: "pkg/httpserver" {
         class: Package
       }
-      httpserver -> l4.profile
 
       postgres: "pkg/postgres" {
         class: Package
       }
-      postgres -> l4.profile
     }
 
     cmd: "pkg/cmd" {
       class: Package
     }
-    cmd -> l3.httpserver
-    cmd -> l3.postgres
+    otel: pkg/otel {
+      class: Package
+    }
   }
 
   main: "cmd/*" {
     class: Package
   }
-  main -> l2.cmd
 }
-l1.main -> misc.util
-l1.main -> misc.otel
-l1.l2.l3.httpserver -> misc.util
+l1 -> l1.l2 -> l1.l2.l3 -> l1.l2.l3.l4: {
+  class: DependencyLine
+}
+l1 -> misc: {
+  class: DependencyLine
+}
 
 misc: {
   near: bottom-right
+  class: Layer
 
   util: pkg/util {
     class: Package
   }
-  otel: pkg/otel {
+  logger: pkg/logger {
     class: Package
   }
 }

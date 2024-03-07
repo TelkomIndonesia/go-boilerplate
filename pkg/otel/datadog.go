@@ -6,7 +6,7 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-func withProviderDatadog(opts ...tracer.StartOption) func() {
+func withTraceProviderDatadog(opts ...tracer.StartOption) func() {
 	provider := ddotel.NewTracerProvider(opts...)
 	otel.SetTracerProvider(provider)
 

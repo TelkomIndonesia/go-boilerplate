@@ -9,10 +9,10 @@ import (
 
 func FromEnv(ctx context.Context) (deferer func()) {
 	godotenv.Load()
-	switch os.Getenv("OPENTELEMETRY_PROVIDER") {
+	switch os.Getenv("OPENTELEMETRY_TRACE_PROVIDER") {
 	case "datadog":
-		return withProviderDatadog()
+		return withTraceProviderDatadog()
 	default:
-		return withConsoleExporter(ctx)
+		return withTraceConsoleExporter(ctx)
 	}
 }

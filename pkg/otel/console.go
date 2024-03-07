@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
-func withConsoleExporter(ctx context.Context, opts ...stdouttrace.Option) func() {
+func withTraceConsoleExporter(ctx context.Context, opts ...stdouttrace.Option) func() {
 	traceExporter, _ := stdouttrace.New(
 		append(opts,
 			stdouttrace.WithPrettyPrint(),

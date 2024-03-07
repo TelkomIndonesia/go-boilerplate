@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -58,6 +59,7 @@ type HTTPServer struct {
 	addr       string
 	cw         *certWatcher
 	handler    *echo.Echo
+	server     *http.Server
 	tracerName string
 	tracer     trace.Tracer
 }
@@ -85,27 +87,24 @@ func (h HTTPServer) buildHandlers() (err error) {
 	h.handler.GET("/healthz", func(c echo.Context) error {
 		return c.String(http.StatusOK, "")
 	})
-	return
-}
-
-func (h HTTPServer) Start(ctx context.Context) (err error) {
-	s := &http.Server{
+	h.server = &http.Server{
 		Addr:    h.addr,
 		Handler: h.handler,
 	}
 	if h.cw != nil {
-		s.TLSConfig = &tls.Config{
+		h.server.TLSConfig = &tls.Config{
 			GetCertificate: h.cw.GetCertificateFunc(),
 		}
 	}
-	go func() {
-		<-ctx.Done()
-		s.Close()
-	}()
-
-	return s.ListenAndServe()
+	return
 }
 
-func (h HTTPServer) Close() error {
-	return h.cw.Close()
+func (h HTTPServer) Start(ctx context.Context) (err error) {
+	return h.server.ListenAndServe()
+}
+
+func (h HTTPServer) Close(ctx context.Context) (err error) {
+	errs := h.server.Shutdown(ctx)
+	errc := h.cw.Close()
+	return errors.Join(errs, errc)
 }

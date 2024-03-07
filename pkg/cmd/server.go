@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
@@ -95,5 +96,9 @@ func (s *Server) initHTTPServer() (err error) {
 }
 
 func (s *Server) Run(ctx context.Context) (err error) {
-	return s.h.Start(ctx)
+	err = s.h.Start(ctx)
+	defer func() {
+		err = errors.Join(err, s.h.Close(ctx))
+	}()
+	return
 }

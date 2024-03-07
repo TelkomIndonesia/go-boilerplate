@@ -1,5 +1,7 @@
 # Go Boilerplate
 
+![Package Dependency](./diagram.svg)
+
 Features:
 
 - [x] Database (postgres) with Encryption at Rest (tink) and MultiTenancy

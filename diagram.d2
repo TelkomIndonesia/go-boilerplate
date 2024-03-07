@@ -1,0 +1,71 @@
+direction: right
+
+classes: {
+  Layer: {
+    shape: circle
+    style: {
+      stroke-dash: 3
+    }
+  }
+
+  Package: {
+    shape: package
+  }
+}
+
+title: |md
+  # Package Dependency
+|
+
+l1: "" {
+  class: Layer
+
+  l2: "" {
+    class: Layer
+
+    l3: "" {
+      class: Layer
+
+      l4: "" {
+        class: Layer
+
+        profile: "pkg/profile"
+      }
+
+      httpserver: "pkg/httpserver" {
+        class: Package
+      }
+      httpserver -> l4.profile
+
+      postgres: "pkg/postgres" {
+        class: Package
+      }
+      postgres -> l4.profile
+    }
+
+    cmd: "pkg/cmd" {
+      class: Package
+    }
+    cmd -> l3.httpserver
+    cmd -> l3.postgres
+  }
+
+  main: "cmd/*" {
+    class: Package
+  }
+  main -> l2.cmd
+}
+l1.main -> misc.util
+l1.main -> misc.otel
+l1.l2.l3.httpserver -> misc.util
+
+misc: {
+  near: bottom-right
+
+  util: pkg/util {
+    class: Package
+  }
+  otel: pkg/otel {
+    class: Package
+  }
+}

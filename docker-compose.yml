@@ -21,4 +21,6 @@ services:
       postgres:
         condition: service_started
     restart: unless-stopped
+    ports:
+      - 8080:80
       

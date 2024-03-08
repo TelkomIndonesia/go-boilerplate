@@ -13,3 +13,16 @@ services:
       - $PWD:$PWD
     working_dir: $PWD
     entrypoint: [ go, run, ./cmd/server ]
+
+  gencerts:
+    image: jitesoft/step-cli
+    volumes:
+      - $PWD:$PWD
+    working_dir: $PWD/.local
+    entrypoint: [sh, -c]
+    command:
+      - |-
+        set -e
+        step certificate create ca ca.crt ca.key --profile root-ca --no-password --insecure -f
+        step certificate create localhost localhost.crt localhost.key --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f
+      

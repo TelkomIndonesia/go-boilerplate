@@ -2,7 +2,7 @@
 
 certs:
 	go run ./tools/gentinkey .local/tink-aead.json .local/tink-mac.json
-	cd .dagger && go run ./genx509/ ..
+	docker compose up gencerts
 
 build: 
 	go build ./...

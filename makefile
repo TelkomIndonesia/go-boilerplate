@@ -12,7 +12,7 @@ build:
 test: 
 	cd .dagger && go run . ..
 
-start: certs
+start:
 	docker compose up --build
 
 stop:

@@ -1,10 +1,12 @@
 package httpserver
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 )
 
 func (h HTTPServer) setProfileGroup() {
@@ -12,6 +14,32 @@ func (h HTTPServer) setProfileGroup() {
 	h.getProfile(profile)
 }
 
+func (h HTTPServer) putProfile(g *echo.Group) {
+	g.PUT("/:id", func(c echo.Context) error {
+		tid, err := uuid.Parse(c.Param("tenantid"))
+		if err != nil {
+			return c.String(http.StatusBadRequest, "invalid tenant id")
+		}
+		pid, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			return c.String(http.StatusBadRequest, "invalid profile id")
+		}
+		var pr *profile.Profile
+		err = json.NewDecoder(c.Request().Body).Decode(&pr)
+		if err != nil {
+			return c.String(http.StatusBadRequest, "invalid profile")
+		}
+		pr.TenantID = tid
+		pr.ID = pid
+
+		err = h.profileRepo.StoreProfile(c.Request().Context(), pr)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "invalid profile")
+		}
+
+		return c.String(http.StatusCreated, "profile stored")
+	})
+}
 func (h HTTPServer) getProfile(g *echo.Group) {
 	g.GET("/:id", func(c echo.Context) error {
 		tid, err := uuid.Parse(c.Param("tenantid"))
@@ -31,9 +59,11 @@ func (h HTTPServer) getProfile(g *echo.Group) {
 			return c.String(http.StatusNotFound, "profile not found")
 		}
 
-		err = h.profileMgr.ValidateProfile(c.Request().Context(), pr)
-		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid profile")
+		if c.QueryParam("validate") == "true" {
+			err = h.profileMgr.ValidateProfile(c.Request().Context(), pr)
+			if err != nil {
+				return c.String(http.StatusBadRequest, "invalid profile")
+			}
 		}
 
 		return c.JSON(http.StatusOK, pr)

@@ -13,16 +13,9 @@ type LoadEnvOptions struct {
 }
 
 func LoadFromEnv(v interface{}, opt LoadEnvOptions) (err error) {
-	if opt.DotEnv {
-		err = godotenv.Load()
-		if err != nil {
-			return fmt.Errorf("fail to load .env file: %w", err)
-		}
-	}
+	godotenv.Load()
 
-	envopt := env.Options{
-		Prefix: opt.Prefix,
-	}
+	envopt := env.Options{Prefix: opt.Prefix}
 	if err = env.ParseWithOptions(v, envopt); err != nil {
 		return fmt.Errorf("fail to load env: %w", err)
 	}

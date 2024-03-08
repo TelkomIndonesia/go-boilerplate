@@ -38,25 +38,25 @@ l1: "" {
       l4: "" {
         class: Layer
 
-        profile: "pkg/profile" {
+        profile: pkg/profile {
           class: Package
         }
       }
 
-      httpserver: "pkg/httpserver" {
+      httpserver: pkg/httpserver {
         class: Package
       }
 
-      postgres: "pkg/postgres" {
+      postgres: pkg/postgres {
         class: Package
       }
 
-      tenantservice: "pkg/tenantservice" {
+      tenantservice: pkg/tenantservice {
         class: Package
       }
     }
 
-    cmd: "pkg/cmd" {
+    cmd: pkg/cmd {
       class: Package
     }
     otel: pkg/otel {
@@ -64,7 +64,7 @@ l1: "" {
     }
   }
 
-  main: "cmd/*" {
+  main: cmd/* {
     class: Package
   }
 }
@@ -83,6 +83,9 @@ misc: {
     class: Package
   }
   logger: pkg/logger {
+    class: Package
+  }
+  cert: pkg/cert {
     class: Package
   }
 }

@@ -13,7 +13,7 @@ test:
 	cd .dagger && go run . ..
 
 start: certs
-	docker compose up --build --force-recreate
+	docker compose up --build
 
 stop:
 	docker compose down

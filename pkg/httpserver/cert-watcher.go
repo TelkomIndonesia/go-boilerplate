@@ -14,25 +14,25 @@ type certWatcher struct {
 	keyPath  string
 	logger   logger.Logger
 
-	fw util.FileWatcher
+	fw util.FileContentWatcher
 }
 
 func newCertWatcher(keyPath string, certPath string, l logger.Logger) (cw *certWatcher, err error) {
-
 	cw = &certWatcher{certPath: certPath, keyPath: keyPath, logger: l}
 	if err = cw.loadCert(); err != nil {
 		return
 	}
 
-	fwcb := func(err error) {
+	fwcb := func(_ string, err error) {
 		if err != nil {
 			cw.logger.Error("cert-watcher-error", logger.Any("error", err))
+			return
 		}
 		if err := cw.loadCert(); err != nil {
 			cw.logger.Error("load-cert-error", logger.Any("error", err))
 		}
 	}
-	if cw.fw, err = util.NewFileWatcher(certPath, fwcb); err != nil {
+	if cw.fw, err = util.NewFileContentWatcher(certPath, fwcb); err != nil {
 		return
 	}
 
@@ -49,16 +49,16 @@ func (cw *certWatcher) loadCert() error {
 	return nil
 }
 
+func (cw *certWatcher) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		return cw.cert, nil
+	}
+}
+
 func (cw *certWatcher) Close() (err error) {
 	if cw == nil {
 		return
 	}
 
 	return cw.fw.Close()
-}
-
-func (cw *certWatcher) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		return cw.cert, nil
-	}
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFileWatcherSymlink for https://pkg.go.dev/k8s.io/kubernetes/pkg/volume/util#AtomicWriter
-func TestFileWatcherSymlink(t *testing.T) {
+// TestFileContentWatcherSymlink for https://pkg.go.dev/k8s.io/kubernetes/pkg/volume/util#AtomicWriter
+func TestFileContentWatcherSymlink(t *testing.T) {
 	fname := path.Join(os.TempDir(), fmt.Sprintf("%s%d", t.Name(), time.Now().UnixNano()))
 	err := os.WriteFile(fname, []byte("1"), 0644)
 	require.NoError(t, err, "should create temporary file")
@@ -25,7 +25,7 @@ func TestFileWatcherSymlink(t *testing.T) {
 	defer os.Remove(fnameS2)
 
 	count := 0
-	fw, err := NewFileWatcher(fnameS2, func(err error) {
+	fw, err := NewFileContentWatcher(fnameS2, func(name string, err error) {
 		if err != nil {
 			t.Log(err)
 			return
@@ -48,18 +48,19 @@ func TestFileWatcherSymlink(t *testing.T) {
 	assert.Greater(t, count, 0, "should invoke callback")
 }
 
-func TestFileWatcherWrite(t *testing.T) {
+func TestFileContentWatcherWrite(t *testing.T) {
 	fname := path.Join(os.TempDir(), fmt.Sprintf("%s%d", t.Name(), time.Now().UnixNano()))
 	err := os.WriteFile(fname, []byte("hello world"), 0644)
 	require.NoError(t, err, "should create temporary file")
 	defer os.Remove(fname)
 
 	count := 0
-	fw, err := NewFileWatcher(fname, func(err error) {
+	fw, err := NewFileContentWatcher(fname, func(name string, err error) {
 		if err != nil {
 			t.Log(err)
 			return
 		}
+		assert.Equal(t, fname, name, "should return changed file name")
 		count += 1
 	})
 	require.NoError(t, err, "should create file watcher")

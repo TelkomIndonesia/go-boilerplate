@@ -30,14 +30,14 @@ func WithAutoReloadCA(cfg *tls.Config, ca string, l logger.Logger) (err error) {
 		return
 	}
 
-	NewFileWatcher(ca, func(err error) {
+	NewFileContentWatcher(ca, func(_ string, err error) {
 		if err != nil {
 			l.Error("ca-watcher-error", logger.Any("error", err))
 			return
 		}
 
 		if err = appendCA(); err != nil {
-			l.Error("re-append-ca-error", logger.Any("error", err))
+			l.Error("append-ca-error", logger.Any("error", err))
 		}
 	})
 

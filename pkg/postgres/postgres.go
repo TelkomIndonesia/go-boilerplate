@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -18,9 +19,9 @@ import (
 
 var _ profile.ProfileRepository = &Postgres{}
 
-func WithTracerName(name string) OptFunc {
+func WithTracer(name string) OptFunc {
 	return func(p *Postgres) (err error) {
-		p.tracerName = name
+		p.tracer = otel.Tracer(name)
 		return
 	}
 }
@@ -99,6 +100,9 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 			return p, err
 		}
 	}
-	p.tracer = otel.Tracer(p.tracerName)
 	return p, nil
+}
+
+func (p *Postgres) Close(ctx context.Context) error {
+	return p.db.Close()
 }

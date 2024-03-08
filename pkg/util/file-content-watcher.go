@@ -7,14 +7,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-type FileWatcher struct {
+type FileContentWatcher struct {
 	path   string
 	done   chan struct{}
-	notify func(err error)
+	notify func(path string, err error)
 }
 
-func NewFileWatcher(path string, notify func(err error)) (fw FileWatcher, err error) {
-	fw = FileWatcher{
+func NewFileContentWatcher(path string, notify func(string, error)) (fw FileContentWatcher, err error) {
+	fw = FileContentWatcher{
 		path: path,
 
 		notify: notify,
@@ -24,7 +24,7 @@ func NewFileWatcher(path string, notify func(err error)) (fw FileWatcher, err er
 	return
 }
 
-func (fw FileWatcher) watchLoop() {
+func (fw FileContentWatcher) watchLoop() {
 	for {
 		select {
 		case <-fw.done:
@@ -34,14 +34,13 @@ func (fw FileWatcher) watchLoop() {
 		}
 
 		if err := fw.watch(); err != nil {
-			fw.notify(fmt.Errorf("cert watcher stopped due to error: %w", err))
+			fw.notify("", fmt.Errorf("cert watcher stopped due to error: %w", err))
 			<-time.After(time.Minute)
 		}
 	}
-
 }
 
-func (fw FileWatcher) watch() (err error) {
+func (fw FileContentWatcher) watch() (err error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("fail to instantiate fsnotify watcher: %w", err)
@@ -64,7 +63,7 @@ func (fw FileWatcher) watch() (err error) {
 				return err
 			}
 
-			fw.notify(fmt.Errorf("error event received: %w", err))
+			fw.notify("", fmt.Errorf("error event received: %w", err))
 			continue
 
 		case e, ok := <-watcher.Events:
@@ -87,11 +86,11 @@ func (fw FileWatcher) watch() (err error) {
 			continue
 		}
 
-		fw.notify(nil)
+		fw.notify(event.Name, nil)
 	}
 }
 
-func (fw FileWatcher) Close() (err error) {
+func (fw FileContentWatcher) Close() (err error) {
 	close(fw.done)
 	return
 }

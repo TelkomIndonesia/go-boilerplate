@@ -46,6 +46,8 @@ type Server struct {
 	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty"`
 	PostgresMACPath  string `env:"POSTGRES_MAC_KEY_PATH,required,notEmpty"`
 
+	TenantServiceBaseUrl string `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand"`
+
 	l  logger.Logger
 	h  *httpserver.HTTPServer
 	p  *postgres.Postgres
@@ -133,6 +135,7 @@ func (s *Server) initHTTPClient() (err error) {
 
 func (s *Server) initTenantService() (err error) {
 	s.ts, err = tenantservice.New(
+		tenantservice.WithBaseUrl(s.TenantServiceBaseUrl),
 		tenantservice.WithHTTPClient(s.hc),
 	)
 	if err != nil {
@@ -163,6 +166,7 @@ func (s *Server) Run(ctx context.Context) (err error) {
 	err = s.h.Start(ctx)
 	defer func() {
 		err = errors.Join(err, s.h.Close(ctx))
+		err = errors.Join(err, s.p.Close(ctx))
 	}()
 	return
 }

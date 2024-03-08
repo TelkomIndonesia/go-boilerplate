@@ -9,6 +9,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type OptFunc func(*TenantService) error
@@ -19,17 +22,31 @@ func WithHTTPClient(hc *http.Client) OptFunc {
 		return nil
 	}
 }
+func WithTracer(name string) OptFunc {
+	return func(ts *TenantService) error {
+		ts.tracer = otel.Tracer(name)
+		return nil
+	}
+}
+func WithBaseUrl(u string) OptFunc {
+	return func(ts *TenantService) (err error) {
+		ts.base, err = url.Parse(u)
+		return
+	}
+}
 
 var _ profile.TenantRepository = TenantService{}
 
 type TenantService struct {
-	base *url.URL
-	hc   *http.Client
+	base   *url.URL
+	hc     *http.Client
+	tracer trace.Tracer
 }
 
 func New(opts ...OptFunc) (ts *TenantService, err error) {
 	ts = &TenantService{
-		hc: http.DefaultClient,
+		hc:     http.DefaultClient,
+		tracer: otel.Tracer("tenant-service"),
 	}
 	ts.base, _ = url.Parse("http://localhost")
 	for _, opt := range opts {
@@ -41,6 +58,11 @@ func New(opts ...OptFunc) (ts *TenantService, err error) {
 }
 
 func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profile.Tenant, err error) {
+	_, span := ts.tracer.Start(ctx, "fetchTenant", trace.WithAttributes(
+		attribute.Stringer("id", id),
+	))
+	defer span.End()
+
 	res, err := ts.hc.Get(ts.base.JoinPath("tenants", id.String()).String())
 	if err != nil {
 		return nil, fmt.Errorf("fail to invoke http request: %w", err)

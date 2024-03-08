@@ -49,12 +49,14 @@ func WithAddr(addr string) OptFunc {
 	}
 }
 
-func WithTracerName(name string) OptFunc {
+func WithTracer(name string) OptFunc {
 	return func(h *HTTPServer) error {
 		h.tracerName = name
+		h.tracer = otel.Tracer(name)
 		return nil
 	}
 }
+
 func WithLogger(logger logger.Logger) OptFunc {
 	return func(h *HTTPServer) error {
 		h.logger = logger
@@ -81,6 +83,7 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 		handler:    echo.New(),
 		addr:       ":80",
 		tracerName: "httpserver",
+		tracer:     otel.Tracer("httpserver"),
 		logger:     logger.Global(),
 	}
 	for _, opt := range opts {
@@ -91,7 +94,6 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 	if h.cw != nil {
 		h.cw.logger = h.logger
 	}
-	h.tracer = otel.Tracer(h.tracerName)
 
 	if h.profileRepo == nil || h.tenantRepo == nil {
 		return nil, fmt.Errorf("profile repo and tenant repo required")
@@ -122,7 +124,7 @@ func (h HTTPServer) Start(ctx context.Context) (err error) {
 }
 
 func (h HTTPServer) Close(ctx context.Context) (err error) {
-	errs := h.server.Shutdown(ctx)
-	errc := h.cw.Close()
-	return errors.Join(errs, errc)
+	err = h.server.Shutdown(ctx)
+	err = errors.Join(err, h.cw.Close())
+	return
 }

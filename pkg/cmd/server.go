@@ -38,7 +38,7 @@ type Server struct {
 	envPrefix string
 	dotenv    bool
 
-	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand"`
+	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080"`
 	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH"`
 	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH"`
 	HTTPCA       *string `env:"HTTP_CA_CERTS_PATHS"`

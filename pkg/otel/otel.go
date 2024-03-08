@@ -14,7 +14,9 @@ func FromEnv(ctx context.Context) (deferer func()) {
 		return withTraceProviderDatadog()
 	case "otlphttp":
 		return withTraceOTLPHTTPExporter(ctx)
-	default:
+	case "console":
 		return withTraceConsoleExporter(ctx)
+	default:
+		return
 	}
 }

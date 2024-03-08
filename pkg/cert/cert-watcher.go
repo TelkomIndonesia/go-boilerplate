@@ -52,6 +52,9 @@ func (cw *CertWatcher) loadCert() error {
 
 func (cw *CertWatcher) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		if cw.cert == nil {
+			return nil, fmt.Errorf("no certificate was found")
+		}
 		return cw.cert, nil
 	}
 }

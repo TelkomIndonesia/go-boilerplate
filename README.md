@@ -13,5 +13,5 @@ Features:
 - [x] Env Config
 - [x] Auto Load TLS certificate for HTTPS Server
 - [ ] Auto Load CA certificate for HTTPS Client
-- [x] Opentelemetry (datadog and console trace provider)
+- [x] Opentelemetry (console, otlphttp, and datadog trace provider)
 - [x] Plugable log (zap)

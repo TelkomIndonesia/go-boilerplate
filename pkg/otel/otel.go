@@ -12,6 +12,8 @@ func FromEnv(ctx context.Context) (deferer func()) {
 	switch os.Getenv("OPENTELEMETRY_TRACE_PROVIDER") {
 	case "datadog":
 		return withTraceProviderDatadog()
+	case "otlphttp":
+		return withTraceOTLPHTTPExporter(ctx)
 	default:
 		return withTraceConsoleExporter(ctx)
 	}

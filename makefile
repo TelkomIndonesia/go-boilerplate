@@ -1,4 +1,4 @@
-.PHONY: build test start stop
+.PHONY: build test start stop certs
 
 certs:
 	docker run -it --rm  -v "$$PWD:$$PWD" -w "$$PWD/.local" --entrypoint "" jitesoft/step-cli \
@@ -11,7 +11,7 @@ build:
 	go build ./...
 
 test: 
-	cd .dagger && go run . "$$(cd ..; pwd)"
+	cd .dagger && go run . ..
 
 start: certs
 	docker compose up --build -d --force-recreate

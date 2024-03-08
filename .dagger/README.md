@@ -6,7 +6,7 @@ From the root folder of this repository, run:
 
 ```bash
 cd .dagger \
-&& go run . "$(cd ..; pwd)" \
+&& go run . .. \
 && cd .. 
 ```
 

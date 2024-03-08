@@ -39,9 +39,9 @@ type Server struct {
 	dotenv    bool
 
 	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand"`
-	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH,notEmpty"`
-	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH,notEmpty"`
-	HTTPCA       *string `env:"HTTP_CA_CERTS_PATHS,notEmpty"`
+	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH"`
+	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH"`
+	HTTPCA       *string `env:"HTTP_CA_CERTS_PATHS"`
 
 	PostgresUrl      string `env:"POSTGRES_URL,required,notEmpty,expand"`
 	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty"`

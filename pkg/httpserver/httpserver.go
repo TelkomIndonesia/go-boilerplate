@@ -102,7 +102,7 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 	return
 }
 
-func (h HTTPServer) buildHandlers() (err error) {
+func (h *HTTPServer) buildHandlers() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
 	h.setProfileGroup()
 	h.server = &http.Server{
@@ -118,6 +118,9 @@ func (h HTTPServer) buildHandlers() (err error) {
 }
 
 func (h HTTPServer) Start(ctx context.Context) (err error) {
+	if h.cw != nil {
+		return h.server.ListenAndServeTLS("", "")
+	}
 	return h.server.ListenAndServe()
 }
 

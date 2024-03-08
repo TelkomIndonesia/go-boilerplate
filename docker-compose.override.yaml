@@ -1,0 +1,15 @@
+volumes:
+  go-mod:
+  go-build:
+
+services:
+  server:
+    build:
+      target: builder
+    volumes:
+      - go-mod:/go/pkg/mod
+      - go-build:/root/.cache/go-build
+
+      - $PWD:$PWD
+    working_dir: $PWD
+    entrypoint: [ go, run, ./cmd/server ]

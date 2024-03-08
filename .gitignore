@@ -1,2 +1,4 @@
+.local/*
+!.local/.gitkeep
 .dagger/dagger
 coverage.out

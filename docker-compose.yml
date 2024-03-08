@@ -6,9 +6,9 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: profile
-      POSTGRES_PASSWORD: profile
-      POSTGRES_DB: profile
+      POSTGRES_USER: testing
+      POSTGRES_PASSWORD: testing
+      POSTGRES_DB: testing
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
@@ -21,6 +21,19 @@ services:
       postgres:
         condition: service_started
     restart: unless-stopped
+    environment:
+      # still not working 
+      # PROFILE_HTTP_TLS_KEY_PATH: /local/localhost.key
+      # PROFILE_HTTP_TLS_CERT_PATH: /local/localhost.crt
+      # PROFILE_HTTP_CA_CERTS_PATHS: /local/ca.crt
+
+      PROFILE_TENANT_SERVICE_BASE_URL: https://localhost:9443
+
+      PROFILE_POSTGRES_URL: postgres://testing:testing@postgres:5432/testing?sslmode=disable
+      PROFILE_POSTGRES_AEAD_KEY_PATH: /local/tink-aead.json
+      PROFILE_POSTGRES_MAC_KEY_PATH: /local/tink-mac.json
+    volumes:
+      - ./.local:/local
     ports:
       - 8080:80
       

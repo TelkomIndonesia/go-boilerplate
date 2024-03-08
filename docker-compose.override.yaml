@@ -12,7 +12,7 @@ services:
 
       - $PWD:$PWD
     working_dir: $PWD
-    entrypoint: [ go, run, ./cmd/server ]
+    entrypoint: [ go, run, ./cmd ]
 
   gencerts:
     image: jitesoft/step-cli

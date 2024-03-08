@@ -5,18 +5,18 @@ import (
 	"time"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
-	realzap "go.uber.org/zap"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type OptFunc func(*zaplogger) error
 
 type zaplogger struct {
-	zap *realzap.Logger
+	zap *zap.Logger
 }
 
 func New(opts ...OptFunc) (l logger.Logger, err error) {
-	z, err := realzap.NewProduction()
+	z, err := zap.NewProduction()
 	if err != nil {
 		return nil, fmt.Errorf("fail to instantiate zap")
 	}
@@ -48,49 +48,49 @@ func (l zaplogger) Fatal(message string, fn ...logger.LoggerContextFunc) {
 }
 
 type loggerContext struct {
-	fields []realzap.Field
+	fields []zap.Field
 }
 
-func newLoggerContext(fn ...logger.LoggerContextFunc) loggerContext {
-	lc := loggerContext{fields: make([]zapcore.Field, 0, len(fn))}
+func newLoggerContext(fn ...logger.LoggerContextFunc) *loggerContext {
+	lc := &loggerContext{fields: make([]zapcore.Field, 0, len(fn))}
 	for _, fn := range fn {
 		fn(lc)
 	}
 	return lc
 }
 
-func (lc loggerContext) Any(key string, value any) {
-	lc.fields = append(lc.fields, realzap.Any(key, value))
+func (lc *loggerContext) Any(key string, value any) {
+	lc.fields = append(lc.fields, zap.Any(key, value))
 
 }
-func (lc loggerContext) Bool(key string, value bool) {
-	lc.fields = append(lc.fields, realzap.Bool(key, value))
+func (lc *loggerContext) Bool(key string, value bool) {
+	lc.fields = append(lc.fields, zap.Bool(key, value))
 
 }
-func (lc loggerContext) ByteString(key string, value []byte) {
-	lc.fields = append(lc.fields, realzap.ByteString(key, value))
+func (lc *loggerContext) ByteString(key string, value []byte) {
+	lc.fields = append(lc.fields, zap.ByteString(key, value))
 
 }
-func (lc loggerContext) String(key string, value string) {
-	lc.fields = append(lc.fields, realzap.String(key, value))
+func (lc *loggerContext) String(key string, value string) {
+	lc.fields = append(lc.fields, zap.String(key, value))
 
 }
-func (lc loggerContext) Float64(key string, value float64) {
-	lc.fields = append(lc.fields, realzap.Float64(key, value))
+func (lc *loggerContext) Float64(key string, value float64) {
+	lc.fields = append(lc.fields, zap.Float64(key, value))
 
 }
-func (lc loggerContext) Int64(key string, value int64) {
-	lc.fields = append(lc.fields, realzap.Int64(key, value))
+func (lc *loggerContext) Int64(key string, value int64) {
+	lc.fields = append(lc.fields, zap.Int64(key, value))
 
 }
-func (lc loggerContext) Uint64(key string, value uint64) {
-	lc.fields = append(lc.fields, realzap.Uint64(key, value))
+func (lc *loggerContext) Uint64(key string, value uint64) {
+	lc.fields = append(lc.fields, zap.Uint64(key, value))
 
 }
-func (lc loggerContext) Time(key string, value time.Time) {
-	lc.fields = append(lc.fields, realzap.Time(key, value))
+func (lc *loggerContext) Time(key string, value time.Time) {
+	lc.fields = append(lc.fields, zap.Time(key, value))
 
 }
-func (lc loggerContext) Duration(key string, value time.Duration) {
-	lc.fields = append(lc.fields, realzap.Duration(key, value))
+func (lc *loggerContext) Duration(key string, value time.Duration) {
+	lc.fields = append(lc.fields, zap.Duration(key, value))
 }

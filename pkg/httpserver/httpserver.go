@@ -27,8 +27,7 @@ func WithProfileRepository(pr profile.ProfileRepository) OptFunc {
 func WithTLS(keyPath, certPath string) OptFunc {
 	return func(h *HTTPServer) (err error) {
 		logger := func(err error) {
-			// TODO: share logger with `h`
-			// e.g: h.logger().Log(err)
+			h.logger.Error("cert-watcher", logger.Any("error", err))
 		}
 
 		h.cw, err = newCertWatcher(keyPath, certPath, logger)

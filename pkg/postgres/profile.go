@@ -148,13 +148,13 @@ func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qna
 	return p.findTextHeap(ctx, tenantID, "profile_name", qname)
 }
 
-func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, name string) (prs []*profile.Profile, err error) {
+func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, qname string) (prs []*profile.Profile, err error) {
 	_, span := p.tracer.Start(ctx, "findProfilesByName", trace.WithAttributes(
 		attribute.Stringer("tenantID", tenantID),
 	))
 	defer span.End()
 
-	nameIdxs, err := p.GetBlindIdxKeys(tenantID, []byte(name))
+	nameIdxs, err := p.GetBlindIdxKeys(tenantID, []byte(qname))
 	if err != nil {
 		return nil, fmt.Errorf("fail to compute blind indexes from profile name: %w", err)
 	}
@@ -178,13 +178,17 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, n
 		if err != nil {
 			return nil, err
 		}
-		nin, err = paead.Decrypt(nin, id[:])
-		if err != nil {
-			return nil, fmt.Errorf("fail to decrypt nin : %w", err)
-		}
 		name, err = paead.Decrypt(name, id[:])
 		if err != nil {
 			return nil, fmt.Errorf("fail to decrypt name : %w", err)
+		}
+		if string(name) != qname {
+			continue
+		}
+
+		nin, err = paead.Decrypt(nin, id[:])
+		if err != nil {
+			return nil, fmt.Errorf("fail to decrypt nin : %w", err)
 		}
 		phone, err = paead.Decrypt(phone, id[:])
 		if err != nil {

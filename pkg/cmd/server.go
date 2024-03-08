@@ -2,13 +2,18 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"time"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
@@ -33,16 +38,19 @@ type Server struct {
 	dotenv    bool
 
 	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand"`
-	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH"`
-	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH"`
+	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH,notEmpty"`
+	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH,notEmpty"`
+	HTTPCA       *string `env:"HTTP_CA_CERTS_PATHS,notEmpty"`
 
 	PostgresUrl      string `env:"POSTGRES_URL,required,notEmpty,expand"`
 	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty"`
 	PostgresMACPath  string `env:"POSTGRES_MAC_KEY_PATH,required,notEmpty"`
 
-	l logger.Logger
-	h *httpserver.HTTPServer
-	p *postgres.Postgres
+	l  logger.Logger
+	h  *httpserver.HTTPServer
+	p  *postgres.Postgres
+	ts *tenantservice.TenantService
+	hc *http.Client
 }
 
 func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
@@ -65,6 +73,12 @@ func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
 		return
 	}
 	if err = s.initPostgres(); err != nil {
+		return
+	}
+	if err = s.initHTTPClient(); err != nil {
+		return
+	}
+	if err = s.initTenantService(); err != nil {
 		return
 	}
 	if err = s.initHTTPServer(); err != nil {
@@ -94,10 +108,44 @@ func (s *Server) initPostgres() (err error) {
 	return
 }
 
+func (s *Server) initHTTPClient() (err error) {
+	var cfg *tls.Config
+	if s.HTTPCA != nil {
+		cfg = &tls.Config{}
+		err = util.WithAutoReloadCA(cfg, *s.HTTPCA, s.l)
+		if err != nil {
+			return fmt.Errorf("fail to init ca:%w", err)
+		}
+	}
+
+	s.hc = &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			Dial: (&net.Dialer{
+				Timeout: 5 * time.Second,
+			}).Dial,
+			TLSClientConfig:     cfg,
+			TLSHandshakeTimeout: 5 * time.Second,
+		},
+	}
+	return
+}
+
+func (s *Server) initTenantService() (err error) {
+	s.ts, err = tenantservice.New(
+		tenantservice.WithHTTPClient(s.hc),
+	)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate tenant service:%w", err)
+	}
+	return
+}
+
 func (s *Server) initHTTPServer() (err error) {
 	opts := []httpserver.OptFunc{
 		httpserver.WithAddr(s.HTTPAddr),
 		httpserver.WithProfileRepository(s.p),
+		httpserver.WithTenantRepository(s.ts),
 		httpserver.WithLogger(s.l),
 	}
 	if s.HTTPKeyPath != nil && s.HTTPCertPath != nil {

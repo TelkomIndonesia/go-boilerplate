@@ -24,13 +24,16 @@ func WithProfileRepository(pr profile.ProfileRepository) OptFunc {
 	}
 }
 
+func WithTenantRepository(tr profile.TenantRepository) OptFunc {
+	return func(h *HTTPServer) error {
+		h.tenantRepo = tr
+		return nil
+	}
+}
+
 func WithTLS(keyPath, certPath string) OptFunc {
 	return func(h *HTTPServer) (err error) {
-		logger := func(err error) {
-			h.logger.Error("cert-watcher", logger.Any("error", err))
-		}
-
-		h.cw, err = newCertWatcher(keyPath, certPath, logger)
+		h.cw, err = newCertWatcher(keyPath, certPath, h.logger)
 		if err != nil {
 			return fmt.Errorf("failed to instantiate TLS Cert Watcher: %w", err)
 		}
@@ -61,6 +64,8 @@ func WithLogger(logger logger.Logger) OptFunc {
 
 type HTTPServer struct {
 	profileRepo profile.ProfileRepository
+	tenantRepo  profile.TenantRepository
+	profileMgr  profile.ProfileManager
 
 	addr       string
 	cw         *certWatcher
@@ -83,19 +88,23 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 			return
 		}
 	}
+	if h.cw != nil {
+		h.cw.logger = h.logger
+	}
 	h.tracer = otel.Tracer(h.tracerName)
+
+	if h.profileRepo == nil || h.tenantRepo == nil {
+		return nil, fmt.Errorf("profile repo and tenant repo required")
+	}
+	h.profileMgr = profile.ProfileManager{PR: h.profileRepo, TR: h.profileMgr.TR}
+
 	err = h.buildHandlers()
 	return
 }
 
 func (h HTTPServer) buildHandlers() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
-
-	//TODO: build all handler here
-	h.handler.GET("/healthz", func(c echo.Context) error {
-		h.logger.Info("healthz requested", logger.String("hello", "world"))
-		return c.String(http.StatusOK, "")
-	})
+	h.setProfileGroup()
 	h.server = &http.Server{
 		Addr:    h.addr,
 		Handler: h.handler,

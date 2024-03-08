@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 
+	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
@@ -11,26 +12,27 @@ type certWatcher struct {
 	cert     *tls.Certificate
 	certPath string
 	keyPath  string
+	logger   logger.Logger
 
 	fw util.FileWatcher
 }
 
-func newCertWatcher(keyPath string, certPath string, logger func(error)) (cw *certWatcher, err error) {
-	if logger == nil {
-		logger = func(err error) {}
-	}
+func newCertWatcher(keyPath string, certPath string, l logger.Logger) (cw *certWatcher, err error) {
 
-	cw = &certWatcher{certPath: certPath, keyPath: keyPath}
+	cw = &certWatcher{certPath: certPath, keyPath: keyPath, logger: l}
 	if err = cw.loadCert(); err != nil {
 		return
 	}
 
-	fwcb := func() {
+	fwcb := func(err error) {
+		if err != nil {
+			cw.logger.Error("cert-watcher-error", logger.Any("error", err))
+		}
 		if err := cw.loadCert(); err != nil {
-			logger(err)
+			cw.logger.Error("load-cert-error", logger.Any("error", err))
 		}
 	}
-	if cw.fw, err = util.NewFileWatcher(certPath, fwcb, logger); err != nil {
+	if cw.fw, err = util.NewFileWatcher(certPath, fwcb); err != nil {
 		return
 	}
 

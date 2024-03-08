@@ -9,15 +9,14 @@ import (
 
 type FileWatcher struct {
 	path   string
-	log    func(error)
 	done   chan struct{}
-	notify func()
+	notify func(err error)
 }
 
-func NewFileWatcher(path string, notify func(), errlogger func(error)) (fw FileWatcher, err error) {
+func NewFileWatcher(path string, notify func(err error)) (fw FileWatcher, err error) {
 	fw = FileWatcher{
-		path:   path,
-		log:    errlogger,
+		path: path,
+
 		notify: notify,
 		done:   make(chan struct{}),
 	}
@@ -35,7 +34,7 @@ func (fw FileWatcher) watchLoop() {
 		}
 
 		if err := fw.watch(); err != nil {
-			fw.log(fmt.Errorf("cert watcher stopped due to error: %w", err))
+			fw.notify(fmt.Errorf("cert watcher stopped due to error: %w", err))
 			<-time.After(time.Minute)
 		}
 	}
@@ -65,7 +64,7 @@ func (fw FileWatcher) watch() (err error) {
 				return err
 			}
 
-			fw.log(fmt.Errorf("error event received: %w", err))
+			fw.notify(fmt.Errorf("error event received: %w", err))
 			continue
 
 		case e, ok := <-watcher.Events:
@@ -88,7 +87,7 @@ func (fw FileWatcher) watch() (err error) {
 			continue
 		}
 
-		fw.notify()
+		fw.notify(nil)
 	}
 }
 

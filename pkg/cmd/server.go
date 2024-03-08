@@ -39,16 +39,16 @@ type Server struct {
 	envPrefix string
 	dotenv    bool
 
-	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080"`
-	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH"`
-	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH"`
-	HTTPCA       *string `env:"HTTP_CA_CERTS_PATHS"`
+	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
+	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH" json:"http_tls_key_path"`
+	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH" json:"http_tls_cert_path"`
+	HTTPCA       *string `env:"HTTP_CA_CERTS_PATHS" json:"http_ca_certs_paths"`
 
-	PostgresUrl      string `env:"POSTGRES_URL,required,notEmpty,expand"`
-	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty"`
-	PostgresMACPath  string `env:"POSTGRES_MAC_KEY_PATH,required,notEmpty"`
+	PostgresUrl      string `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
+	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty" json:"postgres_aead_key_path"`
+	PostgresMACPath  string `env:"POSTGRES_MAC_KEY_PATH,required,notEmpty" json:"postgres_mac_key_path"`
 
-	TenantServiceBaseUrl string `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand"`
+	TenantServiceBaseUrl string `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	l  logger.Logger
 	h  *httpserver.HTTPServer

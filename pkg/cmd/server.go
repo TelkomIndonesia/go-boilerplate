@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/telkomindonesia/go-boilerplate/pkg/cert"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger/zap"
@@ -53,6 +54,8 @@ type Server struct {
 	p  *postgres.Postgres
 	ts *tenantservice.TenantService
 	hc *http.Client
+
+	closeable []func(context.Context) error
 }
 
 func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
@@ -107,6 +110,7 @@ func (s *Server) initPostgres() (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to instantiate postges: %w", err)
 	}
+	s.closeable = append(s.closeable, s.p.Close)
 	return
 }
 
@@ -114,10 +118,11 @@ func (s *Server) initHTTPClient() (err error) {
 	var cfg *tls.Config
 	if s.HTTPCA != nil {
 		cfg = &tls.Config{}
-		err = util.WithAutoReloadCA(cfg, *s.HTTPCA, s.l)
+		cw, err := cert.NewCAWatcher(cfg, *s.HTTPCA, true, s.l)
 		if err != nil {
 			return fmt.Errorf("fail to init ca:%w", err)
 		}
+		s.closeable = append(s.closeable, cw.Close)
 	}
 
 	s.hc = &http.Client{
@@ -137,6 +142,7 @@ func (s *Server) initTenantService() (err error) {
 	s.ts, err = tenantservice.New(
 		tenantservice.WithBaseUrl(s.TenantServiceBaseUrl),
 		tenantservice.WithHTTPClient(s.hc),
+		tenantservice.WithLogger(s.l),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate tenant service:%w", err)
@@ -159,14 +165,16 @@ func (s *Server) initHTTPServer() (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to instantiate http server: %w", err)
 	}
+	s.closeable = append(s.closeable, s.h.Close)
 	return
 }
 
 func (s *Server) Run(ctx context.Context) (err error) {
 	err = s.h.Start(ctx)
 	defer func() {
-		err = errors.Join(err, s.h.Close(ctx))
-		err = errors.Join(err, s.p.Close(ctx))
+		for _, fn := range s.closeable {
+			err = errors.Join(err, fn(ctx))
+		}
 	}()
 	return
 }

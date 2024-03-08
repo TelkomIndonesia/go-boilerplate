@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -90,7 +91,7 @@ func (fw FileContentWatcher) watch() (err error) {
 	}
 }
 
-func (fw FileContentWatcher) Close() (err error) {
+func (fw FileContentWatcher) Close(ctx context.Context) (err error) {
 	close(fw.done)
 	return
 }

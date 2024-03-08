@@ -1,6 +1,7 @@
-package httpserver
+package cert
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 
@@ -8,17 +9,17 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
-type certWatcher struct {
-	cert     *tls.Certificate
+type CertWatcher struct {
+	fw     util.FileContentWatcher
+	logger logger.Logger
+
 	certPath string
 	keyPath  string
-	logger   logger.Logger
-
-	fw util.FileContentWatcher
+	cert     *tls.Certificate
 }
 
-func newCertWatcher(keyPath string, certPath string, l logger.Logger) (cw *certWatcher, err error) {
-	cw = &certWatcher{certPath: certPath, keyPath: keyPath, logger: l}
+func NewCertWatcher(keyPath string, certPath string, l logger.Logger) (cw *CertWatcher, err error) {
+	cw = &CertWatcher{certPath: certPath, keyPath: keyPath, logger: l}
 	if err = cw.loadCert(); err != nil {
 		return
 	}
@@ -39,7 +40,7 @@ func newCertWatcher(keyPath string, certPath string, l logger.Logger) (cw *certW
 	return
 }
 
-func (cw *certWatcher) loadCert() error {
+func (cw *CertWatcher) loadCert() error {
 	cert, err := tls.LoadX509KeyPair(cw.certPath, cw.keyPath)
 	if err != nil {
 		return fmt.Errorf("fail to load x509 key pair: %w", err)
@@ -49,16 +50,16 @@ func (cw *certWatcher) loadCert() error {
 	return nil
 }
 
-func (cw *certWatcher) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (cw *CertWatcher) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return cw.cert, nil
 	}
 }
 
-func (cw *certWatcher) Close() (err error) {
+func (cw *CertWatcher) Close(ctx context.Context) (err error) {
 	if cw == nil {
 		return
 	}
 
-	return cw.fw.Close()
+	return cw.fw.Close(ctx)
 }

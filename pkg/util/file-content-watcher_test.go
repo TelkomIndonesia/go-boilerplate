@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -33,7 +34,7 @@ func TestFileContentWatcherSymlink(t *testing.T) {
 		count += 1
 	})
 	require.NoError(t, err, "should create file watcher")
-	defer fw.Close()
+	defer fw.Close(context.Background())
 
 	<-time.After(time.Second)
 	fnameNew := fname + "-new"
@@ -64,7 +65,7 @@ func TestFileContentWatcherWrite(t *testing.T) {
 		count += 1
 	})
 	require.NoError(t, err, "should create file watcher")
-	defer fw.Close()
+	defer fw.Close(context.Background())
 
 	<-time.After(time.Second)
 	err = os.WriteFile(fname, []byte("hellow world 2"), 0644)

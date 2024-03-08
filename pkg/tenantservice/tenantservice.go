@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/google/uuid"
+	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -22,15 +23,24 @@ func WithHTTPClient(hc *http.Client) OptFunc {
 		return nil
 	}
 }
+
 func WithTracer(name string) OptFunc {
 	return func(ts *TenantService) error {
 		ts.tracer = otel.Tracer(name)
 		return nil
 	}
 }
+
 func WithBaseUrl(u string) OptFunc {
 	return func(ts *TenantService) (err error) {
 		ts.base, err = url.Parse(u)
+		return
+	}
+}
+
+func WithLogger(l logger.Logger) OptFunc {
+	return func(ts *TenantService) (err error) {
+		ts.logger = l
 		return
 	}
 }
@@ -41,12 +51,14 @@ type TenantService struct {
 	base   *url.URL
 	hc     *http.Client
 	tracer trace.Tracer
+	logger logger.Logger
 }
 
 func New(opts ...OptFunc) (ts *TenantService, err error) {
 	ts = &TenantService{
 		hc:     http.DefaultClient,
 		tracer: otel.Tracer("tenant-service"),
+		logger: logger.Global(),
 	}
 	ts.base, _ = url.Parse("http://localhost")
 	for _, opt := range opts {

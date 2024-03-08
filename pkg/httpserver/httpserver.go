@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/telkomindonesia/go-boilerplate/pkg/cert"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
@@ -33,7 +34,7 @@ func WithTenantRepository(tr profile.TenantRepository) OptFunc {
 
 func WithTLS(keyPath, certPath string) OptFunc {
 	return func(h *HTTPServer) (err error) {
-		h.cw, err = newCertWatcher(keyPath, certPath, h.logger)
+		h.cw, err = cert.NewCertWatcher(keyPath, certPath, h.logger)
 		if err != nil {
 			return fmt.Errorf("failed to instantiate TLS Cert Watcher: %w", err)
 		}
@@ -70,7 +71,7 @@ type HTTPServer struct {
 	profileMgr  profile.ProfileManager
 
 	addr       string
-	cw         *certWatcher
+	cw         *cert.CertWatcher
 	handler    *echo.Echo
 	server     *http.Server
 	tracerName string
@@ -90,9 +91,6 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 		if err = opt(h); err != nil {
 			return
 		}
-	}
-	if h.cw != nil {
-		h.cw.logger = h.logger
 	}
 
 	if h.profileRepo == nil || h.tenantRepo == nil {
@@ -125,6 +123,6 @@ func (h HTTPServer) Start(ctx context.Context) (err error) {
 
 func (h HTTPServer) Close(ctx context.Context) (err error) {
 	err = h.server.Shutdown(ctx)
-	err = errors.Join(err, h.cw.Close())
+	err = errors.Join(err, h.cw.Close(ctx))
 	return
 }

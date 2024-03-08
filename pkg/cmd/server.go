@@ -16,6 +16,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type ServerOptFunc func(*Server) error
@@ -127,13 +128,13 @@ func (s *Server) initHTTPClient() (err error) {
 
 	s.hc = &http.Client{
 		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
+		Transport: otelhttp.NewTransport(&http.Transport{
 			Dial: (&net.Dialer{
 				Timeout: 5 * time.Second,
 			}).Dial,
 			TLSClientConfig:     cfg,
 			TLSHandshakeTimeout: 5 * time.Second,
-		},
+		}),
 	}
 	return
 }

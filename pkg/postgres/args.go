@@ -94,7 +94,7 @@ func (p *Postgres) argEncJSON(tenantID uuid.UUID, v any, aad []byte) argFunc {
 	}
 }
 
-func (p *Postgres) argMacStr(tenantID uuid.UUID, str string) argFunc {
+func (p *Postgres) argBlindIdx(tenantID uuid.UUID, str string) argFunc {
 	return func() (any, error) {
 		pmac, err := p.mac.GetPrimitive(tenantID)
 		if err != nil {

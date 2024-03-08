@@ -38,13 +38,13 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 		argLiteral(pr.ID),
 		argLiteral(pr.TenantID),
 		p.argEncStr(pr.TenantID, pr.NIN, pr.ID[:]),
-		p.argMacStr(pr.TenantID, pr.NIN),
+		p.argBlindIdx(pr.TenantID, pr.NIN),
 		p.argEncStr(pr.TenantID, pr.Name, pr.ID[:]),
-		p.argMacStr(pr.TenantID, pr.Name),
+		p.argBlindIdx(pr.TenantID, pr.Name),
 		p.argEncStr(pr.TenantID, pr.Phone, pr.ID[:]),
-		p.argMacStr(pr.TenantID, pr.Phone),
+		p.argBlindIdx(pr.TenantID, pr.Phone),
 		p.argEncStr(pr.TenantID, pr.Email, pr.ID[:]),
-		p.argMacStr(pr.TenantID, pr.Email),
+		p.argBlindIdx(pr.TenantID, pr.Email),
 		p.argEncTime(pr.TenantID, pr.DOB, pr.ID[:]),
 	)
 	if err != nil {

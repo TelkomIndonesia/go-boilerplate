@@ -11,33 +11,24 @@ import (
 var _ logger.Loggable = Profile{}
 
 type Profile struct {
-	TenantID uuid.UUID
-
-	ID    uuid.UUID
-	NIN   string
-	Name  string
-	Email string
-	Phone string
-	DOB   time.Time
+	TenantID uuid.UUID `json:"tenant_id"`
+	ID       uuid.UUID `json:"id"`
+	NIN      string    `json:"nin"`
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	Phone    string    `json:"phone"`
+	DOB      time.Time `json:"dob"`
 }
 
 func (p Profile) AsLog() any {
-	return struct {
-		TenantID uuid.UUID `json:"tenant_id"`
-		ID       uuid.UUID `json:"id"`
-		NIN      string    `json:"nin"`
-		Name     string    `json:"name"`
-		Email    string    `json:"email"`
-		Phone    string    `json:"phone"`
-		DOB      string    `json:"dob"`
-	}{
+	return Profile{
 		TenantID: p.TenantID,
 		ID:       p.ID,
-		NIN:      p.NIN[len(p.NIN)-3:],
-		Name:     p.Name[:3],
-		Email:    p.Email[:3],
-		Phone:    p.Phone[:3],
-		DOB:      p.DOB.Format(time.RFC3339)[:4],
+		NIN:      "***" + p.NIN[len(p.NIN)-3:],
+		Name:     p.Name[:3] + "***",
+		Email:    p.Email[:3] + "***",
+		Phone:    p.Phone[:3] + "***",
+		DOB:      time.Date(p.DOB.Year(), 1, 1, 0, 0, 0, 0, p.DOB.Location()),
 	}
 }
 

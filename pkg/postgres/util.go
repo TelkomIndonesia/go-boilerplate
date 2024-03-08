@@ -11,3 +11,10 @@ func txRollbackDeferer(tx *sql.Tx, err *error) func() {
 		}
 	}
 }
+
+func min[T int | int16 | int32 | int64](a T, b T) T {
+	if a < b {
+		return a
+	}
+	return b
+}

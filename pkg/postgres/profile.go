@@ -65,8 +65,13 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	}
 
 	// outbox
+	oid, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("fail to create uuid v7: %w", err)
+	}
 	if err = p.storeOutbox(ctx, tx, &outbox{
 		tenantID:    pr.TenantID,
+		id:          oid,
 		contentType: "profile_stored",
 		content:     pr,
 		isEncrypted: true,

@@ -64,7 +64,7 @@ func TestMultiTenantKeyRotation(t *testing.T) {
 
 func TestBlindIndexes(t *testing.T) {
 	mgr := keyset.NewManager()
-	hid, err := mgr.Add(mac.HMACSHA256Tag128KeyTemplate())
+	hid, err := mgr.Add(mac.HMACSHA256Tag256KeyTemplate())
 	require.NoError(t, err, "should add mac handle")
 	err = mgr.SetPrimary(hid)
 	require.NoError(t, err, "should set primary handle")
@@ -73,7 +73,7 @@ func TestBlindIndexes(t *testing.T) {
 	m, err := mac.New(handle)
 	require.NoError(t, err, "should create mac primitive")
 
-	data := requireUUIDV7(t)
+	data := []byte("asdasjdiu9lksdlfkjasopfijaposdpasi09ie283u023hj02i0t83089tu045jt054050j")
 	v, err := m.ComputeMAC(data[:])
 	require.NoError(t, err, "should compute mac")
 
@@ -84,7 +84,7 @@ func TestBlindIndexes(t *testing.T) {
 	handle, err = mgr.Handle()
 	require.NoError(t, err, "should obtain new mac handle")
 
-	vs, err := getBlindIdxs(handle, data[:])
+	vs, err := getBlindIdxs(handle, data[:], len(v))
 	require.NoError(t, err, "should compute multiple mac")
 
 	assert.Contains(t, vs, v, "should contain previous mac")

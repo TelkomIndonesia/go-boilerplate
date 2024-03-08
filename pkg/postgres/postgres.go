@@ -78,22 +78,33 @@ func WithConnString(connStr string) OptFunc {
 	}
 }
 
+func WithBlindIdxLen(n int) OptFunc {
+	return func(p *Postgres) error {
+		if n < 0 {
+			return fmt.Errorf("invalid blind index length")
+		}
+		p.bidxLen = n
+		return nil
+	}
+}
+
 type OptFunc func(*Postgres) error
 
 type Postgres struct {
-	db   *sql.DB
-	aead multiTenantKeyset[primitiveAEAD]
-	mac  multiTenantKeyset[primitiveMAC]
+	db      *sql.DB
+	aead    multiTenantKeyset[primitiveAEAD]
+	mac     multiTenantKeyset[primitiveMAC]
+	bidxLen int
 
-	tracerName string
-	tracer     trace.Tracer
-	logger     logger.Logger
+	tracer trace.Tracer
+	logger logger.Logger
 }
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
 	p = &Postgres{
-		tracerName: "postgres",
-		logger:     logger.Global(),
+		logger:  logger.Global(),
+		bidxLen: 16,
+		tracer:  otel.Tracer("postgres"),
 	}
 	for _, opt := range opts {
 		if err = opt(p); err != nil {

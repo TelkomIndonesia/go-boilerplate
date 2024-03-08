@@ -79,10 +79,10 @@ func (p *Postgres) GetBlindIdxKeys(tenantID uuid.UUID, key []byte) (idxs [][]byt
 	if err != nil {
 		return nil, fmt.Errorf("fail to get keyset handle for tenant %s: %w", tenantID, err)
 	}
-	return getBlindIdxs(h, key)
+	return getBlindIdxs(h, key, p.bidxLen)
 }
 
-func getBlindIdxs(h *keyset.Handle, key []byte) (idxs [][]byte, err error) {
+func getBlindIdxs(h *keyset.Handle, key []byte, length int) (idxs [][]byte, err error) {
 	h, err = cloneHandle(h)
 	if err != nil {
 		return nil, err
@@ -101,8 +101,7 @@ func getBlindIdxs(h *keyset.Handle, key []byte) (idxs [][]byte, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("fail to compute mac from key id %d: %w", i.GetKeyId(), err)
 		}
-
-		idxs = append(idxs, b)
+		idxs = append(idxs, b[:min(len(b), length)])
 	}
 	return
 }

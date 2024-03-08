@@ -101,6 +101,6 @@ func (p *Postgres) argBlindIdx(tenantID uuid.UUID, str string) argFunc {
 			return nil, err
 		}
 		enc, err := pmac.ComputeMAC([]byte(str))
-		return enc, err
+		return enc[:min(len(enc), p.bidxLen)], err
 	}
 }

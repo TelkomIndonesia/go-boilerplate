@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,8 +13,9 @@ import (
 
 func TestProfileBasic(t *testing.T) {
 	p := getPostgres(t)
+	tID := requireUUIDV7(t)
 	pr := &profile.Profile{
-		TenantID: requireUUIDV7(t),
+		TenantID: tID,
 		ID:       requireUUIDV7(t),
 		NIN:      "0123456789",
 		Name:     "Dohn Joe",
@@ -23,6 +25,18 @@ func TestProfileBasic(t *testing.T) {
 	}
 	ctx := context.Background()
 	require.NoError(t, p.StoreProfile(ctx, pr), "should successfully store profile")
+	for i := 0; i < 20; i++ {
+		pr := &profile.Profile{
+			TenantID: tID,
+			ID:       requireUUIDV7(t),
+			NIN:      fmt.Sprintf("%s-%d", pr.NIN, i),
+			Name:     fmt.Sprintf("%s-%d", pr.Name, i),
+			Email:    fmt.Sprintf("%s-%d", pr.Email, i),
+			Phone:    fmt.Sprintf("%s-%d", pr.Phone, i),
+			DOB:      pr.DOB,
+		}
+		require.NoErrorf(t, p.StoreProfile(ctx, pr), "should successfully store profile for index %d", i)
+	}
 
 	prf, err := p.FetchProfile(ctx, pr.TenantID, pr.ID)
 	require.NoError(t, err, "should successfully fetch profile")

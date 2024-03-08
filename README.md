@@ -7,7 +7,7 @@ Features:
 - [x] Database (postgres) with Encryption at Rest (tink)
   - Per-tenant encryption key
   - Rotatable encription key
-  - Blind index for exact match
+  - Blind index as Bloom Filter for exact match
 - [x] CI/CD as Code (dagger)
 - [x] Dockerized
 - [x] Env Config

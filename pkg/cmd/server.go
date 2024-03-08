@@ -170,6 +170,7 @@ func (s *Server) initHTTPServer() (err error) {
 }
 
 func (s *Server) Run(ctx context.Context) (err error) {
+	s.l.Info("server_starting", logger.Any("server", s))
 	err = s.h.Start(ctx)
 	defer func() {
 		for _, fn := range s.closeable {

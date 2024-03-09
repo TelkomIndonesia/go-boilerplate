@@ -54,6 +54,10 @@ l1: "" {
       tenantservice: pkg/tenantservice {
         class: Package
       }
+
+      httpclient: pkg/httpclient {
+        class: Package
+      }
     }
 
     cmd: pkg/cmd {
@@ -64,7 +68,7 @@ l1: "" {
     }
   }
 
-  main: cmd/* {
+  main: cmd {
     class: Package
   }
 }

@@ -2,21 +2,16 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/cert"
+	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type ServerOptFunc func(*Server) error
@@ -54,9 +49,9 @@ type Server struct {
 	h  *httpserver.HTTPServer
 	p  *postgres.Postgres
 	ts *tenantservice.TenantService
-	hc *http.Client
+	hc httpclient.HTTPClient
 
-	closeable []func(context.Context) error
+	closers []func(context.Context) error
 }
 
 func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
@@ -111,38 +106,28 @@ func (s *Server) initPostgres() (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to instantiate postges: %w", err)
 	}
-	s.closeable = append(s.closeable, s.p.Close)
+	s.closers = append(s.closers, s.p.Close)
 	return
 }
 
 func (s *Server) initHTTPClient() (err error) {
-	var cfg *tls.Config
+	var opts []httpclient.OptFunc
 	if s.HTTPCA != nil {
-		cfg = &tls.Config{}
-		cw, err := cert.NewCAWatcher(cfg, *s.HTTPCA, true, s.l)
-		if err != nil {
-			return fmt.Errorf("fail to init ca:%w", err)
-		}
-		s.closeable = append(s.closeable, cw.Close)
+		opts = append(opts, httpclient.WithCAWatcher(*s.HTTPCA, s.l))
 	}
 
-	s.hc = &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: otelhttp.NewTransport(&http.Transport{
-			Dial: (&net.Dialer{
-				Timeout: 5 * time.Second,
-			}).Dial,
-			TLSClientConfig:     cfg,
-			TLSHandshakeTimeout: 5 * time.Second,
-		}),
+	s.hc, err = httpclient.New(opts...)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate http client: %w", err)
 	}
+	s.closers = append(s.closers, s.hc.Close)
 	return
 }
 
 func (s *Server) initTenantService() (err error) {
 	s.ts, err = tenantservice.New(
 		tenantservice.WithBaseUrl(s.TenantServiceBaseUrl),
-		tenantservice.WithHTTPClient(s.hc),
+		tenantservice.WithHTTPClient(s.hc.Client),
 		tenantservice.WithLogger(s.l),
 	)
 	if err != nil {
@@ -166,7 +151,7 @@ func (s *Server) initHTTPServer() (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to instantiate http server: %w", err)
 	}
-	s.closeable = append(s.closeable, s.h.Close)
+	s.closers = append(s.closers, s.h.Close)
 	return
 }
 
@@ -174,7 +159,7 @@ func (s *Server) Run(ctx context.Context) (err error) {
 	s.l.Info("server_starting", logger.Any("server", s))
 	err = s.h.Start(ctx)
 	defer func() {
-		for _, fn := range s.closeable {
+		for _, fn := range s.closers {
 			err = errors.Join(err, fn(ctx))
 		}
 	}()

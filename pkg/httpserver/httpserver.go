@@ -92,7 +92,8 @@ func (h *HTTPServer) buildHandlers() (err error) {
 	h.setProfileGroup()
 
 	h.server = &http.Server{
-		Handler: h.handler,
+		Handler:  h.handler,
+		ErrorLog: logger.NewGoLogger(h.logger, "http_server: ", 0),
 	}
 	return
 }

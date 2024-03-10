@@ -26,7 +26,7 @@ services:
       PROFILE_HTTP_TLS_KEY_PATH: /local/localhost.key
       PROFILE_HTTP_TLS_CERT_PATH: /local/localhost.crt
       PROFILE_HTTP_CA_CERTS_PATHS: /local/ca.crt
-      PROFILE_HTTP_MTLS: true
+      # PROFILE_HTTP_MTLS: true
 
       PROFILE_TENANT_SERVICE_BASE_URL: https://localhost:9443
 

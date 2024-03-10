@@ -15,7 +15,7 @@ services:
     ports: 
       - 5432:5432
 
-  server:
+  profile:
     build: .
     depends_on:
       postgres:
@@ -28,7 +28,7 @@ services:
       PROFILE_HTTP_CA_CERTS_PATHS: /local/ca.crt
       # PROFILE_HTTP_MTLS: true
 
-      PROFILE_TENANT_SERVICE_BASE_URL: https://localhost:9443
+      PROFILE_TENANT_SERVICE_BASE_URL: https://tenant:8443
 
       PROFILE_POSTGRES_URL: postgres://testing:testing@postgres:5432/testing?sslmode=disable
       PROFILE_POSTGRES_AEAD_KEY_PATH: /local/tink-aead.json
@@ -38,3 +38,31 @@ services:
     ports:
       - 8443:8443
       
+
+  tenant:
+    image: caddy:2.7.6
+    restart: unless-stopped
+    volumes:
+      - ./.local:/local
+    entrypoint:
+      - sh 
+      - -c 
+      - |
+        caddy run -a caddyfile -c - <<-'EOF'
+        :8443 {
+          tls /local/tenant.crt /local/tenant.key {
+            ca_root /local/ca.crt
+            client_auth {
+              mode require_and_verify
+              trusted_ca_cert_file /local/ca.crt
+            }
+          }
+
+          header Content-Type application/json
+          respond /tenants/018e282f-0a88-7950-91d8-34cb8f9a9c2c 200 {
+            body <<JSON
+              {"id":"018e282f-0a88-7950-91d8-34cb8f9a9c2c","name":"dummy","expire":"2034-12-31T23:59:59.99999+07:00"}
+              JSON
+          }
+        }
+        EOF

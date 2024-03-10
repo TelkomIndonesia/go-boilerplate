@@ -85,13 +85,13 @@ func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
 	if err = s.initTLSWrapper(); err != nil {
 		return
 	}
-	if err = s.initHTTPServer(); err != nil {
-		return
-	}
 	if err = s.initHTTPClient(); err != nil {
 		return
 	}
 	if err = s.initTenantService(); err != nil {
+		return
+	}
+	if err = s.initHTTPServer(); err != nil {
 		return
 	}
 

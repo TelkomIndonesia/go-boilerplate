@@ -90,6 +90,7 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 func (h *HTTPServer) buildHandlers() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
 	h.setProfileGroup()
+	h.tenantPassthrough()
 
 	h.server = &http.Server{
 		Handler:  h.handler,

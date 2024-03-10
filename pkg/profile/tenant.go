@@ -10,7 +10,7 @@ import (
 type Tenant struct {
 	ID     uuid.UUID `json:"id"`
 	Name   string    `json:"name"`
-	Expire time.Time `json:"time"`
+	Expire time.Time `json:"expire"`
 }
 
 type TenantRepository interface {

@@ -70,3 +70,17 @@ func (h HTTPServer) getProfile(g *echo.Group) {
 	})
 
 }
+
+func (h HTTPServer) tenantPassthrough() {
+	h.handler.GET("/tenants/:tenantid", func(c echo.Context) error {
+		tid, err := uuid.Parse(c.Param("tenantid"))
+		if err != nil {
+			return c.String(http.StatusBadRequest, "invalid tenant id")
+		}
+		t, err := h.tenantRepo.FetchTenant(c.Request().Context(), tid)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(http.StatusOK, t)
+	})
+}

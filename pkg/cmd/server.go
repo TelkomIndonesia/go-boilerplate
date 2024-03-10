@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	gotls "crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -41,6 +42,7 @@ type Server struct {
 	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH" json:"http_tls_key_path"`
 	HTTPCertPath *string `env:"HTTP_TLS_CERT_PATH" json:"http_tls_cert_path"`
 	HTTPCA       *string `env:"HTTP_CA_CERTS_PATHS" json:"http_ca_certs_paths"`
+	HTTPMTLS     bool    `env:"HTTP_MTLS" json:"http_mtls"`
 
 	PostgresUrl      string `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
 	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty" json:"postgres_aead_key_path"`
@@ -119,7 +121,12 @@ func (s *Server) initPostgres() (err error) {
 }
 
 func (s *Server) initTLSWrapper() (err error) {
-	opts := []tls.WrapperOptFunc{}
+	t := &gotls.Config{}
+	if s.HTTPMTLS {
+		t.ClientAuth = gotls.RequireAndVerifyClientCert
+	}
+
+	opts := []tls.WrapperOptFunc{tls.WrapperWithTLSConfig(t)}
 	if s.HTTPCA != nil {
 		opts = append(opts, tls.WrapperWithCA(*s.HTTPCA))
 	}

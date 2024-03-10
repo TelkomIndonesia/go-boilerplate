@@ -163,7 +163,6 @@ func (c *wrapper) clientConfig() *tls.Config {
 		return cfg
 	}
 
-	fmt.Println("cert found when create client")
 	cfg.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		return c.cert, nil
 	}
@@ -177,7 +176,6 @@ func (c *wrapper) serverConfig() *tls.Config {
 		return cfg
 	}
 
-	fmt.Println("cert found when create server")
 	cfg.ClientCAs = c.clientCa
 	cfg.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return c.cert, nil

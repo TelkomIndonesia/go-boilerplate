@@ -14,9 +14,14 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
+type Dialer interface {
+	Dial(net string, addr string) (net.Conn, error)
+	DialContext(ctx context.Context, net string, addr string) (net.Conn, error)
+}
+
 type TLSWrapper interface {
 	WrapListener(net.Listener) net.Listener
-	WrapDialer(*net.Dialer) *tls.Dialer
+	WrapDialer(*net.Dialer) Dialer
 	Close(context.Context) error
 }
 
@@ -96,18 +101,16 @@ type wrapper struct {
 	keyPath  string
 	certPath string
 	caPath   string
+	logger   logger.Logger
+	cfg      *tls.Config
+	mux      sync.Mutex
+	closers  []func(context.Context) error
 
 	cert     *tls.Certificate
 	clientCa *x509.CertPool
 	rootCA   *x509.CertPool
-
-	logger logger.Logger
-	cfg    *tls.Config
-	mux    sync.Mutex
-
-	serverCfg *tls.Config
-	clientCfg *tls.Config
-	closers   []func(context.Context) error
+	cfgs     *tls.Config
+	cfgc     *tls.Config
 }
 
 func New(opts ...OptFunc) (c TLSWrapper, err error) {
@@ -134,8 +137,8 @@ func (c *wrapper) loadLeaf() (err error) {
 
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	c.serverCfg = c.serverConfig()
-	c.clientCfg = c.clientConfig()
+	c.cfgs = c.serverConfig()
+	c.cfgc = c.clientConfig()
 	return
 }
 
@@ -159,8 +162,8 @@ func (c *wrapper) loadCA() (err error) {
 
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	c.serverCfg = c.serverConfig()
-	c.clientCfg = c.clientConfig()
+	c.cfgs = c.serverConfig()
+	c.cfgc = c.clientConfig()
 	return
 }
 
@@ -174,7 +177,6 @@ func (c *wrapper) clientConfig() *tls.Config {
 	cfg.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		return c.cert, nil
 	}
-
 	return cfg
 }
 
@@ -198,11 +200,8 @@ func (c *wrapper) getCertificate() (*tls.Certificate, error) {
 	return c.cert, nil
 }
 
-func (c *wrapper) WrapDialer(d *net.Dialer) *tls.Dialer {
-	return &tls.Dialer{
-		NetDialer: d,
-		Config:    c.clientCfg,
-	}
+func (c *wrapper) WrapDialer(d *net.Dialer) Dialer {
+	return dialer{c: c, d: d}
 }
 
 func (c *wrapper) WrapListener(l net.Listener) net.Listener {
@@ -216,6 +215,20 @@ func (c *wrapper) Close(ctx context.Context) (err error) {
 	return
 }
 
+type dialer struct {
+	c *wrapper
+	d *net.Dialer
+}
+
+func (d dialer) Dial(net string, addr string) (net.Conn, error) {
+	return d.DialContext(context.Background(), net, addr)
+}
+
+func (d dialer) DialContext(ctx context.Context, net string, addr string) (net.Conn, error) {
+	return (&tls.Dialer{NetDialer: d.d, Config: d.c.cfgc}).
+		DialContext(ctx, net, addr)
+}
+
 type listener struct {
 	c *wrapper
 	l net.Listener
@@ -227,7 +240,7 @@ func (c listener) Accept() (net.Conn, error) {
 		return conn, err
 	}
 
-	return tls.Server(conn, c.c.serverCfg), nil
+	return tls.Server(conn, c.c.cfgs), nil
 }
 
 func (c listener) Close() error {

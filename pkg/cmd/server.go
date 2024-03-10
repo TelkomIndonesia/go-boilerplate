@@ -146,26 +146,6 @@ func (s *Server) initTLSWrapper() (err error) {
 	return
 }
 
-func (s *Server) initHTTPServer() (err error) {
-	l, err := net.Listen("tcp", s.HTTPAddr)
-	if err != nil {
-		return fmt.Errorf("fail to start listener: %w", err)
-	}
-	opts := []httpserver.OptFunc{
-		httpserver.WithListener(s.t.WrapListener(l)),
-		httpserver.WithProfileRepository(s.p),
-		httpserver.WithTenantRepository(s.ts),
-		httpserver.WithLogger(s.l),
-	}
-
-	s.h, err = httpserver.New(opts...)
-	if err != nil {
-		return fmt.Errorf("fail to instantiate http server: %w", err)
-	}
-	s.closers = append(s.closers, s.h.Close)
-	return
-}
-
 func (s *Server) initHTTPClient() (err error) {
 	d := &net.Dialer{
 		Timeout: 10 * time.Second,
@@ -190,6 +170,26 @@ func (s *Server) initTenantService() (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to instantiate tenant service: %w", err)
 	}
+	return
+}
+
+func (s *Server) initHTTPServer() (err error) {
+	l, err := net.Listen("tcp", s.HTTPAddr)
+	if err != nil {
+		return fmt.Errorf("fail to start listener: %w", err)
+	}
+	opts := []httpserver.OptFunc{
+		httpserver.WithListener(s.t.WrapListener(l)),
+		httpserver.WithProfileRepository(s.p),
+		httpserver.WithTenantRepository(s.ts),
+		httpserver.WithLogger(s.l),
+	}
+
+	s.h, err = httpserver.New(opts...)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate http server: %w", err)
+	}
+	s.closers = append(s.closers, s.h.Close)
 	return
 }
 

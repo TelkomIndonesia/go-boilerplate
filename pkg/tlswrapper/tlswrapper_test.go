@@ -3,7 +3,6 @@ package tlswrapper
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"net"
 	"testing"
 
@@ -11,9 +10,7 @@ import (
 )
 
 func TestDialer(t *testing.T) {
-	pool, err := x509.SystemCertPool()
-	require.NoError(t, err, "should load system cert pool")
-	c := &tls.Config{RootCAs: pool}
+	c := &tls.Config{}
 	d := dialer{c: &wrapper{cfgc: c}, d: &net.Dialer{}}
 
 	// https://pkg.go.dev/crypto/tls#example-Dial
@@ -23,10 +20,7 @@ func TestDialer(t *testing.T) {
 }
 
 func BenchmarkDialer(b *testing.B) {
-	pool, err := x509.SystemCertPool()
-	require.NoError(b, err, "should load system cert pool")
-
-	c := &tls.Config{RootCAs: pool}
+	c := &tls.Config{}
 	d := dialer{c: &wrapper{cfgc: c}, d: &net.Dialer{}}
 
 	b.Run("dialer", func(b *testing.B) {

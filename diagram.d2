@@ -43,19 +43,23 @@ l1: "" {
         }
       }
 
-      httpserver: pkg/httpserver {
-        class: Package
-      }
-
       postgres: pkg/postgres {
         class: Package
       }
 
-      tenantservice: pkg/tenantservice {
+      tls: pkg/tls {
+        class: Package
+      }
+
+      httpserver: pkg/httpserver {
         class: Package
       }
 
       httpclient: pkg/httpclient {
+        class: Package
+      }
+
+      tenantservice: pkg/tenantservice {
         class: Package
       }
     }
@@ -87,9 +91,6 @@ misc: {
     class: Package
   }
   logger: pkg/logger {
-    class: Package
-  }
-  cert: pkg/cert {
     class: Package
   }
 }

@@ -4,6 +4,7 @@ import "log"
 
 type gologgerw struct {
 	p string
+	f int
 	l Logger
 }
 
@@ -15,6 +16,7 @@ func (g gologgerw) Write(p []byte) (n int, err error) {
 func NewGoLogger(l Logger, prefix string, flag int) *log.Logger {
 	return log.New(gologgerw{
 		l: l,
+		f: flag,
 		p: prefix,
-	}, prefix, flag)
+	}, "", 0)
 }

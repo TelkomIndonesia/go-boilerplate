@@ -2,26 +2,25 @@ package httpclient
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
 	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/cert"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type OptFunc func(*HTTPClient) error
 
-func WithCAWatcher(path string, l logger.Logger) OptFunc {
+func WithTLSDialer(f func(ctx context.Context, network string, addr string) (net.Conn, error)) OptFunc {
 	return func(h *HTTPClient) error {
-		cw, err := cert.NewCAWatcher(h.tr.TLSClientConfig, path, true, l)
-		if err != nil {
-			return fmt.Errorf("failt to instantiate ca watcher")
-		}
-		h.cw = cw
+		h.tr.DialTLSContext = f
+		return nil
+	}
+}
+func WithDialer(f func(ctx context.Context, network string, addr string) (net.Conn, error)) OptFunc {
+	return func(h *HTTPClient) error {
+		h.tr.DialContext = f
 		return nil
 	}
 }
@@ -29,15 +28,13 @@ func WithCAWatcher(path string, l logger.Logger) OptFunc {
 type HTTPClient struct {
 	*http.Client
 	tr *http.Transport
-	cw *cert.CAWatcher
 }
 
 func New(opts ...OptFunc) (h HTTPClient, err error) {
 	h.tr = &http.Transport{
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout: 5 * time.Second,
-		}).Dial,
-		TLSClientConfig:     &tls.Config{},
+		}).DialContext,
 		TLSHandshakeTimeout: 5 * time.Second,
 	}
 	h.Client = &http.Client{
@@ -54,5 +51,5 @@ func New(opts ...OptFunc) (h HTTPClient, err error) {
 }
 
 func (h HTTPClient) Close(ctx context.Context) error {
-	return h.cw.Close(ctx)
+	return nil
 }

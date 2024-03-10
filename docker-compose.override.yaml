@@ -14,7 +14,7 @@ services:
     working_dir: $PWD
     entrypoint: [ go, run, ./cmd ]
 
-  gencerts:
+  genx509:
     image: jitesoft/step-cli
     volumes:
       - $PWD:$PWD

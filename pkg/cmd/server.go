@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
@@ -11,6 +13,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tls"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
@@ -50,6 +53,7 @@ type Server struct {
 	p  *postgres.Postgres
 	ts *tenantservice.TenantService
 	hc httpclient.HTTPClient
+	t  tls.Wrapper
 
 	closers []func(context.Context) error
 }
@@ -76,13 +80,16 @@ func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
 	if err = s.initPostgres(); err != nil {
 		return
 	}
+	if err = s.initTLSWrapper(); err != nil {
+		return
+	}
+	if err = s.initHTTPServer(); err != nil {
+		return
+	}
 	if err = s.initHTTPClient(); err != nil {
 		return
 	}
 	if err = s.initTenantService(); err != nil {
-		return
-	}
-	if err = s.initHTTPServer(); err != nil {
 		return
 	}
 
@@ -106,17 +113,57 @@ func (s *Server) initPostgres() (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to instantiate postges: %w", err)
 	}
+
 	s.closers = append(s.closers, s.p.Close)
 	return
 }
 
-func (s *Server) initHTTPClient() (err error) {
-	var opts []httpclient.OptFunc
+func (s *Server) initTLSWrapper() (err error) {
+	opts := []tls.WrapperOptFunc{}
 	if s.HTTPCA != nil {
-		opts = append(opts, httpclient.WithCAWatcher(*s.HTTPCA, s.l))
+		opts = append(opts, tls.WrapperWithCA(*s.HTTPCA))
+	}
+	if s.HTTPKeyPath != nil && s.HTTPCertPath != nil {
+		opts = append(opts, tls.WrapperWithLeaf(*s.HTTPKeyPath, *s.HTTPCertPath))
 	}
 
-	s.hc, err = httpclient.New(opts...)
+	s.t, err = tls.New(opts...)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate TLS Connector: %w", err)
+	}
+
+	s.closers = append(s.closers, s.t.Close)
+	return
+}
+
+func (s *Server) initHTTPServer() (err error) {
+	l, err := net.Listen("tcp", s.HTTPAddr)
+	if err != nil {
+		return fmt.Errorf("fail to start listener: %w", err)
+	}
+	opts := []httpserver.OptFunc{
+		httpserver.WithListener(s.t.WrapListener(l)),
+		httpserver.WithProfileRepository(s.p),
+		httpserver.WithTenantRepository(s.ts),
+		httpserver.WithLogger(s.l),
+	}
+
+	s.h, err = httpserver.New(opts...)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate http server: %w", err)
+	}
+	s.closers = append(s.closers, s.h.Close)
+	return
+}
+
+func (s *Server) initHTTPClient() (err error) {
+	d := &net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+	s.hc, err = httpclient.New(
+		httpclient.WithDialer(d.DialContext),
+		httpclient.WithTLSDialer(s.t.WrapDialer(d).DialContext),
+	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate http client: %w", err)
 	}
@@ -131,27 +178,8 @@ func (s *Server) initTenantService() (err error) {
 		tenantservice.WithLogger(s.l),
 	)
 	if err != nil {
-		return fmt.Errorf("fail to instantiate tenant service:%w", err)
+		return fmt.Errorf("fail to instantiate tenant service: %w", err)
 	}
-	return
-}
-
-func (s *Server) initHTTPServer() (err error) {
-	opts := []httpserver.OptFunc{
-		httpserver.WithAddr(s.HTTPAddr),
-		httpserver.WithProfileRepository(s.p),
-		httpserver.WithTenantRepository(s.ts),
-		httpserver.WithLogger(s.l),
-	}
-	if s.HTTPKeyPath != nil && s.HTTPCertPath != nil {
-		opts = append(opts, httpserver.WithTLS(*s.HTTPKeyPath, *s.HTTPCertPath))
-	}
-
-	s.h, err = httpserver.New(opts...)
-	if err != nil {
-		return fmt.Errorf("fail to instantiate http server: %w", err)
-	}
-	s.closers = append(s.closers, s.h.Close)
 	return
 }
 

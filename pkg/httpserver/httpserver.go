@@ -2,13 +2,11 @@ package httpserver
 
 import (
 	"context"
-	"crypto/tls"
-	"errors"
 	"fmt"
+	"net"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/telkomindonesia/go-boilerplate/pkg/cert"
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
@@ -19,49 +17,38 @@ import (
 type OptFunc func(h *HTTPServer) error
 
 func WithProfileRepository(pr profile.ProfileRepository) OptFunc {
-	return func(h *HTTPServer) error {
+	return func(h *HTTPServer) (err error) {
 		h.profileRepo = pr
-		return nil
+		return
 	}
 }
 
 func WithTenantRepository(tr profile.TenantRepository) OptFunc {
-	return func(h *HTTPServer) error {
+	return func(h *HTTPServer) (err error) {
 		h.tenantRepo = tr
 		return nil
 	}
 }
 
-func WithTLS(keyPath, certPath string) OptFunc {
+func WithListener(l net.Listener) OptFunc {
 	return func(h *HTTPServer) (err error) {
-		h.cw, err = cert.NewCertWatcher(keyPath, certPath, h.logger)
-		if err != nil {
-			return fmt.Errorf("failed to instantiate TLS Cert Watcher: %w", err)
-		}
-
+		h.listener = l
 		return
 	}
 }
 
-func WithAddr(addr string) OptFunc {
-	return func(h *HTTPServer) error {
-		h.addr = addr
-		return nil
-	}
-}
-
 func WithTracer(name string) OptFunc {
-	return func(h *HTTPServer) error {
+	return func(h *HTTPServer) (err error) {
 		h.tracerName = name
 		h.tracer = otel.Tracer(name)
-		return nil
+		return
 	}
 }
 
 func WithLogger(logger logger.Logger) OptFunc {
-	return func(h *HTTPServer) error {
+	return func(h *HTTPServer) (err error) {
 		h.logger = logger
-		return nil
+		return
 	}
 }
 
@@ -70,8 +57,7 @@ type HTTPServer struct {
 	tenantRepo  profile.TenantRepository
 	profileMgr  profile.ProfileManager
 
-	addr       string
-	cw         *cert.CertWatcher
+	listener   net.Listener
 	handler    *echo.Echo
 	server     *http.Server
 	tracerName string
@@ -82,7 +68,6 @@ type HTTPServer struct {
 func New(opts ...OptFunc) (h *HTTPServer, err error) {
 	h = &HTTPServer{
 		handler:    echo.New(),
-		addr:       ":80",
 		tracerName: "httpserver",
 		tracer:     otel.Tracer("httpserver"),
 		logger:     logger.Global(),
@@ -107,26 +92,20 @@ func (h *HTTPServer) buildHandlers() (err error) {
 	h.setProfileGroup()
 
 	h.server = &http.Server{
-		Addr:    h.addr,
 		Handler: h.handler,
-	}
-	if h.cw != nil {
-		h.server.TLSConfig = &tls.Config{
-			GetCertificate: h.cw.GetCertificateFunc(),
-		}
 	}
 	return
 }
 
 func (h HTTPServer) Start(ctx context.Context) (err error) {
-	if h.cw != nil {
-		return h.server.ListenAndServeTLS("", "")
+	if h.listener == nil {
+		return h.server.ListenAndServe()
 	}
-	return h.server.ListenAndServe()
+
+	return h.server.Serve(h.listener)
 }
 
 func (h HTTPServer) Close(ctx context.Context) (err error) {
 	err = h.server.Shutdown(ctx)
-	err = errors.Join(err, h.cw.Close(ctx))
 	return
 }

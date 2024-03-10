@@ -1,8 +1,8 @@
 .PHONY: build test start stop certs
 
-certs:
+keys:
 	go run ./tools/gentinkey .local/tink-aead.json .local/tink-mac.json
-	docker compose up gencerts
+	docker compose up genx509
 
 build: 
 	go build ./...

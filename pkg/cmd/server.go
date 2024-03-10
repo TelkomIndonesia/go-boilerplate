@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	gotls "crypto/tls"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -55,7 +55,7 @@ type Server struct {
 	p  *postgres.Postgres
 	ts *tenantservice.TenantService
 	hc httpclient.HTTPClient
-	t  tlswrapper.Wrapper
+	t  tlswrapper.TLSWrapper
 
 	closers []func(context.Context) error
 }
@@ -121,17 +121,20 @@ func (s *Server) initPostgres() (err error) {
 }
 
 func (s *Server) initTLSWrapper() (err error) {
-	t := &gotls.Config{}
+	t := &tls.Config{}
 	if s.HTTPMTLS {
-		t.ClientAuth = gotls.RequireAndVerifyClientCert
+		t.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 
-	opts := []tlswrapper.WrapperOptFunc{tlswrapper.WrapperWithTLSConfig(t)}
+	opts := []tlswrapper.OptFunc{
+		tlswrapper.WithTLSConfig(t),
+		tlswrapper.WithLogger(s.l),
+	}
 	if s.HTTPCA != nil {
-		opts = append(opts, tlswrapper.WrapperWithCA(*s.HTTPCA))
+		opts = append(opts, tlswrapper.WithCA(*s.HTTPCA))
 	}
 	if s.HTTPKeyPath != nil && s.HTTPCertPath != nil {
-		opts = append(opts, tlswrapper.WrapperWithLeaf(*s.HTTPKeyPath, *s.HTTPCertPath))
+		opts = append(opts, tlswrapper.WithLeafCert(*s.HTTPKeyPath, *s.HTTPCertPath))
 	}
 
 	s.t, err = tlswrapper.New(opts...)
@@ -168,8 +171,8 @@ func (s *Server) initHTTPClient() (err error) {
 		Timeout: 10 * time.Second,
 	}
 	s.hc, err = httpclient.New(
-		httpclient.WithDialer(d.DialContext),
-		httpclient.WithTLSDialer(s.t.WrapDialer(d).DialContext),
+		httpclient.WithDial(d.DialContext),
+		httpclient.WithDialTLS(s.t.WrapDialer(d).DialContext),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate http client: %w", err)

@@ -12,13 +12,16 @@ import (
 
 type OptFunc func(*HTTPClient) error
 
-func WithTLSDialer(f func(ctx context.Context, network string, addr string) (net.Conn, error)) OptFunc {
+type Dialer func(ctx context.Context, network string, addr string) (net.Conn, error)
+
+func WithDialTLS(f Dialer) OptFunc {
 	return func(h *HTTPClient) error {
 		h.tr.DialTLSContext = f
 		return nil
 	}
 }
-func WithDialer(f func(ctx context.Context, network string, addr string) (net.Conn, error)) OptFunc {
+
+func WithDial(f Dialer) OptFunc {
 	return func(h *HTTPClient) error {
 		h.tr.DialContext = f
 		return nil

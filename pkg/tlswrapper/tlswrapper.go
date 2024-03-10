@@ -14,26 +14,24 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
-type Dialer func(ctx context.Context, network string, addr string) (net.Conn, error)
-
-type Wrapper interface {
+type TLSWrapper interface {
 	WrapListener(net.Listener) net.Listener
 	WrapDialer(*net.Dialer) *tls.Dialer
 	Close(context.Context) error
 }
 
-var _ Wrapper = &wrapper{}
+var _ TLSWrapper = &wrapper{}
 
-type WrapperOptFunc func(*wrapper) error
+type OptFunc func(*wrapper) error
 
-func WrapperWithTLSConfig(cfg *tls.Config) WrapperOptFunc {
+func WithTLSConfig(cfg *tls.Config) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.cfg = cfg
 		return
 	}
 }
 
-func WrapperWithLeaf(key, cert string) WrapperOptFunc {
+func WithLeafCert(key, cert string) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.keyPath, c.certPath = key, cert
 		if err = c.loadLeaf(); err != nil {
@@ -60,7 +58,7 @@ func WrapperWithLeaf(key, cert string) WrapperOptFunc {
 	}
 }
 
-func WrapperWithCA(path string) WrapperOptFunc {
+func WithCA(path string) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.caPath = path
 		if err = c.loadCA(); err != nil {
@@ -87,7 +85,7 @@ func WrapperWithCA(path string) WrapperOptFunc {
 	}
 }
 
-func WrapperWithLogger(l logger.Logger) WrapperOptFunc {
+func WithLogger(l logger.Logger) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.logger = l
 		return
@@ -112,7 +110,7 @@ type wrapper struct {
 	closers   []func(context.Context) error
 }
 
-func New(opts ...WrapperOptFunc) (c Wrapper, err error) {
+func New(opts ...OptFunc) (c TLSWrapper, err error) {
 	cr := &wrapper{
 		logger: logger.Global(),
 		cfg:    &tls.Config{},

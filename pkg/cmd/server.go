@@ -14,7 +14,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/logger/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
-	"github.com/telkomindonesia/go-boilerplate/pkg/tls"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrapper"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
@@ -55,7 +55,7 @@ type Server struct {
 	p  *postgres.Postgres
 	ts *tenantservice.TenantService
 	hc httpclient.HTTPClient
-	t  tls.Wrapper
+	t  tlswrapper.Wrapper
 
 	closers []func(context.Context) error
 }
@@ -126,15 +126,15 @@ func (s *Server) initTLSWrapper() (err error) {
 		t.ClientAuth = gotls.RequireAndVerifyClientCert
 	}
 
-	opts := []tls.WrapperOptFunc{tls.WrapperWithTLSConfig(t)}
+	opts := []tlswrapper.WrapperOptFunc{tlswrapper.WrapperWithTLSConfig(t)}
 	if s.HTTPCA != nil {
-		opts = append(opts, tls.WrapperWithCA(*s.HTTPCA))
+		opts = append(opts, tlswrapper.WrapperWithCA(*s.HTTPCA))
 	}
 	if s.HTTPKeyPath != nil && s.HTTPCertPath != nil {
-		opts = append(opts, tls.WrapperWithLeaf(*s.HTTPKeyPath, *s.HTTPCertPath))
+		opts = append(opts, tlswrapper.WrapperWithLeaf(*s.HTTPKeyPath, *s.HTTPCertPath))
 	}
 
-	s.t, err = tls.New(opts...)
+	s.t, err = tlswrapper.New(opts...)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate TLS Connector: %w", err)
 	}

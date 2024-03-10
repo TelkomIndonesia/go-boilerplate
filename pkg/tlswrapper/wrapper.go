@@ -1,4 +1,4 @@
-package tls
+package tlswrapper
 
 import (
 	"context"
@@ -41,10 +41,15 @@ func WrapperWithLeaf(key, cert string) WrapperOptFunc {
 		}
 
 		cw, err := util.NewFileContentWatcher(cert, func(s string, err error) {
-			err = c.loadLeaf()
 			if err != nil {
-				c.logger.Error("fail to reload leaf certificate", logger.Any("error", err))
+				c.logger.Error("leaf-cert-file-watcher", logger.Any("error", err))
+				return
 			}
+			if err = c.loadLeaf(); err != nil {
+				c.logger.Error("leaf-cert-file-watcher", logger.Any("error", err))
+				return
+			}
+			c.logger.Info("leaf-cert-file-watcher", logger.String("info", "leaf cert file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("fail to instantiate leaf cert content watcher")
@@ -63,10 +68,15 @@ func WrapperWithCA(path string) WrapperOptFunc {
 		}
 
 		cw, err := util.NewFileContentWatcher(path, func(s string, err error) {
-			err = c.loadLeaf()
 			if err != nil {
-				c.logger.Error("fail to reload ca certificate", logger.Any("error", err))
+				c.logger.Error("ca-file-watcher", logger.Any("error", err))
+				return
 			}
+			if err = c.loadLeaf(); err != nil {
+				c.logger.Error("ca-file-watcher", logger.Any("error", err))
+				return
+			}
+			c.logger.Info("ca-file-watcher", logger.String("info", "ca file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("fail to instantiate ca content watcher")

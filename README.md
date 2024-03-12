@@ -7,11 +7,12 @@ Features:
 - [x] Database (postgres) with Encryption at Rest (tink)
   - Per-tenant encryption key
   - Rotatable encription key
-  - Blind index as Bloom Filter for exact match
-- [x] CI/CD as Code (dagger)
-- [x] Dockerized
-- [x] Env Config
-- [x] Auto Load TLS certificate for HTTPS Server
-- [x] Auto Load CA certificate for HTTPS Client
-- [x] Opentelemetry (console, otlphttp, and datadog trace provider)
-- [x] Plugable log (zap)
+  - Blind index as bloom filter for exact match
+- [ ] Outbox pattern
+- [x] CI/CD as Code (dagger).
+- [x] Dockerized.
+- [x] Env Config.
+- [x] Auto Load CA & Leaf TLS certificate.
+- [x] mTLS support.
+- [x] Opentelemetry (console, otlphttp, and datadog trace provider).
+- [x] Plugable log (zap).

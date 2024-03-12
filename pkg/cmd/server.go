@@ -42,7 +42,7 @@ func ServerWithCanceler(f func(context.Context) context.Context) ServerOptFunc {
 	}
 }
 
-func ServerWithOtelLoader(f func(ctx context.Context) func()) ServerOptFunc {
+func ServerWithOtelLoader(f func(ctx context.Context, l logger.Logger) func()) ServerOptFunc {
 	return func(s *Server) (err error) {
 		s.otelLoader = f
 		return
@@ -53,7 +53,7 @@ type Server struct {
 	envPrefix  string
 	dotenv     bool
 	canceler   func(ctx context.Context) context.Context
-	otelLoader func(ctx context.Context) func()
+	otelLoader func(ctx context.Context, l logger.Logger) func()
 
 	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
 	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH" json:"http_tls_key_path"`
@@ -216,7 +216,7 @@ func (s *Server) initHTTPServer() (err error) {
 }
 
 func (s *Server) Run(ctx context.Context) (err error) {
-	defer s.otelLoader(ctx)
+	defer s.otelLoader(ctx, s.l)
 
 	err = s.h.Start(s.canceler(ctx))
 	defer func() {

@@ -4,11 +4,17 @@ import (
 	"context"
 	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/joho/godotenv"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"go.opentelemetry.io/otel"
 )
 
-func FromEnv(ctx context.Context) (deferer func()) {
+func FromEnv(ctx context.Context, l logger.Logger) (deferer func()) {
 	godotenv.Load()
+
+	otel.SetLogger(logr.New(otellogger{l: l}))
+
 	switch os.Getenv("OPENTELEMETRY_TRACE_PROVIDER") {
 	case "datadog":
 		return withTraceProviderDatadog()

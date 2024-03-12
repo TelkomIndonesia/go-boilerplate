@@ -8,8 +8,8 @@ import (
 	"net/url"
 
 	"github.com/google/uuid"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

@@ -10,8 +10,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/filewatcher"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 )
 
 type Dialer interface {
@@ -43,7 +43,7 @@ func WithLeafCert(key, cert string) OptFunc {
 			return fmt.Errorf("fail to load leaf cert: %w", err)
 		}
 
-		cw, err := util.NewFileContentWatcher(cert, func(s string, err error) {
+		cw, err := filewatcher.New(cert, func(s string, err error) {
 			if err != nil {
 				c.logger.Error("leaf-cert-file-watcher", logger.Any("error", err))
 				return
@@ -70,7 +70,7 @@ func WithCA(path string) OptFunc {
 			return fmt.Errorf("fail to load CA: %w", err)
 		}
 
-		cw, err := util.NewFileContentWatcher(path, func(s string, err error) {
+		cw, err := filewatcher.New(path, func(s string, err error) {
 			if err != nil {
 				c.logger.Error("ca-file-watcher", logger.Any("error", err))
 				return

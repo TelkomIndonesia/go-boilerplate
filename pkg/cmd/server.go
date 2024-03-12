@@ -8,14 +8,15 @@ import (
 	"net"
 	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
-	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrapper"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/httpclient"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger/zap"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/otel"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/tlswrapper"
 )
 
 type ServerOptFunc func(*Server) error
@@ -34,9 +35,27 @@ func ServerWithOutDotEnv(p string) ServerOptFunc {
 	}
 }
 
+func ServerWithCanceler(f func(context.Context) context.Context) ServerOptFunc {
+	return func(s *Server) (err error) {
+		s.canceler = f
+		return
+	}
+}
+
+func ServerWithOtel(ctx context.Context) ServerOptFunc {
+	return func(s *Server) (err error) {
+		s.closers = append(s.closers, func(ctx context.Context) error {
+			otel.FromEnv(ctx)()
+			return nil
+		})
+		return
+	}
+}
+
 type Server struct {
 	envPrefix string
 	dotenv    bool
+	canceler  func(ctx context.Context) context.Context
 
 	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
 	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH" json:"http_tls_key_path"`
@@ -61,7 +80,11 @@ type Server struct {
 }
 
 func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
-	s = &Server{envPrefix: "PROFILE_", dotenv: true}
+	s = &Server{
+		envPrefix: "PROFILE_",
+		dotenv:    true,
+		canceler:  func(ctx context.Context) context.Context { return ctx },
+	}
 	for _, opt := range opts {
 		if err = opt(s); err != nil {
 			return
@@ -194,8 +217,7 @@ func (s *Server) initHTTPServer() (err error) {
 }
 
 func (s *Server) Run(ctx context.Context) (err error) {
-	s.l.Info("server_starting", logger.Any("server", s))
-	err = s.h.Start(ctx)
+	err = s.h.Start(s.canceler(ctx))
 	defer func() {
 		for _, fn := range s.closers {
 			err = errors.Join(err, fn(ctx))

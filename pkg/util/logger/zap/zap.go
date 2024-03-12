@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

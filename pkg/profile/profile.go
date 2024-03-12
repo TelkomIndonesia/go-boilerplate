@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 )
 
 var _ logger.Loggable = Profile{}

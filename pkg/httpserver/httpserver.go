@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"

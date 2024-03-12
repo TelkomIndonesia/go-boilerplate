@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 )
 
 func TestLog(t *testing.T) {

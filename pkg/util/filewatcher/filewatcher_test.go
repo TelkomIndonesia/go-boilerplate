@@ -1,4 +1,4 @@
-package util
+package filewatcher
 
 import (
 	"context"
@@ -26,7 +26,7 @@ func TestFileContentWatcherSymlink(t *testing.T) {
 	defer os.Remove(fnameS2)
 
 	count := 0
-	fw, err := NewFileContentWatcher(fnameS2, func(name string, err error) {
+	fw, err := New(fnameS2, func(name string, err error) {
 		if err != nil {
 			t.Log(err)
 			return
@@ -56,7 +56,7 @@ func TestFileContentWatcherWrite(t *testing.T) {
 	defer os.Remove(fname)
 
 	count := 0
-	fw, err := NewFileContentWatcher(fname, func(name string, err error) {
+	fw, err := New(fname, func(name string, err error) {
 		if err != nil {
 			t.Log(err)
 			return

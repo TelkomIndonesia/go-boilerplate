@@ -43,19 +43,11 @@ l1: "" {
         }
       }
 
+      httpserver: pkg/util/httpserver {
+        class: Package
+      }
+
       postgres: pkg/postgres {
-        class: Package
-      }
-
-      tls: pkg/tlswrapper {
-        class: Package
-      }
-
-      httpserver: pkg/httpserver {
-        class: Package
-      }
-
-      httpclient: pkg/httpclient {
         class: Package
       }
 
@@ -67,9 +59,6 @@ l1: "" {
     cmd: pkg/cmd {
       class: Package
     }
-    otel: pkg/otel {
-      class: Package
-    }
   }
 
   main: cmd {
@@ -79,18 +68,48 @@ l1: "" {
 l1 -> l1.l2 -> l1.l2.l3 -> l1.l2.l3.l4: {
   class: DependencyLine
 }
-l1 -> misc: {
+
+l1 -> util.logger: {
+  class: DependencyLine
+}
+l1.main -> util.util: {
+  class: DependencyLine
+}
+l1.l2.cmd -> util.otel: {
+  class: DependencyLine
+}
+l1.l2.cmd -> util.util: {
+  class: DependencyLine
+}
+l1.l2.cmd -> util.tlswrapper: {
+  class: DependencyLine
+}
+l1.l2.cmd -> util.httpclient: {
   class: DependencyLine
 }
 
-misc: {
+util: {
   near: bottom-right
   class: Layer
 
   util: pkg/util {
     class: Package
   }
-  logger: pkg/logger {
+  logger: pkg/util/logger {
     class: Package
   }
+  otel: pkg/util/otel {
+    class: Package
+  }
+  httpclient: pkg/util/httpclient {
+    class: Package
+  }
+  filewatcher: pkg/util/filewatcher {
+    class: Package
+  }
+  tlswrapper: pkg/util/tlswrapper {
+    class: Package
+  }
+  tlswrapper -> filewatcher
+  tlswrapper -> logger
 }

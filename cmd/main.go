@@ -4,20 +4,22 @@ import (
 	"context"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
-	"github.com/telkomindonesia/go-boilerplate/pkg/logger"
-	"github.com/telkomindonesia/go-boilerplate/pkg/otel"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 )
 
 func main() {
-	ctx := util.CancelOnExitSignal(context.Background())
+	ctx := context.Background()
 
-	defer otel.FromEnv(ctx)()
-
-	c, err := cmd.NewServer()
+	c, err := cmd.NewServer(
+		cmd.ServerWithCanceler(util.CancelOnExitSignal),
+		cmd.ServerWithOtel(ctx),
+	)
 	if err != nil {
 		logger.Global().Fatal("fail to instantiate server", logger.Any("error", err))
 	}
+
+	logger.Global().Info("server starting", logger.Any("server", c))
 	if err = c.Run(ctx); err != nil {
 		logger.Global().Fatal("error when running server", logger.Any("error", err))
 	}

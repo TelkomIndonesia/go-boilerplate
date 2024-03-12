@@ -54,8 +54,8 @@ services:
     restart: unless-stopped
     environment:
       PROFILE_HTTP_LISTEN_ADDRESS: :8443
-      PROFILE_HTTP_TLS_KEY_PATH: /local/localhost.key
-      PROFILE_HTTP_TLS_CERT_PATH: /local/localhost.crt
+      PROFILE_HTTP_TLS_KEY_PATH: /local/profile.key
+      PROFILE_HTTP_TLS_CERT_PATH: /local/profile.crt
       PROFILE_HTTP_CA_CERTS_PATHS: /local/ca.crt
       PROFILE_HTTP_MTLS: "false"
 

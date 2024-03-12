@@ -13,7 +13,7 @@ import (
 func FromEnv(ctx context.Context, l logger.Logger) (deferer func()) {
 	godotenv.Load()
 
-	otel.SetLogger(logr.New(otellogger{l: l}))
+	otel.SetLogger(logr.New(logsink{l: l, name: "otel"}))
 
 	switch os.Getenv("OPENTELEMETRY_TRACE_PROVIDER") {
 	case "datadog":

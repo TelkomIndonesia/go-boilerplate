@@ -42,20 +42,18 @@ func ServerWithCanceler(f func(context.Context) context.Context) ServerOptFunc {
 	}
 }
 
-func ServerWithOtel(ctx context.Context) ServerOptFunc {
+func ServerWithOtelLoader(f func(ctx context.Context) func()) ServerOptFunc {
 	return func(s *Server) (err error) {
-		s.closers = append(s.closers, func(ctx context.Context) error {
-			otel.FromEnv(ctx)()
-			return nil
-		})
+		s.otelLoader = f
 		return
 	}
 }
 
 type Server struct {
-	envPrefix string
-	dotenv    bool
-	canceler  func(ctx context.Context) context.Context
+	envPrefix  string
+	dotenv     bool
+	canceler   func(ctx context.Context) context.Context
+	otelLoader func(ctx context.Context) func()
 
 	HTTPAddr     string  `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
 	HTTPKeyPath  *string `env:"HTTP_TLS_KEY_PATH" json:"http_tls_key_path"`
@@ -81,9 +79,10 @@ type Server struct {
 
 func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
 	s = &Server{
-		envPrefix: "PROFILE_",
-		dotenv:    true,
-		canceler:  func(ctx context.Context) context.Context { return ctx },
+		envPrefix:  "PROFILE_",
+		dotenv:     true,
+		canceler:   util.CancelOnExitSignal,
+		otelLoader: otel.FromEnv,
 	}
 	for _, opt := range opts {
 		if err = opt(s); err != nil {
@@ -217,6 +216,8 @@ func (s *Server) initHTTPServer() (err error) {
 }
 
 func (s *Server) Run(ctx context.Context) (err error) {
+	defer s.otelLoader(ctx)
+
 	err = s.h.Start(s.canceler(ctx))
 	defer func() {
 		for _, fn := range s.closers {

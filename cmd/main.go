@@ -4,17 +4,13 @@ import (
 	"context"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 )
 
 func main() {
 	ctx := context.Background()
 
-	c, err := cmd.NewServer(
-		cmd.ServerWithCanceler(util.CancelOnExitSignal),
-		cmd.ServerWithOtel(ctx),
-	)
+	c, err := cmd.NewServer()
 	if err != nil {
 		logger.Global().Fatal("fail to instantiate server", logger.Any("error", err))
 	}

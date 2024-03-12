@@ -218,6 +218,7 @@ func (s *Server) initHTTPServer() (err error) {
 func (s *Server) Run(ctx context.Context) (err error) {
 	defer s.otelLoader(ctx, s.l)
 
+	s.l.Info("server starting", logger.Any("server", s))
 	err = s.h.Start(s.canceler(ctx))
 	defer func() {
 		for _, fn := range s.closers {

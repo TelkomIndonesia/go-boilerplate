@@ -8,15 +8,12 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
 	c, err := cmd.NewServer()
 	if err != nil {
 		logger.Global().Fatal("fail to instantiate server", logger.Any("error", err))
 	}
 
-	logger.Global().Info("server starting", logger.Any("server", c))
-	if err = c.Run(ctx); err != nil {
+	if err = c.Run(context.Background()); err != nil {
 		logger.Global().Fatal("error when running server", logger.Any("error", err))
 	}
 }

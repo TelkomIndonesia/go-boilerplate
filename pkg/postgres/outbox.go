@@ -5,9 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -68,7 +72,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 			return fmt.Errorf("fail to marshal encrypted outbox: %w", err)
 		}
 	}
-	fmt.Println(string(content))
+
 	outboxQ := `
 		INSERT INTO outbox 
 		(id, tenant_id, type, content, is_encrypted, created_at)
@@ -82,13 +86,18 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 		return fmt.Errorf("fail to insert to outbox: %w", err)
 	}
 
+	_, err = tx.QueryContext(ctx, "SELECT pg_notify($1, $2)", outboxChannel, ob.CreatedAt.UnixNano())
+	if err != nil {
+		return fmt.Errorf("fail to send notification: %w", err)
+	}
+
 	return
 }
 
-func (p *Postgres) sendOutbox(ctx context.Context, limit int) (err error) {
+func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
-		return fmt.Errorf("fail to open transaction: %w", err)
+		return nil, fmt.Errorf("fail to open transaction: %w", err)
 	}
 	defer txRollbackDeferer(tx, &err)()
 
@@ -106,7 +115,7 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (err error) {
 	`
 	rows, err := tx.QueryContext(ctx, q, limit)
 	if err != nil {
-		return fmt.Errorf("fail to query profile by name: %w", err)
+		return nil, fmt.Errorf("fail to query profile by name: %w", err)
 	}
 	defer rows.Close()
 
@@ -116,34 +125,108 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (err error) {
 
 		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.Content, &o.storeEncrypted, &o.CreatedAt)
 		if err != nil {
-			return fmt.Errorf("fail to scan row: %w", err)
+			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}
 
 		if o.storeEncrypted {
 			var content []byte
 			err = json.Unmarshal(o.Content, &content)
 			if err != nil {
-				return fmt.Errorf("fail to unmarshal encrypted outbox: %w", err)
+				return nil, fmt.Errorf("fail to unmarshal encrypted outbox: %w", err)
 			}
 			paead, err := p.aead.GetPrimitive(o.TenantID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			o.Content, err = paead.Decrypt(content, o.ID[:])
 			if err != nil {
-				return fmt.Errorf("fail to decrypt encrypted outboxL %w", err)
+				return nil, fmt.Errorf("fail to decrypt encrypted outbox: %w", err)
 			}
 		}
 
 		outboxes = append(outboxes, o)
 	}
 
+	if len(outboxes) == 0 {
+		return
+	}
+
 	if err = p.obSender(ctx, outboxes); err != nil {
-		return fmt.Errorf("fail to send outboxes: %w", err)
+		return nil, fmt.Errorf("fail to send outboxes: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("fail to commit: %w", err)
+		return nil, fmt.Errorf("fail to commit: %w", err)
 	}
-	return
+
+	return outboxes[len(outboxes)-1], err
+}
+
+func keyNameAsHash64(keyName string) uint64 {
+	hash := fnv.New64()
+	_, err := hash.Write([]byte(keyName))
+	if err != nil {
+		panic(err)
+	}
+	return hash.Sum64()
+}
+
+var outboxChannel = "outbox"
+var outboxLock = keyNameAsHash64("outbox")
+
+func (p *Postgres) watchOutboxes(ctx context.Context) (err error) {
+	for {
+		nextwait := time.Minute
+		if err = ctx.Err(); err != nil {
+			return
+		}
+
+		func() {
+			cango := false
+			conn, err := p.db.Conn(ctx)
+			if err != nil {
+				p.logger.Error("fail to obtain db connection for lock; %w", logger.Any("error", err))
+				return
+			}
+			defer conn.Close()
+
+			err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, outboxLock).Scan(&cango)
+			if !cango || err != nil {
+				p.logger.Warn("Fail to obtain lock. Retrying in next 1 minute", logger.Any("error", err))
+				return
+			}
+
+			l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
+			err = l.Listen(outboxChannel)
+			if err != nil {
+				p.logger.Error("fail to listen for outbox notification", logger.Any("error", err))
+				return
+			}
+			defer l.Close()
+
+			nextwait = 0
+			var last *Outbox
+			for {
+				var event *pq.Notification
+				select {
+				case <-ctx.Done():
+					return
+
+				case event = <-l.NotificationChannel():
+				}
+
+				i, _ := strconv.ParseInt(event.Extra, 10, 64)
+				if last != nil && i < last.CreatedAt.UnixNano() {
+					continue
+				}
+
+				last, err = p.sendOutbox(ctx, 100)
+				if err != nil {
+					p.logger.Error("fail to send outboxes", logger.Any("error", err))
+				}
+			}
+		}()
+
+		<-time.After(nextwait)
+	}
 }

@@ -73,6 +73,7 @@ func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) OptFunc {
 
 func WithConnString(connStr string) OptFunc {
 	return func(p *Postgres) (err error) {
+		p.dbUrl = connStr
 		p.db, err = sql.Open("postgres", connStr)
 		return
 	}
@@ -98,6 +99,7 @@ func WithOutboxSender(f OutboxSender) OptFunc {
 type OptFunc func(*Postgres) error
 
 type Postgres struct {
+	dbUrl    string
 	db       *sql.DB
 	aead     multiTenantKeyset[primitiveAEAD]
 	mac      multiTenantKeyset[primitiveMAC]

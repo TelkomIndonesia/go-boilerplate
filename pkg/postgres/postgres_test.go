@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -53,4 +55,45 @@ func getPostgres(t *testing.T) *Postgres {
 func TestInstantiatePostgres(t *testing.T) {
 	p := getPostgres(t)
 	assert.NotNil(t, p, "should return non-nill struct")
+}
+
+func TestLock(t *testing.T) {
+	p := getPostgres(t)
+	ctx := context.Background()
+
+	for i := 0; i < 10; i++ {
+		t.Run(fmt.Sprintf("index-%d", i), func(t *testing.T) {
+			conn, err := p.db.Conn(context.Background())
+			require.NoError(t, err)
+			defer conn.Close()
+
+			conn2, err := p.db.Conn(context.Background())
+			require.NoError(t, err)
+			defer conn2.Close()
+
+			wg := sync.WaitGroup{}
+			wg.Add(2)
+			res := []bool{false, false}
+			go func() {
+				defer wg.Done()
+				r := conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(1)`)
+				require.NoError(t, r.Scan(&res[0]))
+			}()
+			go func() {
+				defer wg.Done()
+				r := conn2.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(1)`)
+				require.NoError(t, r.Scan(&res[1]))
+			}()
+			wg.Wait()
+
+			count := 0
+			for _, r := range res {
+				if r {
+					count++
+				}
+			}
+			t.Log(res)
+			assert.Equal(t, 1, count)
+		})
+	}
 }

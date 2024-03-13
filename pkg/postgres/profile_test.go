@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,8 +16,34 @@ import (
 
 func TestProfileBasic(t *testing.T) {
 	p := getPostgres(t)
+	ctx := context.Background()
+	profiles := map[uuid.UUID]*profile.Profile{}
+	outboxes := make([]*profile.Profile, 0, 21)
 
-	prs := map[uuid.UUID]*profile.Profile{}
+	outboxesWG := sync.WaitGroup{}
+	outboxesWG.Add(1)
+	go func() {
+		defer outboxesWG.Done()
+
+		ctx, cancel := context.WithCancel(ctx)
+		defer time.AfterFunc(30*time.Second, cancel).Stop()
+
+		p.obSender = func(ctx context.Context, o []*Outbox) error {
+			for _, o := range o {
+				pr := &profile.Profile{}
+				require.NoError(t, json.Unmarshal(o.Content, &pr), "should return valid json")
+				outboxes = append(outboxes, pr)
+			}
+			if len(outboxes) == cap(outboxes) {
+				cancel()
+			}
+			return nil
+		}
+		p.watchOutboxes(ctx)
+
+		assert.Len(t, outboxes, cap(outboxes), "should send all outbox")
+	}()
+
 	pr := &profile.Profile{
 		TenantID: requireUUIDV7(t),
 		ID:       requireUUIDV7(t),
@@ -26,10 +53,9 @@ func TestProfileBasic(t *testing.T) {
 		Phone:    "+1234567",
 		DOB:      time.Date(1991, 1, 1, 1, 1, 1, 1, time.UTC),
 	}
-	prs[pr.ID] = pr
-	ctx := context.Background()
+	profiles[pr.ID] = pr
 	require.NoError(t, p.StoreProfile(ctx, pr), "should successfully store profile")
-	for i := 0; i < 20; i++ {
+	for i := 1; i < cap(outboxes); i++ {
 		pr := &profile.Profile{
 			TenantID: pr.TenantID,
 			ID:       requireUUIDV7(t),
@@ -39,7 +65,7 @@ func TestProfileBasic(t *testing.T) {
 			Phone:    fmt.Sprintf("%s-%d", pr.Phone, i),
 			DOB:      pr.DOB,
 		}
-		prs[pr.ID] = pr
+		profiles[pr.ID] = pr
 		require.NoErrorf(t, p.StoreProfile(ctx, pr), "should successfully store profile for index %d", i)
 	}
 
@@ -61,23 +87,14 @@ func TestProfileBasic(t *testing.T) {
 	assert.Equal(t, pr.Phone, prf.Phone, "Phone should be equal")
 	assert.Equal(t, pr.DOB, prf.DOB, "DOB should be equal")
 
-	p.obSender = func(ctx context.Context, o []*Outbox) error {
-		for _, o := range o {
-			pr := &profile.Profile{}
-			err := json.Unmarshal(o.Content, &pr)
-			require.NoError(t, err, "should return valid json")
-
-			prf, ok := prs[pr.ID]
-			require.True(t, ok, "should return stored outbox")
-			assert.Equal(t, pr.NIN, prf.NIN, "NIN should be equal")
-			assert.Equal(t, pr.Name, prf.Name, "Name should be equal")
-			assert.Equal(t, pr.Email, prf.Email, "Email should be equal")
-			assert.Equal(t, pr.Phone, prf.Phone, "Phone should be equal")
-			assert.Equal(t, pr.DOB, prf.DOB, "DOB should be equal")
-		}
-		assert.Len(t, o, 21)
-		return nil
+	outboxesWG.Wait()
+	for _, pr := range outboxes {
+		prf, ok := profiles[pr.ID]
+		require.True(t, ok, "should return stored outbox")
+		assert.Equal(t, pr.NIN, prf.NIN, "NIN should be equal")
+		assert.Equal(t, pr.Name, prf.Name, "Name should be equal")
+		assert.Equal(t, pr.Email, prf.Email, "Email should be equal")
+		assert.Equal(t, pr.Phone, prf.Phone, "Phone should be equal")
+		assert.Equal(t, pr.DOB, prf.DOB, "DOB should be equal")
 	}
-	err = p.sendOutbox(ctx, 100)
-	assert.NoError(t, err, "should successfully send outboxes")
 }

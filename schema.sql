@@ -19,10 +19,11 @@ CREATE TABLE IF NOT EXISTS outbox (
     tenant_id UUID NOT NULL,
     type VARCHAR(128) NOT NULL,
     content JSONB NOT NULL,
-    is_delivered BOOLEAN DEFAULT FALSE,
     is_encrypted BOOLEAN DEFAULT FALSE,
+    is_delivered BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS outbox_by_created_at ON outbox(is_delivered, created_at);
 
 CREATE TABLE IF NOT EXISTS text_heap (
     tenant_id UUID NOT NULL,

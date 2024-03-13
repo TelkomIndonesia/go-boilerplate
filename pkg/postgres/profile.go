@@ -65,17 +65,11 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	}
 
 	// outbox
-	oid, err := uuid.NewV7()
+	ob, err := newOutboxEncrypted(pr.TenantID, "profile_stored", pr)
 	if err != nil {
-		return fmt.Errorf("fail to create uuid v7: %w", err)
+		return fmt.Errorf("fail to create outbox: %w", err)
 	}
-	if err = p.storeOutbox(ctx, tx, &outbox{
-		tenantID:    pr.TenantID,
-		id:          oid,
-		contentType: "profile_stored",
-		content:     pr,
-		isEncrypted: true,
-	}); err != nil {
+	if err = p.storeOutbox(ctx, tx, ob); err != nil {
 		return fmt.Errorf("fail to store profile to outbox: %w", err)
 	}
 
@@ -165,7 +159,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 	}
 
 	q := `SELECT id, nin, name, phone, email, dob FROM profile WHERE tenant_id = $1 and name_bidx = ANY($2)`
-	rows, err := p.db.Query(q, tenantID, pq.Array(nameIdxs))
+	rows, err := p.db.QueryContext(ctx, q, tenantID, pq.Array(nameIdxs))
 	if err != nil {
 		return nil, fmt.Errorf("fail to query profile by name: %w", err)
 	}

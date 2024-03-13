@@ -88,13 +88,21 @@ func WithBlindIdxLen(n int) OptFunc {
 	}
 }
 
+func WithOutboxSender(f OutboxSender) OptFunc {
+	return func(p *Postgres) error {
+		p.obSender = f
+		return nil
+	}
+}
+
 type OptFunc func(*Postgres) error
 
 type Postgres struct {
-	db      *sql.DB
-	aead    multiTenantKeyset[primitiveAEAD]
-	mac     multiTenantKeyset[primitiveMAC]
-	bidxLen int
+	db       *sql.DB
+	aead     multiTenantKeyset[primitiveAEAD]
+	mac      multiTenantKeyset[primitiveMAC]
+	bidxLen  int
+	obSender OutboxSender
 
 	tracer trace.Tracer
 	logger logger.Logger
@@ -102,9 +110,10 @@ type Postgres struct {
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
 	p = &Postgres{
-		logger:  logger.Global(),
-		bidxLen: 16,
-		tracer:  otel.Tracer("postgres"),
+		logger:   logger.Global(),
+		bidxLen:  16,
+		tracer:   otel.Tracer("postgres"),
+		obSender: func(ctx context.Context, o []*Outbox) error { return nil },
 	}
 	for _, opt := range opts {
 		if err = opt(p); err != nil {

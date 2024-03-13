@@ -23,7 +23,10 @@ services:
     command:
       - |-
         set -e
-        step certificate create ca ca.crt ca.key --profile root-ca --no-password --insecure -f
-        step certificate create profile profile.crt profile.key --san localhost --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f
-        step certificate create tenant tenant.crt tenant.key --san localhost --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f
+        step certificate create ca ca.crt ca.key \
+          --profile root-ca --no-password --insecure -f
+        step certificate create profile profile.crt profile.key --san localhost \
+          --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f
+        step certificate create tenant tenant.crt tenant.key --san localhost \
+          --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f
       

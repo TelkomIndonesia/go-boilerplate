@@ -107,6 +107,10 @@ util: {
   tlswrapper: pkg/util/tlswrapper {
     class: Package
   }
-  tlswrapper -> filewatcher
-  tlswrapper -> logger
+  tlswrapper -> filewatcher: {
+    class: DependencyLine
+  }
+  tlswrapper -> logger: {
+    class: DependencyLine
+  }
 }

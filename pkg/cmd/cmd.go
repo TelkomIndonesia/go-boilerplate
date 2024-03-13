@@ -19,37 +19,37 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/tlswrapper"
 )
 
-type ServerOptFunc func(*Server) error
+type OptFunc func(*CMD) error
 
-func ServerWithEnvPrefix(p string) ServerOptFunc {
-	return func(s *Server) (err error) {
+func WithEnvPrefix(p string) OptFunc {
+	return func(s *CMD) (err error) {
 		s.envPrefix = p
 		return
 	}
 }
 
-func ServerWithOutDotEnv(p string) ServerOptFunc {
-	return func(s *Server) (err error) {
+func WithoutDotEnv(p string) OptFunc {
+	return func(s *CMD) (err error) {
 		s.dotenv = false
 		return
 	}
 }
 
-func ServerWithCanceler(f func(context.Context) context.Context) ServerOptFunc {
-	return func(s *Server) (err error) {
+func WithCanceler(f func(context.Context) context.Context) OptFunc {
+	return func(s *CMD) (err error) {
 		s.canceler = f
 		return
 	}
 }
 
-func ServerWithOtelLoader(f func(ctx context.Context, l logger.Logger) func()) ServerOptFunc {
-	return func(s *Server) (err error) {
+func WithOtelLoader(f func(ctx context.Context, l logger.Logger) func()) OptFunc {
+	return func(s *CMD) (err error) {
 		s.otelLoader = f
 		return
 	}
 }
 
-type Server struct {
+type CMD struct {
 	envPrefix  string
 	dotenv     bool
 	canceler   func(ctx context.Context) context.Context
@@ -77,117 +77,117 @@ type Server struct {
 	closers []func(context.Context) error
 }
 
-func NewServer(opts ...ServerOptFunc) (s *Server, err error) {
-	s = &Server{
+func New(opts ...OptFunc) (c *CMD, err error) {
+	c = &CMD{
 		envPrefix:  "PROFILE_",
 		dotenv:     true,
 		canceler:   util.CancelOnExitSignal,
 		otelLoader: otel.FromEnv,
 	}
 	for _, opt := range opts {
-		if err = opt(s); err != nil {
+		if err = opt(c); err != nil {
 			return
 		}
 	}
 
-	err = util.LoadFromEnv(s, util.LoadEnvOptions{
-		Prefix: s.envPrefix,
-		DotEnv: s.dotenv,
+	err = util.LoadFromEnv(c, util.LoadEnvOptions{
+		Prefix: c.envPrefix,
+		DotEnv: c.dotenv,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if err = s.initLogger(); err != nil {
+	if err = c.initLogger(); err != nil {
 		return
 	}
-	if err = s.initPostgres(); err != nil {
+	if err = c.initPostgres(); err != nil {
 		return
 	}
-	if err = s.initTLSWrapper(); err != nil {
+	if err = c.initTLSWrapper(); err != nil {
 		return
 	}
-	if err = s.initHTTPClient(); err != nil {
+	if err = c.initHTTPClient(); err != nil {
 		return
 	}
-	if err = s.initTenantService(); err != nil {
+	if err = c.initTenantService(); err != nil {
 		return
 	}
-	if err = s.initHTTPServer(); err != nil {
+	if err = c.initHTTPServer(); err != nil {
 		return
 	}
 
 	return
 }
 
-func (s *Server) initLogger() (err error) {
-	s.l, err = zap.New()
+func (c *CMD) initLogger() (err error) {
+	c.l, err = zap.New()
 	if err != nil {
 		return fmt.Errorf("fail to instantiate logger: %w", err)
 	}
 	return
 }
 
-func (s *Server) initPostgres() (err error) {
-	s.p, err = postgres.New(
-		postgres.WithConnString(s.PostgresUrl),
-		postgres.WithInsecureKeysetFiles(s.PostgresAEADPath, s.PostgresMACPath),
-		postgres.WithLogger(s.l),
+func (c *CMD) initPostgres() (err error) {
+	c.p, err = postgres.New(
+		postgres.WithConnString(c.PostgresUrl),
+		postgres.WithInsecureKeysetFiles(c.PostgresAEADPath, c.PostgresMACPath),
+		postgres.WithLogger(c.l),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate postges: %w", err)
 	}
 
-	s.closers = append(s.closers, s.p.Close)
+	c.closers = append(c.closers, c.p.Close)
 	return
 }
 
-func (s *Server) initTLSWrapper() (err error) {
+func (c *CMD) initTLSWrapper() (err error) {
 	t := &tls.Config{}
-	if s.HTTPMTLS {
+	if c.HTTPMTLS {
 		t.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 
 	opts := []tlswrapper.OptFunc{
 		tlswrapper.WithTLSConfig(t),
-		tlswrapper.WithLogger(s.l),
+		tlswrapper.WithLogger(c.l),
 	}
-	if s.HTTPCA != nil {
-		opts = append(opts, tlswrapper.WithCA(*s.HTTPCA))
+	if c.HTTPCA != nil {
+		opts = append(opts, tlswrapper.WithCA(*c.HTTPCA))
 	}
-	if s.HTTPKeyPath != nil && s.HTTPCertPath != nil {
-		opts = append(opts, tlswrapper.WithLeafCert(*s.HTTPKeyPath, *s.HTTPCertPath))
+	if c.HTTPKeyPath != nil && c.HTTPCertPath != nil {
+		opts = append(opts, tlswrapper.WithLeafCert(*c.HTTPKeyPath, *c.HTTPCertPath))
 	}
 
-	s.t, err = tlswrapper.New(opts...)
+	c.t, err = tlswrapper.New(opts...)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate TLS Connector: %w", err)
 	}
 
-	s.closers = append(s.closers, s.t.Close)
+	c.closers = append(c.closers, c.t.Close)
 	return
 }
 
-func (s *Server) initHTTPClient() (err error) {
+func (c *CMD) initHTTPClient() (err error) {
 	d := &net.Dialer{
 		Timeout: 10 * time.Second,
 	}
-	s.hc, err = httpclient.New(
+	c.hc, err = httpclient.New(
 		httpclient.WithDial(d.DialContext),
-		httpclient.WithDialTLS(s.t.WrapDialer(d).DialContext),
+		httpclient.WithDialTLS(c.t.WrapDialer(d).DialContext),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate http client: %w", err)
 	}
-	s.closers = append(s.closers, s.hc.Close)
+	c.closers = append(c.closers, c.hc.Close)
 	return
 }
 
-func (s *Server) initTenantService() (err error) {
-	s.ts, err = tenantservice.New(
-		tenantservice.WithBaseUrl(s.TenantServiceBaseUrl),
-		tenantservice.WithHTTPClient(s.hc.Client),
-		tenantservice.WithLogger(s.l),
+func (c *CMD) initTenantService() (err error) {
+	c.ts, err = tenantservice.New(
+		tenantservice.WithBaseUrl(c.TenantServiceBaseUrl),
+		tenantservice.WithHTTPClient(c.hc.Client),
+		tenantservice.WithLogger(c.l),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate tenant service: %w", err)
@@ -195,33 +195,33 @@ func (s *Server) initTenantService() (err error) {
 	return
 }
 
-func (s *Server) initHTTPServer() (err error) {
-	l, err := net.Listen("tcp", s.HTTPAddr)
+func (c *CMD) initHTTPServer() (err error) {
+	l, err := net.Listen("tcp", c.HTTPAddr)
 	if err != nil {
 		return fmt.Errorf("fail to start listener: %w", err)
 	}
 	opts := []httpserver.OptFunc{
-		httpserver.WithListener(s.t.WrapListener(l)),
-		httpserver.WithProfileRepository(s.p),
-		httpserver.WithTenantRepository(s.ts),
-		httpserver.WithLogger(s.l),
+		httpserver.WithListener(c.t.WrapListener(l)),
+		httpserver.WithProfileRepository(c.p),
+		httpserver.WithTenantRepository(c.ts),
+		httpserver.WithLogger(c.l),
 	}
 
-	s.h, err = httpserver.New(opts...)
+	c.h, err = httpserver.New(opts...)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate http server: %w", err)
 	}
-	s.closers = append(s.closers, s.h.Close)
+	c.closers = append(c.closers, c.h.Close)
 	return
 }
 
-func (s *Server) Run(ctx context.Context) (err error) {
-	defer s.otelLoader(ctx, s.l)
+func (c *CMD) Run(ctx context.Context) (err error) {
+	defer c.otelLoader(ctx, c.l)
 
-	s.l.Info("server starting", logger.Any("server", s))
-	err = s.h.Start(s.canceler(ctx))
+	c.l.Info("server starting", logger.Any("server", c))
+	err = c.h.Start(c.canceler(ctx))
 	defer func() {
-		for _, fn := range s.closers {
+		for _, fn := range c.closers {
 			err = errors.Join(err, fn(ctx))
 		}
 	}()

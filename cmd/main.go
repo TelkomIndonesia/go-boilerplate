@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	c, err := cmd.NewServer()
+	c, err := cmd.New()
 	if err != nil {
 		logger.Global().Fatal("fail to instantiate server", logger.Any("error", err))
 	}

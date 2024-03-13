@@ -112,10 +112,9 @@ type Postgres struct {
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
 	p = &Postgres{
-		logger:   logger.Global(),
-		bidxLen:  16,
-		tracer:   otel.Tracer("postgres"),
-		obSender: func(ctx context.Context, o []*Outbox) error { return nil },
+		logger:  logger.Global(),
+		bidxLen: 16,
+		tracer:  otel.Tracer("postgres"),
 	}
 	for _, opt := range opts {
 		if err = opt(p); err != nil {

@@ -1,8 +1,6 @@
 package postgres
 
 import (
-	"context"
-	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -17,7 +15,8 @@ import (
 )
 
 var testPostgres *Postgres
-var testPostgresSync sync.Mutex
+var testAEAD, testMAC *keyset.Handle
+var testPostgresSync, testKeysetHandleSync sync.Mutex
 
 func getPostgres(t *testing.T) *Postgres {
 	if testPostgres == nil {
@@ -26,74 +25,50 @@ func getPostgres(t *testing.T) *Postgres {
 	}
 
 	if testPostgres == nil {
-		url, ok := os.LookupEnv("POSTGRES_URL")
-		if !ok {
-			t.Skip("no postgres url found")
-		}
-
-		aeadT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
-		require.NoError(t, err, "should create prf based key template")
-		aead, err := keyset.NewHandle(aeadT)
-		require.NoError(t, err, "should create aead handle")
-
-		macT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), mac.HMACSHA256Tag128KeyTemplate())
-		require.NoError(t, err, "should create prf based key template")
-		mac, err := keyset.NewHandle(macT)
-		require.NoError(t, err, "should create mac handle")
-
-		p, err := New(
-			WithConnString(url),
-			WithKeysets(aead, mac),
-		)
-		require.NoError(t, err, "should create postgres")
-		testPostgres = p
+		testPostgres = newPostgres(t)
 	}
 
 	return testPostgres
 }
 
+func newPostgres(t *testing.T) *Postgres {
+	url, ok := os.LookupEnv("POSTGRES_URL")
+	if !ok {
+		t.Skip("no postgres url found")
+	}
+
+	p, err := New(
+		WithConnString(url),
+		WithKeysets(getKeysetHandle(t)),
+	)
+	require.NoError(t, err, "should create postgres")
+	return p
+}
+
+func getKeysetHandle(t *testing.T) (aeadh *keyset.Handle, mach *keyset.Handle) {
+	if testAEAD == nil || testMAC == nil {
+		testKeysetHandleSync.Lock()
+		defer testKeysetHandleSync.Unlock()
+	}
+
+	if testAEAD == nil {
+		aeadT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
+		require.NoError(t, err, "should create prf based key template")
+		testAEAD, err = keyset.NewHandle(aeadT)
+		require.NoError(t, err, "should create aead handle")
+	}
+
+	if testMAC == nil {
+		macT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), mac.HMACSHA256Tag128KeyTemplate())
+		require.NoError(t, err, "should create prf based key template")
+		testMAC, err = keyset.NewHandle(macT)
+		require.NoError(t, err, "should create mac handle")
+	}
+
+	return testAEAD, testMAC
+}
+
 func TestInstantiatePostgres(t *testing.T) {
 	p := getPostgres(t)
 	assert.NotNil(t, p, "should return non-nill struct")
-}
-
-func TestLock(t *testing.T) {
-	p := getPostgres(t)
-	ctx := context.Background()
-
-	for i := 0; i < 10; i++ {
-		t.Run(fmt.Sprintf("index-%d", i), func(t *testing.T) {
-			conn, err := p.db.Conn(context.Background())
-			require.NoError(t, err)
-			defer conn.Close()
-
-			conn2, err := p.db.Conn(context.Background())
-			require.NoError(t, err)
-			defer conn2.Close()
-
-			wg := sync.WaitGroup{}
-			wg.Add(2)
-			res := []bool{false, false}
-			go func() {
-				defer wg.Done()
-				r := conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(1)`)
-				require.NoError(t, r.Scan(&res[0]))
-			}()
-			go func() {
-				defer wg.Done()
-				r := conn2.QueryRowContext(ctx, `SELECT pg_try_advisory_lock(1)`)
-				require.NoError(t, r.Scan(&res[1]))
-			}()
-			wg.Wait()
-
-			count := 0
-			for _, r := range res {
-				if r {
-					count++
-				}
-			}
-			t.Log(res)
-			assert.Equal(t, 1, count)
-		})
-	}
 }

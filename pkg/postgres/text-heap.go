@@ -48,7 +48,7 @@ func (p *Postgres) findTextHeap(ctx context.Context, tenantID uuid.UUID, ctype s
 	))
 	defer span.End()
 
-	q := `SELECT content FROM text_heap WHERE tenand_id = $1 AND type = $2 AND content like %$3%`
+	q := `SELECT content FROM text_heap WHERE tenant_id = $1 AND type = $2 AND content LIKE '%' || $3 || '%'`
 	rows, err := p.db.QueryContext(ctx, q, tenantID, ctype, qname)
 	if err != nil {
 		return nil, fmt.Errorf("fail to query text_heap: %w", err)

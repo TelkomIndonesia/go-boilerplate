@@ -227,6 +227,9 @@ func (p *Postgres) watchOutboxes(ctx context.Context) (err error) {
 			}
 		}()
 
-		<-time.After(nextwait)
+		select {
+		case <-ctx.Done():
+		case <-time.After(nextwait):
+		}
 	}
 }

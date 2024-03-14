@@ -1,5 +1,6 @@
 volumes:
   postgres:
+  redpanda:
 
 services:
   postgres:
@@ -15,6 +16,23 @@ services:
     ports: 
       - 5432:5432
 
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.7
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=info
+    volumes:
+      - redpanda:/var/lib/redpanda/data
+    ports:
+      - 19092:19092
 
   tenant:
     image: caddy:2.7.6
@@ -60,6 +78,9 @@ services:
       PROFILE_HTTP_MTLS: "false"
 
       PROFILE_TENANT_SERVICE_BASE_URL: https://tenant:8443
+
+      PROFILE_KAFKA_BROKERS: redpanda:9092
+      PROFILE_KAFKA_TOPIC_OUTBOX: outbox      
 
       PROFILE_POSTGRES_URL: postgres://testing:testing@postgres:5432/testing?sslmode=disable
       PROFILE_POSTGRES_AEAD_KEY_PATH: /local/tink-aead.json

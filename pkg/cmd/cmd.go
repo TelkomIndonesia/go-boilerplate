@@ -3,12 +3,14 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver"
+	"github.com/telkomindonesia/go-boilerplate/pkg/kafka"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
@@ -65,11 +67,16 @@ type CMD struct {
 	PostgresAEADPath string `env:"POSTGRES_AEAD_KEY_PATH,required,notEmpty" json:"postgres_aead_key_path"`
 	PostgresMACPath  string `env:"POSTGRES_MAC_KEY_PATH,required,notEmpty" json:"postgres_mac_key_path"`
 
+	KafkaBrokers     []string `env:"KAFKA_BROKERS,required,notEmpty,expand" json:"kafka_url"`
+	KafkaTopicOutbox string   `env:"KAFKA_TOPIC_OUTBOX,required,notEmpty,expand" json:"kafka_topic_outbox"`
+
 	TenantServiceBaseUrl string `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	l  logger.Logger
 	h  *httpserver.HTTPServer
 	p  *postgres.Postgres
+	k  *kafka.Kafka
+	ok postgres.OutboxSender
 	ts *tenantservice.TenantService
 	hc httpclient.HTTPClient
 	t  tlswrapper.TLSWrapper
@@ -128,12 +135,50 @@ func (c *CMD) initLogger() (err error) {
 	return
 }
 
+func (c *CMD) initKafka() (err error) {
+	if len(c.KafkaBrokers) == 0 {
+		return
+	}
+
+	c.k, err = kafka.New(
+		kafka.WithBrokers(c.KafkaBrokers),
+	)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate kafka:%w", err)
+	}
+
+	if c.k != nil && c.KafkaTopicOutbox == "" {
+		return fmt.Errorf("invalid kafka outboox topic: %s", c.KafkaTopicOutbox)
+	}
+	c.ok = func(ctx context.Context, o []*postgres.Outbox) error {
+		msgs := make([]kafka.Message, 0, len(o))
+		for _, o := range o {
+			msg := kafka.Message{Topic: c.KafkaTopicOutbox}
+			msg.Value, err = json.Marshal(o)
+			if err != nil {
+				return fmt.Errorf("fail to marshal outbox: %w", err)
+			}
+
+			msg.Topic = c.KafkaTopicOutbox
+			msgs = append(msgs, msg)
+		}
+		return c.k.Write(ctx, msgs...)
+	}
+
+	c.closers = append(c.closers, c.k.Close)
+	return
+}
+
 func (c *CMD) initPostgres() (err error) {
-	c.p, err = postgres.New(
+	opts := []postgres.OptFunc{
 		postgres.WithConnString(c.PostgresUrl),
 		postgres.WithInsecureKeysetFiles(c.PostgresAEADPath, c.PostgresMACPath),
 		postgres.WithLogger(c.l),
-	)
+	}
+	if c.ok != nil {
+		opts = append(opts, postgres.WithOutboxSender(c.ok))
+	}
+	c.p, err = postgres.New(opts...)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate postges: %w", err)
 	}

@@ -90,6 +90,13 @@ func WithCA(path string) OptFunc {
 	}
 }
 
+func WithConfigReloadListener(f func(s, c *tls.Config)) OptFunc {
+	return func(w *wrapper) (err error) {
+		w.listenerFunc = f
+		return
+	}
+}
+
 func WithLogger(l logger.Logger) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.logger = l
@@ -98,13 +105,14 @@ func WithLogger(l logger.Logger) OptFunc {
 }
 
 type wrapper struct {
-	keyPath  string
-	certPath string
-	caPath   string
-	logger   logger.Logger
-	cfg      *tls.Config
-	mux      sync.Mutex
-	closers  []func(context.Context) error
+	keyPath      string
+	certPath     string
+	caPath       string
+	logger       logger.Logger
+	cfg          *tls.Config
+	mux          sync.Mutex
+	listenerFunc func(c, s *tls.Config)
+	closers      []func(context.Context) error
 
 	cert     *tls.Certificate
 	clientCa *x509.CertPool
@@ -115,8 +123,9 @@ type wrapper struct {
 
 func New(opts ...OptFunc) (c TLSWrapper, err error) {
 	cr := &wrapper{
-		logger: logger.Global(),
-		cfg:    &tls.Config{},
+		logger:       logger.Global(),
+		cfg:          &tls.Config{},
+		listenerFunc: func(c, s *tls.Config) {},
 	}
 	for _, opt := range opts {
 		if err = opt(cr); err != nil {
@@ -139,6 +148,7 @@ func (c *wrapper) loadLeaf() (err error) {
 	defer c.mux.Unlock()
 	c.cfgs = c.serverConfig()
 	c.cfgc = c.clientConfig()
+	c.listenerFunc(c.cfgs, c.cfgc)
 	return
 }
 
@@ -164,6 +174,7 @@ func (c *wrapper) loadCA() (err error) {
 	defer c.mux.Unlock()
 	c.cfgs = c.serverConfig()
 	c.cfgc = c.clientConfig()
+	c.listenerFunc(c.cfgs, c.cfgc)
 	return
 }
 

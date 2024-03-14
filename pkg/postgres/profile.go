@@ -98,7 +98,7 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 		return nil, fmt.Errorf("fail to select profile: %w", err)
 	}
 
-	paead, err := p.aead.GetPrimitive(tenantID)
+	paead, err := p.aead.GetPrimitive(tenantID[:])
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}
 
-		paead, err := p.aead.GetPrimitive(tenantID)
+		paead, err := p.aead.GetPrimitive(tenantID[:])
 		if err != nil {
 			return nil, err
 		}

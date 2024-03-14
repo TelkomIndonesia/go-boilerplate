@@ -84,12 +84,18 @@ l1.l2.cmd -> util.tlswrapper: {
 l1.l2.cmd -> util.httpclient: {
   class: DependencyLine
 }
+l1.l2.l3.postgres -> util.crypt: {
+  class: DependencyLine
+}
 
 util: {
   near: bottom-right
   class: Layer
 
   util: pkg/util {
+    class: Package
+  }
+  crypt: pkg/crypt {
     class: Package
   }
   logger: pkg/util/logger {

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -58,13 +59,13 @@ func WithInsecureKeysetFiles(aeadPath string, macPath string) OptFunc {
 
 func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) OptFunc {
 	return func(p *Postgres) (err error) {
-		p.aead = multiTenantKeyset[primitiveAEAD]{master: aeadKey, constructur: newPrimitiveAEAD}
-		if _, err = p.aead.GetPrimitive(uuid.UUID{}); err != nil {
+		p.aead = crypt.NewDerivableKeySet(aeadKey, crypt.NewPrimitiveAEAD)
+		if _, err = p.aead.GetPrimitive(nil); err != nil {
 			return fmt.Errorf("fail to verify aead derivable-keyset: %w", err)
 		}
 
-		p.mac = multiTenantKeyset[primitiveMAC]{master: macKey, constructur: newPrimitiveMAC}
-		if _, err = p.mac.GetPrimitive(uuid.UUID{}); err != nil {
+		p.mac = crypt.NewDerivableKeySet(macKey, crypt.NewPrimitiveMAC)
+		if _, err = p.mac.GetPrimitive(nil); err != nil {
 			return fmt.Errorf("fail to create mac derivable-keyset: %w", err)
 		}
 		return nil
@@ -101,8 +102,8 @@ type OptFunc func(*Postgres) error
 type Postgres struct {
 	dbUrl    string
 	db       *sql.DB
-	aead     multiTenantKeyset[primitiveAEAD]
-	mac      multiTenantKeyset[primitiveMAC]
+	aead     *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
+	mac      *crypt.DerivableKeyset[crypt.PrimitiveMAC]
 	bidxLen  int
 	obSender OutboxSender
 
@@ -122,6 +123,14 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		}
 	}
 	return p, nil
+}
+
+func (p *Postgres) GetBlindIdxKeys(tenantID uuid.UUID, key []byte) (idxs [][]byte, err error) {
+	h, err := p.mac.GetHandle(tenantID[:])
+	if err != nil {
+		return nil, fmt.Errorf("fail to get keyset handle for tenant %s: %w", tenantID, err)
+	}
+	return crypt.GetBlindIdxs(h, key, p.bidxLen)
 }
 
 func (p *Postgres) Close(ctx context.Context) error {

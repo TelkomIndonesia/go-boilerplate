@@ -62,7 +62,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 
 	content := ob.Content
 	if ob.storeEncrypted {
-		paead, err := p.aead.GetPrimitive(ob.TenantID)
+		paead, err := p.aead.GetPrimitive(ob.TenantID[:])
 		if err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 			if err != nil {
 				return nil, fmt.Errorf("fail to unmarshal encrypted outbox: %w", err)
 			}
-			paead, err := p.aead.GetPrimitive(o.TenantID)
+			paead, err := p.aead.GetPrimitive(o.TenantID[:])
 			if err != nil {
 				return nil, err
 			}

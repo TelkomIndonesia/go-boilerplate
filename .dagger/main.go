@@ -44,6 +44,28 @@ func main() {
 		log.Fatalf("fail to start postgres service %v", err)
 	}
 
+	// start kafka container
+	kafka := client.Container().
+		From("bitnami/kafka:latest").
+		WithEnvVariable("KAFKA_CFG_NODE_ID", "0").
+		WithEnvVariable("KAFKA_CFG_PROCESS_ROLES", "controller,broker").
+		WithEnvVariable("KAFKA_CFG_LISTENERS", "INTERNAL://:9092,EXTERNAL://:19092,CONTROLLER://:9093").
+		WithEnvVariable("KAFKA_CFG_ADVERTISED_LISTENERS", "INTERNAL://kafka:9092,EXTERNAL://kafka:19092").
+		WithEnvVariable("KAFKA_CFG_INTER_BROKER_LISTENER_NAME", "INTERNAL").
+		WithEnvVariable("KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP", "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT").
+		WithEnvVariable("KAFKA_CFG_CONTROLLER_QUORUM_VOTERS", "0@localhost:9093").
+		WithEnvVariable("KAFKA_CFG_CONTROLLER_LISTENER_NAMES", "CONTROLLER")
+	kafkaService, err := kafka.AsService().Start(ctx)
+	if err != nil {
+		log.Fatalf("fail to start redpanda service %v", err)
+	}
+	kafkaWaiter := client.Container().From("alpine").
+		WithServiceBinding("kafka", kafkaService).
+		WithEntrypoint([]string{"sh", "-c"}).
+		WithExec([]string{
+			`until nc kafka 9092; do echo wait kafka; sleep 1; done`,
+		})
+
 	// build docker image for running test and run the test
 	image := src.DockerBuild(dagger.DirectoryDockerBuildOpts{
 		Target: "builder",
@@ -53,6 +75,9 @@ func main() {
 		WithMountedCache("/root/.cache/go-build", client.CacheVolume("golang-build")).
 		WithServiceBinding("postgres", postgresService).
 		WithEnvVariable("POSTGRES_URL", "postgres://testing:testing@postgres:5432/testing?sslmode=disable").
+		WithServiceBinding("kafka", kafkaService).
+		WithEnvVariable("KAFKA_BROKERS", "kafka:9092").
+		WithMountedDirectory("/tmp/kafkawaiter", kafkaWaiter.Directory("/")).
 		WithWorkdir(dir).
 		WithMountedDirectory(".", src).
 		WithExec(

@@ -83,8 +83,8 @@ func WithConnString(connStr string) OptFunc {
 
 func WithBlindIdxLen(n int) OptFunc {
 	return func(p *Postgres) error {
-		if n < 0 {
-			return fmt.Errorf("invalid blind index length")
+		if n < 8 {
+			return fmt.Errorf("length must be greater than equal 8")
 		}
 		p.bidxLen = n
 		return nil

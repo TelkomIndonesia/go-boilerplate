@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 
@@ -109,6 +110,8 @@ type Postgres struct {
 
 	tracer trace.Tracer
 	logger logger.Logger
+
+	closers []func(context.Context) error
 }
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
@@ -122,6 +125,13 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 			return p, err
 		}
 	}
+
+	if p.obSender != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
+		go p.watchOutboxesLoop(ctx)
+	}
+
 	return p, nil
 }
 
@@ -133,6 +143,9 @@ func (p *Postgres) GetBlindIdxKeys(tenantID uuid.UUID, key []byte) (idxs [][]byt
 	return crypt.GetBlindIdxs(h, key, p.bidxLen)
 }
 
-func (p *Postgres) Close(ctx context.Context) error {
-	return p.db.Close()
+func (p *Postgres) Close(ctx context.Context) (err error) {
+	for _, f := range p.closers {
+		err = errors.Join(err, f(ctx))
+	}
+	return errors.Join(p.db.Close())
 }

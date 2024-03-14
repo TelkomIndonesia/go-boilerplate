@@ -28,7 +28,7 @@ services:
       - --advertise-rpc-addr=redpanda:33145
       - --mode=dev-container
       - --smp=1
-      - --default-log-level=info
+      - --default-log-level=error
     volumes:
       - redpanda:/var/lib/redpanda/data
     ports:
@@ -66,6 +66,8 @@ services:
     build: .
     depends_on:
       postgres:
+        condition: service_started
+      redpanda:
         condition: service_started
       tenant:
         condition: service_started

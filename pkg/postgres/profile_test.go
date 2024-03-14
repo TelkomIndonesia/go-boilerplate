@@ -30,19 +30,22 @@ func TestProfileBasic(t *testing.T) {
 			go func() {
 				defer outboxesWG.Done()
 
-				p := newPostgres(t)
-				p.obSender = func(ctx context.Context, o []*Outbox) error {
-					for _, o := range o {
-						pr := &profile.Profile{}
-						require.NoError(t, json.Unmarshal(o.Content, &pr), "should return valid json")
-						outboxes = append(outboxes, pr)
-					}
-					if len(outboxes) == cap(outboxes) {
-						cancel()
-					}
-					return nil
-				}
-				p.watchOutboxesLoop(ctx)
+				p := newPostgres(t,
+					WithOutboxSender(func(ctx context.Context, o []*Outbox) error {
+						for _, o := range o {
+							pr := &profile.Profile{}
+							require.NoError(t, json.Unmarshal(o.Content, &pr), "should return valid json")
+							outboxes = append(outboxes, pr)
+						}
+						if len(outboxes) == cap(outboxes) {
+							cancel()
+						}
+						return nil
+					},
+					))
+				defer p.Close(context.Background())
+
+				<-ctx.Done()
 			}()
 		}
 	})

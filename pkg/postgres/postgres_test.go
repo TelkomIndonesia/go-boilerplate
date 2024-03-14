@@ -31,15 +31,15 @@ func getPostgres(t *testing.T) *Postgres {
 	return testPostgres
 }
 
-func newPostgres(t *testing.T) *Postgres {
+func newPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 	url, ok := os.LookupEnv("POSTGRES_URL")
 	if !ok {
 		t.Skip("no postgres url found")
 	}
 
-	p, err := New(
+	p, err := New(append(opts,
 		WithConnString(url),
-		WithKeysets(getKeysetHandle(t)),
+		WithKeysets(getKeysetHandle(t)))...,
 	)
 	require.NoError(t, err, "should create postgres")
 	return p

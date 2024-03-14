@@ -21,12 +21,18 @@ type Outbox struct {
 	TenantID       uuid.UUID
 	ContentType    string
 	CreatedAt      time.Time
+	Event          string
 	Content        []byte
 	storeEncrypted bool
 }
 
-func newOutbox(tid uuid.UUID, ctype string, content any) (o *Outbox, err error) {
-	o = &Outbox{TenantID: tid, ContentType: ctype, CreatedAt: time.Now()}
+func newOutbox(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
+	o = &Outbox{
+		TenantID:    tid,
+		Event:       event,
+		ContentType: ctype,
+		CreatedAt:   time.Now(),
+	}
 	o.ID, err = uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("fail to create new id for outbox: %w", err)
@@ -38,8 +44,8 @@ func newOutbox(tid uuid.UUID, ctype string, content any) (o *Outbox, err error) 
 	return
 }
 
-func newOutboxEncrypted(tid uuid.UUID, ctype string, content any) (o *Outbox, err error) {
-	o, err = newOutbox(tid, ctype, content)
+func newOutboxEncrypted(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
+	o, err = newOutbox(tid, ctype, event, content)
 	if err != nil {
 		return
 	}
@@ -76,12 +82,12 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 
 	outboxQ := `
 		INSERT INTO outbox 
-		(id, tenant_id, type, content, is_encrypted, created_at)
+		(id, tenant_id, type, content, event, is_encrypted, created_at)
 		VALUES
-		($1, $2, $3, $4, $5, $6)
+		($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, ob.ContentType, content, ob.storeEncrypted, ob.CreatedAt,
+		ob.ID, ob.TenantID, ob.ContentType, content, ob.Event, ob.storeEncrypted, ob.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
@@ -174,7 +180,7 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 		SET is_delivered = true 
 		FROM cte
 		WHERE o.id = cte.id
-		RETURNING o.id, o.tenant_id, o.type, o.content, o.is_encrypted, o.created_at
+		RETURNING o.id, o.tenant_id, o.type, o.content, o.event, o.is_encrypted, o.created_at
 	`
 	rows, err := tx.QueryContext(ctx, q, limit)
 	if err != nil {
@@ -186,7 +192,7 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 	for rows.Next() {
 		o := &Outbox{}
 
-		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.Content, &o.storeEncrypted, &o.CreatedAt)
+		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.Content, &o.Event, &o.storeEncrypted, &o.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}

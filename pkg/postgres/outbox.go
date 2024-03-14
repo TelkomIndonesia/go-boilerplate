@@ -15,14 +15,29 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+var _ json.Unmarshaler = &OutboxContent{}
+var _ json.Marshaler = &OutboxContent{}
+
 type OutboxSender func(context.Context, []*Outbox) error
+
+type OutboxContent []byte
+
+func (oc OutboxContent) MarshalJSON() (data []byte, err error) {
+	return oc, nil
+}
+func (oc *OutboxContent) UnmarshalJSON(data []byte) error {
+	*oc = data
+	return nil
+}
+
 type Outbox struct {
-	ID             uuid.UUID
-	TenantID       uuid.UUID
-	ContentType    string
-	CreatedAt      time.Time
-	Event          string
-	Content        []byte
+	ID          uuid.UUID     `json:"id"`
+	TenantID    uuid.UUID     `json:"tenant_id"`
+	ContentType string        `json:"content_type"`
+	CreatedAt   time.Time     `json:"created_at"`
+	Event       string        `json:"event"`
+	Content     OutboxContent `json:"content"`
+
 	storeEncrypted bool
 }
 
@@ -53,6 +68,10 @@ func newOutboxEncrypted(tid uuid.UUID, event string, ctype string, content any) 
 	return
 }
 
+func (ob Outbox) UnmarshalContent(v any) error {
+	return json.Unmarshal(ob.Content, v)
+}
+
 var outboxChannel = "outbox"
 var outboxLock = keyNameAsHash64("outbox")
 
@@ -74,7 +93,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 		if err != nil {
 			return fmt.Errorf("fail to encrypt outbox: %w", err)
 		}
-		content, err = json.Marshal(content)
+		content, err = json.Marshal([]byte(content))
 		if err != nil {
 			return fmt.Errorf("fail to marshal encrypted outbox: %w", err)
 		}

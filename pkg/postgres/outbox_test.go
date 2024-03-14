@@ -11,11 +11,11 @@ import (
 
 func TestMarshallOutbox(t *testing.T) {
 	pr := &profile.Profile{
-		ID:       requireUUIDV7(t),
-		TenantID: requireUUIDV7(t),
+		ID:       tRequireUUIDV7(t),
+		TenantID: tRequireUUIDV7(t),
 		NIN:      t.Name(),
 	}
-	ob, err := newOutbox(requireUUIDV7(t), "test", "profile", pr)
+	ob, err := newOutbox(tRequireUUIDV7(t), "test", "profile", pr)
 	require.NoError(t, err, "should create outbox")
 
 	pr1 := profile.Profile{}

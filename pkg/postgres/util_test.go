@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func requireUUIDV7(t *testing.T) (u uuid.UUID) {
+func tRequireUUIDV7(t *testing.T) (u uuid.UUID) {
 	u, err := uuid.NewV7()
 	require.NoError(t, err, "should create uuid")
 	return

@@ -18,20 +18,20 @@ var testPostgres *Postgres
 var testAEAD, testMAC *keyset.Handle
 var testPostgresSync, testKeysetHandleSync sync.Mutex
 
-func getPostgres(t *testing.T) *Postgres {
+func tGetPostgres(t *testing.T) *Postgres {
 	if testPostgres == nil {
 		testPostgresSync.Lock()
 		defer testPostgresSync.Unlock()
 	}
 
 	if testPostgres == nil {
-		testPostgres = newPostgres(t)
+		testPostgres = tNewPostgres(t)
 	}
 
 	return testPostgres
 }
 
-func newPostgres(t *testing.T, opts ...OptFunc) *Postgres {
+func tNewPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 	url, ok := os.LookupEnv("POSTGRES_URL")
 	if !ok {
 		t.Skip("no postgres url found")
@@ -39,13 +39,13 @@ func newPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 
 	p, err := New(append(opts,
 		WithConnString(url),
-		WithKeysets(getKeysetHandle(t)))...,
+		WithKeysets(tGetKeysetHandle(t)))...,
 	)
 	require.NoError(t, err, "should create postgres")
 	return p
 }
 
-func getKeysetHandle(t *testing.T) (aeadh *keyset.Handle, mach *keyset.Handle) {
+func tGetKeysetHandle(t *testing.T) (aeadh *keyset.Handle, mach *keyset.Handle) {
 	if testAEAD == nil || testMAC == nil {
 		testKeysetHandleSync.Lock()
 		defer testKeysetHandleSync.Unlock()
@@ -69,6 +69,6 @@ func getKeysetHandle(t *testing.T) (aeadh *keyset.Handle, mach *keyset.Handle) {
 }
 
 func TestInstantiatePostgres(t *testing.T) {
-	p := getPostgres(t)
+	p := tGetPostgres(t)
 	assert.NotNil(t, p, "should return non-nill struct")
 }

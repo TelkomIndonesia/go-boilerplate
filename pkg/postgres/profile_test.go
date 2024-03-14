@@ -30,7 +30,7 @@ func TestProfileBasic(t *testing.T) {
 			go func() {
 				defer outboxesWG.Done()
 
-				p := newPostgres(t,
+				p := tNewPostgres(t,
 					WithOutboxSender(func(ctx context.Context, o []*Outbox) error {
 						for _, o := range o {
 							pr := &profile.Profile{}
@@ -50,10 +50,10 @@ func TestProfileBasic(t *testing.T) {
 		}
 	})
 
-	p := getPostgres(t)
+	p := tGetPostgres(t)
 	pr := &profile.Profile{
-		TenantID: requireUUIDV7(t),
-		ID:       requireUUIDV7(t),
+		TenantID: tRequireUUIDV7(t),
+		ID:       tRequireUUIDV7(t),
 		NIN:      "0123456789",
 		Name:     "Dohn Joe",
 		Email:    "dohnjoe@email.com",
@@ -66,7 +66,7 @@ func TestProfileBasic(t *testing.T) {
 		for i := 1; i < cap(outboxes); i++ {
 			pr := &profile.Profile{
 				TenantID: pr.TenantID,
-				ID:       requireUUIDV7(t),
+				ID:       tRequireUUIDV7(t),
 				NIN:      fmt.Sprintf("%s-%d", pr.NIN, i),
 				Name:     fmt.Sprintf("%s-%d", pr.Name, i),
 				Email:    fmt.Sprintf("%s-%d", pr.Email, i),

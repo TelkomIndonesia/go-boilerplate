@@ -108,6 +108,9 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 	if err = c.initLogger(); err != nil {
 		return
 	}
+	if err = c.initKafka(); err != nil {
+		return
+	}
 	if err = c.initPostgres(); err != nil {
 		return
 	}

@@ -59,12 +59,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("fail to start redpanda service %v", err)
 	}
-	kafkaWaiter := client.Container().From("alpine").
+
+	waiter := client.Container().From("alpine").
+		WithServiceBinding("postgres", postgresService).
 		WithServiceBinding("kafka", kafkaService).
 		WithEntrypoint([]string{"sh", "-c"}).
-		WithExec([]string{
-			`until nc kafka 9092; do echo wait kafka; sleep 1; done`,
-		})
+		WithExec([]string{`
+			until nc postgres 5432; do echo "wait postgres"; sleep 1; done
+			until nc kafka 9092; do echo "wait kafka"; sleep 1; done
+		`})
 
 	// build docker image for running test and run the test
 	image := src.DockerBuild(dagger.DirectoryDockerBuildOpts{
@@ -77,7 +80,7 @@ func main() {
 		WithEnvVariable("POSTGRES_URL", "postgres://testing:testing@postgres:5432/testing?sslmode=disable").
 		WithServiceBinding("kafka", kafkaService).
 		WithEnvVariable("KAFKA_BROKERS", "kafka:9092").
-		WithMountedDirectory("/tmp/kafkawaiter", kafkaWaiter.Directory("/")).
+		WithMountedDirectory("/tmp/waiter", waiter.Directory("/")).
 		WithWorkdir(dir).
 		WithMountedDirectory(".", src).
 		WithExec(

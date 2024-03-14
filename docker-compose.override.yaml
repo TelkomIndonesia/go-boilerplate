@@ -10,19 +10,18 @@ services:
       - go-mod:/go/pkg/mod
       - go-build:/root/.cache/go-build
 
-      - $PWD:$PWD
-    working_dir: $PWD
+      - ${PWD:-.}:${PWD:-/src}
+    working_dir: ${PWD:-/src}
     entrypoint: [ go, run, ./cmd ]
 
   genx509:
     image: jitesoft/step-cli
     volumes:
-      - $PWD:$PWD
-    working_dir: $PWD/.local
+      - ${PWD:-.}:${PWD:-/src}
+    working_dir: ${PWD:-/src}/.local
     entrypoint: [sh, -c]
     command:
       - |-
-        set -e
         step certificate create ca ca.crt ca.key \
           --profile root-ca --no-password --insecure -f
         step certificate create profile profile.crt profile.key --san localhost \

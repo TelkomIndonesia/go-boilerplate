@@ -8,7 +8,7 @@ Features:
   - [x] Per-tenant encryption key
   - [x] Rotatable encription key
   - [x] Blind index as bloom filter for exact match
-  - [ ] Outbox pattern
+  - [x] Outbox pattern (no sender implementation yet, will add kafka)
 - [x] CI/CD as Code (dagger).
 - [x] Dockerized.
 - [x] Env Config.

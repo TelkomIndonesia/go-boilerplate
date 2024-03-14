@@ -49,6 +49,9 @@ func newOutboxEncrypted(tid uuid.UUID, ctype string, content any) (o *Outbox, er
 
 type OutboxSender func(context.Context, []*Outbox) error
 
+var outboxChannel = "outbox"
+var outboxLock = keyNameAsHash64("outbox")
+
 func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err error) {
 	_, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
 		attribute.Stringer("tenantID", ob.TenantID),
@@ -88,7 +91,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 
 	_, err = tx.QueryContext(ctx, "SELECT pg_notify($1, $2)", outboxChannel, ob.CreatedAt.UnixNano())
 	if err != nil {
-		return fmt.Errorf("fail to send notification: %w", err)
+		p.logger.Warn("fail to send notify", logger.Any("error", err))
 	}
 
 	return
@@ -171,65 +174,64 @@ func keyNameAsHash64(keyName string) uint64 {
 	return hash.Sum64()
 }
 
-var outboxChannel = "outbox"
-var outboxLock = keyNameAsHash64("outbox")
-
-func (p *Postgres) watchOutboxes(ctx context.Context) (err error) {
+func (p *Postgres) watchOutboxesLoop(ctx context.Context) (err error) {
 	for {
-		nextwait := time.Minute
-		if err = ctx.Err(); err != nil {
-			return
+		if err := p.watchOuboxes(ctx); err != nil {
+			p.logger.Warn("got outbox watcher error", logger.Any("error", err))
 		}
-
-		func() {
-			cango := false
-			conn, err := p.db.Conn(ctx)
-			if err != nil {
-				p.logger.Error("fail to obtain db connection for lock; %w", logger.Any("error", err))
-				return
-			}
-			defer conn.Close()
-
-			err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, outboxLock).Scan(&cango)
-			if !cango || err != nil {
-				p.logger.Warn("Fail to obtain lock. Retrying in next 1 minute", logger.Any("error", err))
-				return
-			}
-
-			l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
-			err = l.Listen(outboxChannel)
-			if err != nil {
-				p.logger.Error("fail to listen for outbox notification", logger.Any("error", err))
-				return
-			}
-			defer l.Close()
-
-			nextwait = 0
-			var last *Outbox
-			for {
-				var event *pq.Notification
-				select {
-				case <-ctx.Done():
-					return
-
-				case event = <-l.NotificationChannel():
-				}
-
-				i, _ := strconv.ParseInt(event.Extra, 10, 64)
-				if last != nil && i < last.CreatedAt.UnixNano() {
-					continue
-				}
-
-				last, err = p.sendOutbox(ctx, 100)
-				if err != nil {
-					p.logger.Error("fail to send outboxes", logger.Any("error", err))
-				}
-			}
-		}()
 
 		select {
 		case <-ctx.Done():
-		case <-time.After(nextwait):
+			return
+
+		case <-time.After(time.Minute):
+		}
+	}
+}
+
+func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
+	obtain := false
+	conn, err := p.db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("fail to obtain connection for lock: %w", err)
+	}
+	defer conn.Close()
+	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, outboxLock).Scan(&obtain)
+	if !obtain {
+		return fmt.Errorf("lock has been obtained by other process")
+	}
+	if err != nil {
+		return fmt.Errorf("fail to obtain lock: %w", err)
+	}
+
+	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
+	if err = l.Listen(outboxChannel); err != nil {
+		return fmt.Errorf("fail to listen for outbox notification :%w", err)
+	}
+	defer l.Close()
+
+	var last *Outbox
+	for {
+		timer := time.NewTimer(time.Minute)
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-timer.C:
+		case event := <-l.NotificationChannel():
+			i, _ := strconv.ParseInt(event.Extra, 10, 64)
+			if last != nil && i < last.CreatedAt.UnixNano() {
+				continue
+			}
+		}
+
+		last, err = p.sendOutbox(ctx, 100)
+		if err != nil {
+			p.logger.Error("fail to send outboxes", logger.Any("error", err))
+		}
+
+		if !timer.Stop() {
+			<-timer.C
 		}
 	}
 }

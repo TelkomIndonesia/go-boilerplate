@@ -30,7 +30,6 @@ func TestProfileBasic(t *testing.T) {
 			go func() {
 				defer outboxesWG.Done()
 
-				fmt.Println("here")
 				p := newPostgres(t)
 				p.obSender = func(ctx context.Context, o []*Outbox) error {
 					for _, o := range o {
@@ -43,25 +42,24 @@ func TestProfileBasic(t *testing.T) {
 					}
 					return nil
 				}
-				p.watchOutboxes(ctx)
+				p.watchOutboxesLoop(ctx)
 			}()
 		}
 	})
 
 	p := getPostgres(t)
-	var pr *profile.Profile
+	pr := &profile.Profile{
+		TenantID: requireUUIDV7(t),
+		ID:       requireUUIDV7(t),
+		NIN:      "0123456789",
+		Name:     "Dohn Joe",
+		Email:    "dohnjoe@email.com",
+		Phone:    "+1234567",
+		DOB:      time.Date(1991, 1, 1, 1, 1, 1, 1, time.UTC),
+	}
 	t.Run("store", func(t *testing.T) {
-		pr = &profile.Profile{
-			TenantID: requireUUIDV7(t),
-			ID:       requireUUIDV7(t),
-			NIN:      "0123456789",
-			Name:     "Dohn Joe",
-			Email:    "dohnjoe@email.com",
-			Phone:    "+1234567",
-			DOB:      time.Date(1991, 1, 1, 1, 1, 1, 1, time.UTC),
-		}
-		profiles[pr.ID] = pr
 		require.NoError(t, p.StoreProfile(ctx, pr), "should successfully store profile")
+		profiles[pr.ID] = pr
 		for i := 1; i < cap(outboxes); i++ {
 			pr := &profile.Profile{
 				TenantID: pr.TenantID,
@@ -72,8 +70,8 @@ func TestProfileBasic(t *testing.T) {
 				Phone:    fmt.Sprintf("%s-%d", pr.Phone, i),
 				DOB:      pr.DOB,
 			}
-			profiles[pr.ID] = pr
 			require.NoErrorf(t, p.StoreProfile(ctx, pr), "should successfully store profile for index %d", i)
+			profiles[pr.ID] = pr
 		}
 	})
 

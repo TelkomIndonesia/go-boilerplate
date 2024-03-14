@@ -21,7 +21,6 @@ type LoggerContext interface {
 	Int64(key string, value int64)
 	Uint64(key string, value uint64)
 	Time(key string, value time.Time)
-	Duration(key string, value time.Duration)
 }
 
 type Loggable interface {

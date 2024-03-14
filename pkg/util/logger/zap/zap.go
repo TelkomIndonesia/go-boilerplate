@@ -89,8 +89,4 @@ func (lc *loggerContext) Uint64(key string, value uint64) {
 }
 func (lc *loggerContext) Time(key string, value time.Time) {
 	lc.fields = append(lc.fields, zap.Time(key, value))
-
-}
-func (lc *loggerContext) Duration(key string, value time.Duration) {
-	lc.fields = append(lc.fields, zap.Duration(key, value))
 }

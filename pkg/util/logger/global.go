@@ -59,8 +59,3 @@ func Time(key string, value time.Time) LoggerContextFunc {
 		lc.Time(key, value)
 	}
 }
-func Duration(key string, value time.Duration) LoggerContextFunc {
-	return func(lc LoggerContext) {
-		lc.Duration(key, value)
-	}
-}

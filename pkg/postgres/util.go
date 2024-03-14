@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"hash/fnv"
 )
 
 func txRollbackDeferer(tx *sql.Tx, err *error) func() {
@@ -17,4 +18,13 @@ func min[T int | int16 | int32 | int64](a T, b T) T {
 		return a
 	}
 	return b
+}
+
+func keyNameAsHash64(keyName string) uint64 {
+	hash := fnv.New64()
+	_, err := hash.Write([]byte(keyName))
+	if err != nil {
+		panic(err)
+	}
+	return hash.Sum64()
 }

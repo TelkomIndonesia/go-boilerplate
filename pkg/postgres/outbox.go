@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"strconv"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+type OutboxSender func(context.Context, []*Outbox) error
 type Outbox struct {
 	ID             uuid.UUID
 	TenantID       uuid.UUID
@@ -46,8 +46,6 @@ func newOutboxEncrypted(tid uuid.UUID, ctype string, content any) (o *Outbox, er
 	o.storeEncrypted = true
 	return
 }
-
-type OutboxSender func(context.Context, []*Outbox) error
 
 var outboxChannel = "outbox"
 var outboxLock = keyNameAsHash64("outbox")
@@ -95,6 +93,68 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 	}
 
 	return
+}
+
+func (p *Postgres) watchOutboxesLoop(ctx context.Context) (err error) {
+	for {
+		if err := p.watchOuboxes(ctx); err != nil {
+			p.logger.Warn("got outbox watcher error", logger.Any("error", err))
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-time.After(time.Minute):
+		}
+	}
+}
+
+func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
+	obtain := false
+	conn, err := p.db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("fail to obtain connection for lock: %w", err)
+	}
+	defer conn.Close()
+	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, outboxLock).Scan(&obtain)
+	if !obtain {
+		return fmt.Errorf("lock has been obtained by other process")
+	}
+	if err != nil {
+		return fmt.Errorf("fail to obtain lock: %w", err)
+	}
+
+	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
+	if err = l.Listen(outboxChannel); err != nil {
+		return fmt.Errorf("fail to listen for outbox notification :%w", err)
+	}
+	defer l.Close()
+
+	var last *Outbox
+	for {
+		timer := time.NewTimer(time.Minute)
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-timer.C:
+		case event := <-l.NotificationChannel():
+			i, _ := strconv.ParseInt(event.Extra, 10, 64)
+			if last != nil && i < last.CreatedAt.UnixNano() {
+				continue
+			}
+		}
+
+		last, err = p.sendOutbox(ctx, 100)
+		if err != nil {
+			p.logger.Error("fail to send outboxes", logger.Any("error", err))
+		}
+
+		if !timer.Stop() {
+			<-timer.C
+		}
+	}
 }
 
 func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err error) {
@@ -163,75 +223,4 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 	}
 
 	return outboxes[len(outboxes)-1], err
-}
-
-func keyNameAsHash64(keyName string) uint64 {
-	hash := fnv.New64()
-	_, err := hash.Write([]byte(keyName))
-	if err != nil {
-		panic(err)
-	}
-	return hash.Sum64()
-}
-
-func (p *Postgres) watchOutboxesLoop(ctx context.Context) (err error) {
-	for {
-		if err := p.watchOuboxes(ctx); err != nil {
-			p.logger.Warn("got outbox watcher error", logger.Any("error", err))
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-time.After(time.Minute):
-		}
-	}
-}
-
-func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
-	obtain := false
-	conn, err := p.db.Conn(ctx)
-	if err != nil {
-		return fmt.Errorf("fail to obtain connection for lock: %w", err)
-	}
-	defer conn.Close()
-	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, outboxLock).Scan(&obtain)
-	if !obtain {
-		return fmt.Errorf("lock has been obtained by other process")
-	}
-	if err != nil {
-		return fmt.Errorf("fail to obtain lock: %w", err)
-	}
-
-	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
-	if err = l.Listen(outboxChannel); err != nil {
-		return fmt.Errorf("fail to listen for outbox notification :%w", err)
-	}
-	defer l.Close()
-
-	var last *Outbox
-	for {
-		timer := time.NewTimer(time.Minute)
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-timer.C:
-		case event := <-l.NotificationChannel():
-			i, _ := strconv.ParseInt(event.Extra, 10, 64)
-			if last != nil && i < last.CreatedAt.UnixNano() {
-				continue
-			}
-		}
-
-		last, err = p.sendOutbox(ctx, 100)
-		if err != nil {
-			p.logger.Error("fail to send outboxes", logger.Any("error", err))
-		}
-
-		if !timer.Stop() {
-			<-timer.C
-		}
-	}
 }

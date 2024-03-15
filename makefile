@@ -2,7 +2,7 @@
 
 keys:
 	go run ./tools/gentinkey .local/tink-aead.json .local/tink-mac.json
-	docker compose -f docker-compose.genx509.yml up
+	docker compose -f docker-compose.keys.yml up
 
 build: 
 	go build ./...

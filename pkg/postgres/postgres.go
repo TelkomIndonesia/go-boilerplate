@@ -11,11 +11,11 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/tink-crypto/tink-go/v2/keyset"
 	"github.com/tink-crypto/tink-go/v2/tink"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var _ profile.ProfileRepository = &Postgres{}
@@ -67,7 +67,7 @@ func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) OptFunc {
 func WithConnString(connStr string) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.dbUrl = connStr
-		p.db, err = sql.Open("postgres", connStr)
+		p.db, err = otelsql.Open("postgres", connStr)
 		return
 	}
 }

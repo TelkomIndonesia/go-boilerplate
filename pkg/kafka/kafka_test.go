@@ -26,7 +26,7 @@ func getTestKafka(t *testing.T) *Kafka {
 }
 
 func newTestKafka(t *testing.T) *Kafka {
-	v, ok := os.LookupEnv("KAFKA_BROKERS")
+	v, ok := os.LookupEnv("TEST_KAFKA_BROKERS")
 	if !ok {
 		t.Skip("no kafka brokers was defined in env var")
 	}
@@ -40,7 +40,7 @@ func TestReadWrite(t *testing.T) {
 
 	k := getTestKafka(t)
 
-	conn, err := kafka.DialLeader(ctx, "tcp", os.Getenv("KAFKA_BROKERS"), "test", 0)
+	conn, err := kafka.DialLeader(ctx, "tcp", os.Getenv("TEST_KAFKA_BROKERS"), "test", 0)
 	require.NoError(t, err, "should dial kafka", err)
 	conn.Controller()
 	defer conn.Close()
@@ -52,7 +52,7 @@ func TestReadWrite(t *testing.T) {
 	require.NoError(t, err, "should successfully write to kafka")
 
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{os.Getenv("KAFKA_BROKERS")},
+		Brokers:   []string{os.Getenv("TEST_KAFKA_BROKERS")},
 		Topic:     "test",
 		Partition: 0,
 		MaxBytes:  10e6, // 10MB

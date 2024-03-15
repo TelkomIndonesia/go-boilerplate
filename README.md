@@ -5,10 +5,10 @@
 Features:
 
 - [x] Database (postgres) with Encryption at Rest (tink)
-  - [x] Per-tenant encryption key
+  - [x] Derivable encryption key (per tenant)
   - [x] Rotatable encription key
   - [x] Blind index as bloom filter for exact match
-  - [x] Outbox pattern (kafka relayer)
+  - [x] Outbox pattern (kafka)
 - [x] CI/CD as Code (dagger).
 - [x] Dockerized.
 - [x] Env Config.

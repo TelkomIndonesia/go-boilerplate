@@ -2,9 +2,11 @@ package crypt
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/tink-crypto/tink-go/v2/aead"
+	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
 	"github.com/tink-crypto/tink-go/v2/keyderivation"
 	"github.com/tink-crypto/tink-go/v2/keyset"
 	"github.com/tink-crypto/tink-go/v2/mac"
@@ -35,11 +37,30 @@ type DerivableKeyset[T Primitive] struct {
 	primitives  sync.Map
 }
 
-func NewDerivableKeySet[T Primitive](m *keyset.Handle, c NewPrimitive[T]) *DerivableKeyset[T] {
-	return &DerivableKeyset[T]{
+func NewDerivableKeyset[T Primitive](m *keyset.Handle, c NewPrimitive[T]) (*DerivableKeyset[T], error) {
+	k := &DerivableKeyset[T]{
 		master:      m,
 		constructur: c,
 	}
+
+	if _, err := k.GetPrimitive(nil); err != nil {
+		return nil, fmt.Errorf("fail to load primitive: %w", err)
+	}
+	return k, nil
+}
+
+func NewInsecureCleartextDerivableKeyset[T Primitive](path string, c NewPrimitive[T]) (*DerivableKeyset[T], error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("fail to open keyset file: %w", err)
+	}
+
+	h, err := insecurecleartextkeyset.Read(keyset.NewJSONReader(f))
+	if err != nil {
+		return nil, fmt.Errorf("fail to load keyset: %w", err)
+	}
+
+	return NewDerivableKeyset(h, c)
 }
 
 func (m *DerivableKeyset[T]) GetHandle(salt []byte) (h *keyset.Handle, err error) {

@@ -5,7 +5,7 @@ volumes:
 services:
   profile:
     build:
-      target: builder
+      target: base
     volumes:
       - go-mod:/go/pkg/mod
       - go-build:/root/.cache/go-build

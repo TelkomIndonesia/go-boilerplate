@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
@@ -15,7 +14,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
 	"github.com/tink-crypto/tink-go/v2/keyset"
 	"github.com/tink-crypto/tink-go/v2/tink"
 )
@@ -36,38 +34,30 @@ func WithLogger(l logger.Logger) OptFunc {
 }
 
 func WithInsecureKeysetFiles(aeadPath string, macPath string) OptFunc {
-	return func(p *Postgres) error {
-		f, err := os.Open(aeadPath)
+	return func(p *Postgres) (err error) {
+		p.aead, err = crypt.NewInsecureCleartextDerivableKeyset(aeadPath, crypt.NewPrimitiveAEAD)
 		if err != nil {
-			return fmt.Errorf("fail to open aead keyset file: %w", err)
-		}
-		aead, err := insecurecleartextkeyset.Read(keyset.NewJSONReader(f))
-		if err != nil {
-			return fmt.Errorf("fail to load aead keyset: %w", err)
+			return fmt.Errorf("fail to create aead derivable-keyset:%w", err)
 		}
 
-		f, err = os.Open(macPath)
+		p.mac, err = crypt.NewInsecureCleartextDerivableKeyset(macPath, crypt.NewPrimitiveMAC)
 		if err != nil {
-			return fmt.Errorf("fail to open mac keyset file: %w", err)
-		}
-		mac, err := insecurecleartextkeyset.Read(keyset.NewJSONReader(f))
-		if err != nil {
-			return fmt.Errorf("fail to load mac keyset: %w", err)
+			return fmt.Errorf("fail to create mac derivable-keyset:%w", err)
 		}
 
-		return WithKeysets(aead, mac)(p)
+		return nil
 	}
 }
 
 func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) OptFunc {
 	return func(p *Postgres) (err error) {
-		p.aead = crypt.NewDerivableKeySet(aeadKey, crypt.NewPrimitiveAEAD)
-		if _, err = p.aead.GetPrimitive(nil); err != nil {
-			return fmt.Errorf("fail to verify aead derivable-keyset: %w", err)
+		p.aead, err = crypt.NewDerivableKeyset(aeadKey, crypt.NewPrimitiveAEAD)
+		if err != nil {
+			return fmt.Errorf("fail to create aead derivable-keyset: %w", err)
 		}
 
-		p.mac = crypt.NewDerivableKeySet(macKey, crypt.NewPrimitiveMAC)
-		if _, err = p.mac.GetPrimitive(nil); err != nil {
+		p.mac, err = crypt.NewDerivableKeyset(macKey, crypt.NewPrimitiveMAC)
+		if err != nil {
 			return fmt.Errorf("fail to create mac derivable-keyset: %w", err)
 		}
 		return nil

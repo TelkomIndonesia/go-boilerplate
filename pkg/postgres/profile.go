@@ -17,6 +17,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 		attribute.Stringer("tenantID", pr.TenantID),
 		attribute.Stringer("id", pr.ID),
 	))
+	defer span.RecordError(err)
 	defer span.End()
 
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})

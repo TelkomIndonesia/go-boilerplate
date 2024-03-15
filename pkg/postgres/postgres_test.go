@@ -32,7 +32,7 @@ func tGetPostgres(t *testing.T) *Postgres {
 }
 
 func tNewPostgres(t *testing.T, opts ...OptFunc) *Postgres {
-	url, ok := os.LookupEnv("POSTGRES_URL")
+	url, ok := os.LookupEnv("TEST_POSTGRES_URL")
 	if !ok {
 		t.Skip("no postgres url found")
 	}

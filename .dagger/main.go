@@ -71,15 +71,15 @@ func main() {
 
 	// build docker image for running test and run the test
 	image := src.DockerBuild(dagger.DirectoryDockerBuildOpts{
-		Target: "builder",
+		Target: "base",
 	})
 	test := image.
 		WithMountedCache("/go/pkg/mod", client.CacheVolume("golang-mod")).
 		WithMountedCache("/root/.cache/go-build", client.CacheVolume("golang-build")).
 		WithServiceBinding("postgres", postgresService).
-		WithEnvVariable("POSTGRES_URL", "postgres://testing:testing@postgres:5432/testing?sslmode=disable").
+		WithEnvVariable("TEST_POSTGRES_URL", "postgres://testing:testing@postgres:5432/testing?sslmode=disable").
 		WithServiceBinding("kafka", kafkaService).
-		WithEnvVariable("KAFKA_BROKERS", "kafka:9092").
+		WithEnvVariable("TEST_KAFKA_BROKERS", "kafka:9092").
 		WithMountedDirectory("/tmp/waiter", waiter.Directory("/")).
 		WithWorkdir(dir).
 		WithMountedDirectory(".", src).

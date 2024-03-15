@@ -10,13 +10,14 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 )
 
-func (h HTTPServer) setProfileGroup() {
+func (h *HTTPServer) registerProfileGroup() *HTTPServer {
 	profile := h.handler.Group("/tenants/:tenantid/profiles")
-	h.getProfile(profile)
-	h.putProfile(profile)
+	h.getProfile(profile).
+		putProfile(profile)
+	return h
 }
 
-func (h HTTPServer) putProfile(g *echo.Group) {
+func (h *HTTPServer) putProfile(g *echo.Group) *HTTPServer {
 	g.PUT("/:id", func(c echo.Context) error {
 		tid, err := uuid.Parse(c.Param("tenantid"))
 		if err != nil {
@@ -43,8 +44,10 @@ func (h HTTPServer) putProfile(g *echo.Group) {
 		h.logger.Info("profile_stored", logger.TraceContext("trace-id", c.Request().Context()), logger.Any("profile", pr))
 		return c.String(http.StatusCreated, "profile stored")
 	})
+	return h
 }
-func (h HTTPServer) getProfile(g *echo.Group) {
+
+func (h *HTTPServer) getProfile(g *echo.Group) *HTTPServer {
 	g.GET("/:id", func(c echo.Context) error {
 		tid, err := uuid.Parse(c.Param("tenantid"))
 		if err != nil {
@@ -72,10 +75,10 @@ func (h HTTPServer) getProfile(g *echo.Group) {
 
 		return c.JSON(http.StatusOK, pr)
 	})
-
+	return h
 }
 
-func (h HTTPServer) tenantPassthrough() {
+func (h *HTTPServer) registerTenantPassthrough() *HTTPServer {
 	h.handler.GET("/tenants/:tenantid", func(c echo.Context) error {
 		tid, err := uuid.Parse(c.Param("tenantid"))
 		if err != nil {
@@ -87,4 +90,5 @@ func (h HTTPServer) tenantPassthrough() {
 		}
 		return c.JSON(http.StatusOK, t)
 	})
+	return h
 }

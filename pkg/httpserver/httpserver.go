@@ -83,29 +83,28 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 	}
 	h.profileMgr = profile.ProfileManager{PR: h.profileRepo, TR: h.profileMgr.TR}
 
-	err = h.buildHandlers()
+	err = h.buildServer()
 	return
 }
 
-func (h *HTTPServer) HealthCheckHandler(c echo.Context) error {
-	return c.String(http.StatusOK, "Server is healthy")
-}
-
-func (h *HTTPServer) registerHealthCheck() {
-	h.handler.GET("/health", h.HealthCheckHandler)
-}
-
-func (h *HTTPServer) buildHandlers() (err error) {
+func (h *HTTPServer) buildServer() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
-	h.setProfileGroup()
-	h.tenantPassthrough()
-	h.registerHealthCheck()
+	h.registerProfileGroup().
+		registerHealthCheck().
+		registerTenantPassthrough()
 
 	h.server = &http.Server{
 		Handler:  h.handler,
 		ErrorLog: logger.NewGoLogger(h.logger, "http_server: ", 0),
 	}
 	return
+}
+
+func (h *HTTPServer) registerHealthCheck() *HTTPServer {
+	h.handler.GET("/health", func(c echo.Context) error {
+		return c.String(http.StatusOK, "Server is healthy")
+	})
+	return h
 }
 
 func (h HTTPServer) Start(ctx context.Context) (err error) {

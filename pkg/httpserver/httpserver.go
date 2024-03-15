@@ -87,10 +87,19 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 	return
 }
 
+func (h *HTTPServer) HealthCheckHandler(c echo.Context) error {
+	return c.String(http.StatusOK, "Server is healthy")
+}
+
+func (h *HTTPServer) registerHealthCheck() {
+	h.handler.GET("/health", h.HealthCheckHandler)
+}
+
 func (h *HTTPServer) buildHandlers() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
 	h.setProfileGroup()
 	h.tenantPassthrough()
+	h.registerHealthCheck()
 
 	h.server = &http.Server{
 		Handler:  h.handler,

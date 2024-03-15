@@ -11,7 +11,7 @@ test:
 	cd .dagger && go run . ..
 
 start:
-	docker compose up --build
+	docker compose up --build profile
 
 stop:
 	docker compose down

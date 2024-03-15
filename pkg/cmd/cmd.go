@@ -156,16 +156,13 @@ func (c *CMD) initKafka() (err error) {
 	c.ok = func(ctx context.Context, o []*postgres.Outbox) error {
 		msgs := make([]kafka.Message, 0, len(o))
 		for _, o := range o {
-			msg := kafka.Message{Topic: c.KafkaTopicOutbox}
-			msg.Value, err = json.Marshal(o)
-			if err != nil {
+			var msg kafka.Message
+			if msg.Value, err = json.Marshal(o); err != nil {
 				return fmt.Errorf("fail to marshal outbox: %w", err)
 			}
-
-			msg.Topic = c.KafkaTopicOutbox
 			msgs = append(msgs, msg)
 		}
-		return c.k.Write(ctx, msgs...)
+		return c.k.Write(ctx, c.KafkaTopicOutbox, msgs...)
 	}
 
 	c.closers = append(c.closers, c.k.Close)

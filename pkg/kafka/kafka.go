@@ -51,10 +51,13 @@ func New(opts ...OptFunc) (k *Kafka, err error) {
 	return
 }
 
-func (k *Kafka) Write(ctx context.Context, msgs ...Message) (err error) {
+func (k *Kafka) Write(ctx context.Context, topic string, msgs ...Message) (err error) {
+	if topic == "" {
+		topic = k.topic
+	}
 	kmsgs := make([]kafka.Message, 0, len(msgs))
 	for _, msg := range msgs {
-		kmsgs = append(kmsgs, msg.toKafkaMessage(k.topic))
+		kmsgs = append(kmsgs, msg.toKafkaMessage(topic))
 	}
 
 	err = k.writer.WriteMessages(ctx, kmsgs...)

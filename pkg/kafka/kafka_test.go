@@ -45,8 +45,8 @@ func TestReadWrite(t *testing.T) {
 	conn.Controller()
 	defer conn.Close()
 
-	err = k.Write(ctx,
-		Message{Topic: "test", Value: []byte("hello")},
+	err = k.Write(ctx, "test",
+		Message{Value: []byte("hello")},
 		Message{Topic: "test", Value: []byte("world")},
 	)
 	require.NoError(t, err, "should successfully write to kafka")

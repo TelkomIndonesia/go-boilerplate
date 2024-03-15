@@ -17,6 +17,7 @@ import (
 
 	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
 	"github.com/tink-crypto/tink-go/v2/keyset"
+	"github.com/tink-crypto/tink-go/v2/tink"
 )
 
 var _ profile.ProfileRepository = &Postgres{}
@@ -135,7 +136,15 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	return p, nil
 }
 
-func (p *Postgres) GetBlindIdxKeys(tenantID uuid.UUID, key []byte) (idxs [][]byte, err error) {
+func (p *Postgres) getAEAD(tenantID uuid.UUID) (tink.AEAD, error) {
+	return p.aead.GetPrimitive(tenantID[:])
+}
+
+func (p *Postgres) getMac(tenantID uuid.UUID) (tink.MAC, error) {
+	return p.mac.GetPrimitive(tenantID[:])
+}
+
+func (p *Postgres) getBlindIdxs(tenantID uuid.UUID, key []byte) (idxs [][]byte, err error) {
 	h, err := p.mac.GetHandle(tenantID[:])
 	if err != nil {
 		return nil, fmt.Errorf("fail to get keyset handle for tenant %s: %w", tenantID, err)

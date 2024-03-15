@@ -58,7 +58,7 @@ func (p *Postgres) argEncTime(tenantID uuid.UUID, t time.Time, aad []byte) argFu
 		if err != nil {
 			return nil, fmt.Errorf("fail to marshal time to binary: %w", err)
 		}
-		paead, err := p.aead.GetPrimitive(tenantID[:])
+		paead, err := p.getAEAD(tenantID)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +69,7 @@ func (p *Postgres) argEncTime(tenantID uuid.UUID, t time.Time, aad []byte) argFu
 
 func (p *Postgres) argEncStr(tenantID uuid.UUID, str string, aad []byte) argFunc {
 	return func() (any, error) {
-		paead, err := p.aead.GetPrimitive(tenantID[:])
+		paead, err := p.getAEAD(tenantID)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +80,7 @@ func (p *Postgres) argEncStr(tenantID uuid.UUID, str string, aad []byte) argFunc
 
 func (p *Postgres) argBlindIdx(tenantID uuid.UUID, str string) argFunc {
 	return func() (any, error) {
-		pmac, err := p.mac.GetPrimitive(tenantID[:])
+		pmac, err := p.getMac(tenantID)
 		if err != nil {
 			return nil, err
 		}

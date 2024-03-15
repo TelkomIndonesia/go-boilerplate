@@ -67,7 +67,7 @@ func (p *Postgres) newOutboxEncrypted(tid uuid.UUID, event string, ctype string,
 		return
 	}
 
-	o.aead, err = p.aead.GetPrimitive(o.TenantID[:])
+	o.aead, err = p.getAEAD(o.TenantID)
 	if err != nil {
 		return
 	}
@@ -254,7 +254,7 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 		if err != nil {
 			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}
-		o.aead, err = p.aead.GetPrimitive(o.TenantID[:])
+		o.aead, err = p.getAEAD(o.TenantID)
 		if err != nil {
 			return nil, fmt.Errorf("fail to load encryption primitive: %w", err)
 		}

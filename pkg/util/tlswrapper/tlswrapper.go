@@ -75,7 +75,7 @@ func WithCA(path string) OptFunc {
 				c.logger.Error("ca-file-watcher", logger.Any("error", err))
 				return
 			}
-			if err = c.loadLeaf(); err != nil {
+			if err = c.loadCA(); err != nil {
 				c.logger.Error("ca-file-watcher", logger.Any("error", err))
 				return
 			}
@@ -137,15 +137,15 @@ func New(opts ...OptFunc) (c TLSWrapper, err error) {
 }
 
 func (c *wrapper) loadLeaf() (err error) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
 	cert, err := tls.LoadX509KeyPair(c.certPath, c.keyPath)
 	if err != nil {
 		return fmt.Errorf("fail to load x509 key pair: %w", err)
 	}
 
 	c.cert = &cert
-
-	c.mux.Lock()
-	defer c.mux.Unlock()
 	c.cfgs = c.serverConfig()
 	c.cfgc = c.clientConfig()
 	c.listenerFunc(c.cfgs, c.cfgc)
@@ -153,8 +153,11 @@ func (c *wrapper) loadLeaf() (err error) {
 }
 
 func (c *wrapper) loadCA() (err error) {
-	c.clientCa = x509.NewCertPool()
-	c.rootCA, err = x509.SystemCertPool()
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	clientCa := x509.NewCertPool()
+	rootCA, err := x509.SystemCertPool()
 	if err != nil {
 		return fmt.Errorf("fail to load system cert file: %w", err)
 	}
@@ -163,15 +166,15 @@ func (c *wrapper) loadCA() (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to open ca file: %w", err)
 	}
-	if ok := c.rootCA.AppendCertsFromPEM(certs); !ok {
+	if ok := rootCA.AppendCertsFromPEM(certs); !ok {
 		return fmt.Errorf("fail to append x509 cert pool: %w", err)
 	}
-	if ok := c.clientCa.AppendCertsFromPEM(certs); !ok {
+	if ok := clientCa.AppendCertsFromPEM(certs); !ok {
 		return fmt.Errorf("fail to append x509 cert pool: %w", err)
 	}
 
-	c.mux.Lock()
-	defer c.mux.Unlock()
+	c.clientCa = clientCa
+	c.rootCA = rootCA
 	c.cfgs = c.serverConfig()
 	c.cfgc = c.clientConfig()
 	c.listenerFunc(c.cfgs, c.cfgc)

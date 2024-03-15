@@ -21,13 +21,29 @@ type Profile struct {
 }
 
 func (p Profile) AsLog() any {
+	if len(p.Name) >= 3 {
+		p.Name = p.Name[:3]
+	}
+
+	if len(p.Email) >= 3 {
+		p.Email = p.Email[:3]
+	}
+
+	if len(p.Phone) >= 3 {
+		p.Phone = p.Phone[:3]
+	}
+
+	if len(p.NIN) >= 3 {
+		p.NIN = p.NIN[len(p.NIN)-3:]
+	}
+
 	return Profile{
 		TenantID: p.TenantID,
 		ID:       p.ID,
-		NIN:      "***" + p.NIN[len(p.NIN)-3:],
-		Name:     p.Name[:3] + "***",
-		Email:    p.Email[:3] + "***",
-		Phone:    p.Phone[:3] + "***",
+		NIN:      "***" + p.NIN,
+		Name:     p.Name + "***",
+		Email:    p.Email + "***",
+		Phone:    p.Phone + "***",
 		DOB:      time.Date(p.DOB.Year(), 1, 1, 0, 0, 0, 0, p.DOB.Location()),
 	}
 }

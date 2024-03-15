@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 )
 
 func (h HTTPServer) setProfileGroup() {
@@ -25,6 +26,7 @@ func (h HTTPServer) putProfile(g *echo.Group) {
 		if err != nil {
 			return c.String(http.StatusBadRequest, "invalid profile id")
 		}
+
 		var pr *profile.Profile
 		err = json.NewDecoder(c.Request().Body).Decode(&pr)
 		if err != nil {
@@ -38,6 +40,7 @@ func (h HTTPServer) putProfile(g *echo.Group) {
 			return c.String(http.StatusInternalServerError, "invalid profile")
 		}
 
+		h.logger.Info("profile_stored", logger.TraceContext("trace-id", c.Request().Context()), logger.Any("profile", pr))
 		return c.String(http.StatusCreated, "profile stored")
 	})
 }

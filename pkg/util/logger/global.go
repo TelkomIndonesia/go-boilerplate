@@ -1,8 +1,11 @@
 package logger
 
 import (
+	"context"
 	"os"
 	"time"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 var globalLogger Logger = deflogger{w: os.Stderr}
@@ -24,38 +27,56 @@ func Any(key string, value any) LoggerContextFunc {
 		lc.Any(key, value)
 	}
 }
+
 func Bool(key string, value bool) LoggerContextFunc {
 	return func(lc LoggerContext) {
 		lc.Bool(key, value)
 	}
 }
+
 func ByteString(key string, value []byte) LoggerContextFunc {
 	return func(lc LoggerContext) {
 		lc.ByteString(key, value)
 	}
 }
+
 func String(key string, value string) LoggerContextFunc {
 	return func(lc LoggerContext) {
 		lc.String(key, value)
 	}
 }
+
 func Float64(key string, value float64) LoggerContextFunc {
 	return func(lc LoggerContext) {
 		lc.Float64(key, value)
 	}
 }
+
 func Int64(key string, value int64) LoggerContextFunc {
 	return func(lc LoggerContext) {
 		lc.Int64(key, value)
 	}
 }
+
 func Uint64(key string, value uint64) LoggerContextFunc {
 	return func(lc LoggerContext) {
 		lc.Uint64(key, value)
 	}
 }
+
 func Time(key string, value time.Time) LoggerContextFunc {
 	return func(lc LoggerContext) {
 		lc.Time(key, value)
+	}
+}
+
+func TraceContext(key string, ctx context.Context) LoggerContextFunc {
+	return func(lc LoggerContext) {
+		spanCtx := trace.SpanContextFromContext(ctx)
+		if !spanCtx.HasTraceID() {
+			return
+		}
+		lc.String(key, spanCtx.TraceID().String())
+		return
 	}
 }

@@ -76,6 +76,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("fail to commit: %w", err)
 	}
+
 	return
 }
 

@@ -24,8 +24,8 @@ services:
       - |-
         step certificate create ca ca.crt ca.key \
           --profile root-ca --no-password --insecure -f
-        step certificate create profile profile.crt profile.key --san localhost \
+        step certificate create profile profile.crt profile.key --san profile --san localhost \
           --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f
-        step certificate create tenant tenant.crt tenant.key --san localhost \
+        step certificate create tenant tenant.crt tenant.key --san tenant --san localhost \
           --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f
       

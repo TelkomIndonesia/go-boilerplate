@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/tink-crypto/tink-go/v2/tink"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -38,7 +39,8 @@ type Outbox struct {
 	Event       string        `json:"event"`
 	Content     OutboxContent `json:"content"`
 
-	storeEncrypted bool
+	isEncrypted bool
+	aead        tink.AEAD
 }
 
 func newOutbox(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
@@ -59,13 +61,66 @@ func newOutbox(tid uuid.UUID, event string, ctype string, content any) (o *Outbo
 	return
 }
 
-func newOutboxEncrypted(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
+func (p *Postgres) newOutboxEncrypted(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
 	o, err = newOutbox(tid, ctype, event, content)
 	if err != nil {
 		return
 	}
-	o.storeEncrypted = true
+
+	o.aead, err = p.aead.GetPrimitive(o.TenantID[:])
+	if err != nil {
+		return
+	}
+
+	*o, err = o.AsEncrypted()
 	return
+}
+
+func (ob Outbox) AsEncrypted() (o Outbox, err error) {
+	if ob.isEncrypted {
+		return ob, nil
+	}
+
+	if ob.aead == nil {
+		return o, fmt.Errorf("can't encrypt due to nil encryptor")
+	}
+
+	ctn, err := ob.aead.Encrypt(ob.Content, ob.ID[:])
+	if err != nil {
+		return o, fmt.Errorf("fail to encrypt outbox: %w", err)
+	}
+
+	ob.Content, err = json.Marshal(ctn)
+	if err != nil {
+		return o, fmt.Errorf("fail to marshal encrypted outbox: %w", err)
+	}
+
+	ob.isEncrypted = true
+	return ob, nil
+}
+
+func (ob Outbox) AsUnEncrypted() (o Outbox, err error) {
+	if !ob.isEncrypted {
+		return ob, nil
+	}
+
+	if ob.aead == nil {
+		return o, fmt.Errorf("can't decrypt due to nil decryptor")
+	}
+
+	var content []byte
+	err = json.Unmarshal(ob.Content, &content)
+	if err != nil {
+		return o, fmt.Errorf("fail to unmarshal encrypted outbox: %w", err)
+	}
+
+	ob.Content, err = ob.aead.Decrypt(content, ob.ID[:])
+	if err != nil {
+		return o, fmt.Errorf("fail to decrypt encrypted outbox: %w", err)
+	}
+
+	ob.isEncrypted = true
+	return ob, nil
 }
 
 func (ob Outbox) UnmarshalContent(v any) error {
@@ -83,22 +138,6 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 	))
 	defer span.End()
 
-	content := ob.Content
-	if ob.storeEncrypted {
-		paead, err := p.aead.GetPrimitive(ob.TenantID[:])
-		if err != nil {
-			return err
-		}
-		content, err = paead.Encrypt(content, ob.ID[:])
-		if err != nil {
-			return fmt.Errorf("fail to encrypt outbox: %w", err)
-		}
-		content, err = json.Marshal([]byte(content))
-		if err != nil {
-			return fmt.Errorf("fail to marshal encrypted outbox: %w", err)
-		}
-	}
-
 	outboxQ := `
 		INSERT INTO outbox 
 		(id, tenant_id, type, content, event, is_encrypted, created_at)
@@ -106,7 +145,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 		($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, ob.ContentType, content, ob.Event, ob.storeEncrypted, ob.CreatedAt,
+		ob.ID, ob.TenantID, ob.ContentType, ob.Content, ob.Event, ob.isEncrypted, ob.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
@@ -211,25 +250,13 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 	for rows.Next() {
 		o := &Outbox{}
 
-		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.Content, &o.Event, &o.storeEncrypted, &o.CreatedAt)
+		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.Content, &o.Event, &o.isEncrypted, &o.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}
-
-		if o.storeEncrypted {
-			var content []byte
-			err = json.Unmarshal(o.Content, &content)
-			if err != nil {
-				return nil, fmt.Errorf("fail to unmarshal encrypted outbox: %w", err)
-			}
-			paead, err := p.aead.GetPrimitive(o.TenantID[:])
-			if err != nil {
-				return nil, err
-			}
-			o.Content, err = paead.Decrypt(content, o.ID[:])
-			if err != nil {
-				return nil, fmt.Errorf("fail to decrypt encrypted outbox: %w", err)
-			}
+		o.aead, err = p.aead.GetPrimitive(o.TenantID[:])
+		if err != nil {
+			return nil, fmt.Errorf("fail to load encryption primitive: %w", err)
 		}
 
 		outboxes = append(outboxes, o)

@@ -33,6 +33,9 @@ func TestProfileBasic(t *testing.T) {
 				p := tNewPostgres(t,
 					WithOutboxSender(func(ctx context.Context, o []*Outbox) error {
 						for _, o := range o {
+							o, err := o.AsUnEncrypted()
+							assert.NoError(t, err, "should return unencrypted outbox")
+
 							pr := &profile.Profile{}
 							require.NoError(t, json.Unmarshal(o.Content, &pr), "should return valid json")
 							outboxes = append(outboxes, pr)
@@ -41,8 +44,8 @@ func TestProfileBasic(t *testing.T) {
 							cancel()
 						}
 						return nil
-					},
-					))
+					}),
+				)
 				defer p.Close(context.Background())
 
 				<-ctx.Done()

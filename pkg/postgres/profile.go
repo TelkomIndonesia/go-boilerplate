@@ -65,7 +65,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	}
 
 	// outbox
-	ob, err := newOutboxEncrypted(pr.TenantID, "profile_stored", "profile", pr)
+	ob, err := p.newOutboxEncrypted(pr.TenantID, "profile_stored", "profile", pr)
 	if err != nil {
 		return fmt.Errorf("fail to create outbox: %w", err)
 	}

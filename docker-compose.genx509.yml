@@ -1,19 +1,4 @@
-volumes:
-  go-mod:
-  go-build:
-
 services:
-  profile:
-    build:
-      target: builder
-    volumes:
-      - go-mod:/go/pkg/mod
-      - go-build:/root/.cache/go-build
-
-      - ${PWD:-.}:${PWD:-/src}
-    working_dir: ${PWD:-/src}
-    entrypoint: [ go, run, ./cmd ]
-
   genx509:
     image: jitesoft/step-cli
     volumes:

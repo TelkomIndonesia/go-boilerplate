@@ -12,6 +12,7 @@ import (
 func (h HTTPServer) setProfileGroup() {
 	profile := h.handler.Group("/tenants/:tenantid/profiles")
 	h.getProfile(profile)
+	h.putProfile(profile)
 }
 
 func (h HTTPServer) putProfile(g *echo.Group) {

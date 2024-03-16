@@ -14,6 +14,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger/zap"
@@ -74,14 +75,16 @@ type CMD struct {
 
 	OtelTraceProvider string `env:"OPENTELEMETRY_TRACE_PROVIDER" json:"opentelemetry_trace_provider"`
 
-	l  logger.Logger
-	h  *httpserver.HTTPServer
-	p  *postgres.Postgres
-	k  *kafka.Kafka
-	ok postgres.OutboxSender
-	ts *tenantservice.TenantService
-	hc httpclient.HTTPClient
-	t  tlswrapper.TLSWrapper
+	l    logger.Logger
+	h    *httpserver.HTTPServer
+	aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
+	mac  *crypt.DerivableKeyset[crypt.PrimitiveMAC]
+	p    *postgres.Postgres
+	k    *kafka.Kafka
+	ok   postgres.OutboxSender
+	ts   *tenantservice.TenantService
+	hc   httpclient.HTTPClient
+	t    tlswrapper.TLSWrapper
 
 	closers []func(context.Context) error
 }
@@ -113,6 +116,9 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 		return
 	}
 	if err = c.initKafka(); err != nil {
+		return
+	}
+	if err = c.initDerivableKeysets(); err != nil {
 		return
 	}
 	if err = c.initPostgres(); err != nil {
@@ -173,10 +179,22 @@ func (c *CMD) initKafka() (err error) {
 	return
 }
 
+func (c *CMD) initDerivableKeysets() (err error) {
+	c.aead, err = crypt.NewInsecureCleartextDerivableKeyset(c.PostgresAEADPath, crypt.NewPrimitiveAEAD)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate aead keyset: %w", err)
+	}
+	c.mac, err = crypt.NewInsecureCleartextDerivableKeyset(c.PostgresMACPath, crypt.NewPrimitiveMAC)
+	if err != nil {
+		return fmt.Errorf("fail to instantiate mac keyset: %w", err)
+	}
+	return
+}
+
 func (c *CMD) initPostgres() (err error) {
 	opts := []postgres.OptFunc{
 		postgres.WithConnString(c.PostgresUrl),
-		postgres.WithInsecureKeysetFiles(c.PostgresAEADPath, c.PostgresMACPath),
+		postgres.WithDerivableKeysets(c.aead, c.mac),
 		postgres.WithLogger(c.l),
 	}
 	if c.ok != nil {

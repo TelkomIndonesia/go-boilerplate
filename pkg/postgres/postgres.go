@@ -11,7 +11,6 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
-	"github.com/tink-crypto/tink-go/v2/keyset"
 	"github.com/tink-crypto/tink-go/v2/tink"
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"go.opentelemetry.io/otel"
@@ -33,34 +32,11 @@ func WithLogger(l logger.Logger) OptFunc {
 	}
 }
 
-func WithInsecureKeysetFiles(aeadPath string, macPath string) OptFunc {
+func WithDerivableKeysets(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD], mac *crypt.DerivableKeyset[crypt.PrimitiveMAC]) OptFunc {
 	return func(p *Postgres) (err error) {
-		p.aead, err = crypt.NewInsecureCleartextDerivableKeyset(aeadPath, crypt.NewPrimitiveAEAD)
-		if err != nil {
-			return fmt.Errorf("fail to create aead derivable-keyset:%w", err)
-		}
-
-		p.mac, err = crypt.NewInsecureCleartextDerivableKeyset(macPath, crypt.NewPrimitiveMAC)
-		if err != nil {
-			return fmt.Errorf("fail to create mac derivable-keyset:%w", err)
-		}
-
-		return nil
-	}
-}
-
-func WithKeysets(aeadKey *keyset.Handle, macKey *keyset.Handle) OptFunc {
-	return func(p *Postgres) (err error) {
-		p.aead, err = crypt.NewDerivableKeyset(aeadKey, crypt.NewPrimitiveAEAD)
-		if err != nil {
-			return fmt.Errorf("fail to create aead derivable-keyset: %w", err)
-		}
-
-		p.mac, err = crypt.NewDerivableKeyset(macKey, crypt.NewPrimitiveMAC)
-		if err != nil {
-			return fmt.Errorf("fail to create mac derivable-keyset: %w", err)
-		}
-		return nil
+		p.aead = aead
+		p.mac = mac
+		return
 	}
 }
 
@@ -115,6 +91,16 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		if err = opt(p); err != nil {
 			return p, err
 		}
+	}
+
+	if p.db == nil {
+		return nil, fmt.Errorf("missing db connection")
+	}
+	if p.aead == nil || p.mac == nil {
+		return nil, fmt.Errorf("missing aead or mac keyset")
+	}
+	if p.logger == nil {
+		return nil, fmt.Errorf("missing logger")
 	}
 
 	if p.obSender != nil {

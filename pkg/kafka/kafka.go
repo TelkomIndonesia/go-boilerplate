@@ -38,6 +38,9 @@ func New(opts ...OptFunc) (k *Kafka, err error) {
 			return nil, fmt.Errorf("fail to apply options: %w", err)
 		}
 	}
+	if len(k.brokers) == 0 {
+		return nil, fmt.Errorf("missing brokers")
+	}
 
 	dialer := &kafka.Dialer{
 		Timeout: 10 * time.Second,

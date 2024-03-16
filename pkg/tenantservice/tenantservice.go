@@ -19,6 +19,9 @@ type OptFunc func(*TenantService) error
 
 func WithHTTPClient(hc *http.Client) OptFunc {
 	return func(ts *TenantService) error {
+		if hc == nil {
+			return fmt.Errorf("nil http client passed")
+		}
 		ts.hc = hc
 		return nil
 	}
@@ -65,6 +68,12 @@ func New(opts ...OptFunc) (ts *TenantService, err error) {
 		if err = opt(ts); err != nil {
 			return nil, fmt.Errorf("fail to instantiate tenant service")
 		}
+	}
+	if ts.hc == nil {
+		return nil, fmt.Errorf("missing http client")
+	}
+	if ts.logger == nil {
+		return nil, fmt.Errorf("missing logger")
 	}
 	return
 }

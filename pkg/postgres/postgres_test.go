@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/tink-crypto/tink-go/v2/aead"
 	"github.com/tink-crypto/tink-go/v2/keyderivation"
 	"github.com/tink-crypto/tink-go/v2/keyset"
@@ -15,7 +16,8 @@ import (
 )
 
 var testPostgres *Postgres
-var testAEAD, testMAC *keyset.Handle
+var testAEAD *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
+var testMAC *crypt.DerivableKeyset[crypt.PrimitiveMAC]
 var testPostgresSync, testKeysetHandleSync sync.Mutex
 
 func tGetPostgres(t *testing.T) *Postgres {
@@ -39,13 +41,13 @@ func tNewPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 
 	p, err := New(append(opts,
 		WithConnString(url),
-		WithKeysets(tGetKeysetHandle(t)))...,
+		WithDerivableKeysets(tGetKeysetHandle(t)))...,
 	)
 	require.NoError(t, err, "should create postgres")
 	return p
 }
 
-func tGetKeysetHandle(t *testing.T) (aeadh *keyset.Handle, mach *keyset.Handle) {
+func tGetKeysetHandle(t *testing.T) (aeadh *crypt.DerivableKeyset[crypt.PrimitiveAEAD], mach *crypt.DerivableKeyset[crypt.PrimitiveMAC]) {
 	if testAEAD == nil || testMAC == nil {
 		testKeysetHandleSync.Lock()
 		defer testKeysetHandleSync.Unlock()
@@ -54,15 +56,19 @@ func tGetKeysetHandle(t *testing.T) (aeadh *keyset.Handle, mach *keyset.Handle) 
 	if testAEAD == nil {
 		aeadT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
 		require.NoError(t, err, "should create prf based key template")
-		testAEAD, err = keyset.NewHandle(aeadT)
+		h, err := keyset.NewHandle(aeadT)
 		require.NoError(t, err, "should create aead handle")
+		testAEAD, err = crypt.NewDerivableKeyset(h, crypt.NewPrimitiveAEAD)
+		require.NoError(t, err, "should create mac derivable keyset")
 	}
 
 	if testMAC == nil {
 		macT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), mac.HMACSHA256Tag128KeyTemplate())
 		require.NoError(t, err, "should create prf based key template")
-		testMAC, err = keyset.NewHandle(macT)
+		h, err := keyset.NewHandle(macT)
 		require.NoError(t, err, "should create mac handle")
+		testMAC, err = crypt.NewDerivableKeyset(h, crypt.NewPrimitiveMAC)
+		require.NoError(t, err, "should create mac derivable keyset")
 	}
 
 	return testAEAD, testMAC

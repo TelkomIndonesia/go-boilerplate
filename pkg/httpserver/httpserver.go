@@ -78,6 +78,9 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 		}
 	}
 
+	if h.logger == nil {
+		return nil, fmt.Errorf("missing logger")
+	}
 	if h.profileRepo == nil || h.tenantRepo == nil {
 		return nil, fmt.Errorf("profile repo and tenant repo required")
 	}

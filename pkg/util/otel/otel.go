@@ -9,7 +9,10 @@ import (
 )
 
 func WithTraceProvider(ctx context.Context, name string, l logger.Logger) (deferer func()) {
-	otel.SetLogger(logr.New(logsink{l: l, name: "otel"}))
+	if l != nil {
+		otel.SetLogger(logr.New(logsink{l: l, name: "otel"}))
+	}
+
 	switch name {
 	case "datadog":
 		return withTraceProviderDatadog()

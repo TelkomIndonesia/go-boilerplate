@@ -132,6 +132,9 @@ func New(opts ...OptFunc) (c TLSWrapper, err error) {
 			return nil, fmt.Errorf("fail to instantiate connector: %w", err)
 		}
 	}
+	if cr.logger == nil {
+		return nil, fmt.Errorf("missing logger")
+	}
 
 	return cr, err
 }

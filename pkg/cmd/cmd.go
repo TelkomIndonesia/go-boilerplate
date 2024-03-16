@@ -72,6 +72,8 @@ type CMD struct {
 
 	TenantServiceBaseUrl string `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
+	OtelTraceProvider string `env:"OPENTELEMETRY_TRACE_PROVIDER" json:"opentelemetry_trace_provider"`
+
 	l  logger.Logger
 	h  *httpserver.HTTPServer
 	p  *postgres.Postgres
@@ -86,10 +88,12 @@ type CMD struct {
 
 func New(opts ...OptFunc) (c *CMD, err error) {
 	c = &CMD{
-		envPrefix:  "PROFILE_",
-		dotenv:     true,
-		canceler:   util.CancelOnExitSignal,
-		otelLoader: otel.FromEnv,
+		envPrefix: "PROFILE_",
+		dotenv:    true,
+		canceler:  util.CancelOnExitSignal,
+	}
+	c.otelLoader = func(ctx context.Context, l logger.Logger) func() {
+		return otel.WithTraceProvider(ctx, c.OtelTraceProvider, l)
 	}
 	for _, opt := range opts {
 		if err = opt(c); err != nil {

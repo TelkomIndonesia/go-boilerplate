@@ -31,7 +31,7 @@ func WithEnvPrefix(p string) OptFunc {
 	}
 }
 
-func WithoutDotEnv(p string) OptFunc {
+func WithoutDotEnv() OptFunc {
 	return func(s *CMD) (err error) {
 		s.dotenv = false
 		return

@@ -104,7 +104,7 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 		}
 	}
 
-	err = util.LoadFromEnv(c, util.LoadEnvOptions{
+	err = util.LoadEnv(c, util.LoadEnvOptions{
 		Prefix: c.envPrefix,
 		DotEnv: c.dotenv,
 	})

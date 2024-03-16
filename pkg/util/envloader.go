@@ -12,7 +12,7 @@ type LoadEnvOptions struct {
 	DotEnv bool
 }
 
-func LoadFromEnv(v interface{}, opt LoadEnvOptions) (err error) {
+func LoadEnv(v interface{}, opt LoadEnvOptions) (err error) {
 	if opt.DotEnv {
 		godotenv.Load()
 	}

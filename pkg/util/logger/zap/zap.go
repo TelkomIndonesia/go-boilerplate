@@ -2,6 +2,7 @@ package zap
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
@@ -21,6 +22,23 @@ const (
 	LevelFatal
 )
 
+func WithLevelString(s string) OptFunc {
+	var l Level = -1
+	switch strings.ToLower(s) {
+	case "debug":
+		l = 0
+	case "info":
+		l = 1
+	case "warn":
+		l = 2
+	case "error":
+		l = 3
+	case "fatal":
+		l = 4
+	}
+	return WithLevel(l)
+
+}
 func WithLevel(l Level) OptFunc {
 	return func(z *zaplogger) (err error) {
 		if l < LevelDebug || l > LevelFatal {

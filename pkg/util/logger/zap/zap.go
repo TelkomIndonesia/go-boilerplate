@@ -11,8 +11,30 @@ import (
 
 type OptFunc func(*zaplogger) error
 
+type Level int
+
+const (
+	LevelDebug Level = iota
+	LevelInfo
+	LevelWarn
+	LevelError
+	LevelFatal
+)
+
+func WithLevel(l Level) OptFunc {
+	return func(z *zaplogger) (err error) {
+		if l < LevelDebug || l > LevelFatal {
+			return fmt.Errorf("invalid level: %d", l)
+		}
+
+		z.lvl = l
+		return
+	}
+}
+
 type zaplogger struct {
 	zap *zap.Logger
+	lvl Level
 }
 
 func New(opts ...OptFunc) (l logger.Logger, err error) {
@@ -21,7 +43,7 @@ func New(opts ...OptFunc) (l logger.Logger, err error) {
 		return nil, fmt.Errorf("fail to instantiate zap")
 	}
 
-	zl := &zaplogger{zap: z}
+	zl := &zaplogger{zap: z, lvl: LevelInfo}
 	for _, opt := range opts {
 		err = opt(zl)
 		if err != nil {
@@ -32,18 +54,38 @@ func New(opts ...OptFunc) (l logger.Logger, err error) {
 }
 
 func (l zaplogger) Debug(message string, fn ...logger.LoggerContextFunc) {
+	if l.lvl < LevelDebug {
+		return
+	}
+
 	l.zap.Debug(message, newLoggerContext(fn...).fields...)
 }
 func (l zaplogger) Info(message string, fn ...logger.LoggerContextFunc) {
+	if l.lvl < LevelInfo {
+		return
+	}
+
 	l.zap.Info(message, newLoggerContext(fn...).fields...)
 }
 func (l zaplogger) Warn(message string, fn ...logger.LoggerContextFunc) {
+	if l.lvl < LevelWarn {
+		return
+	}
+
 	l.zap.Warn(message, newLoggerContext(fn...).fields...)
 }
 func (l zaplogger) Error(message string, fn ...logger.LoggerContextFunc) {
+	if l.lvl < LevelError {
+		return
+	}
+
 	l.zap.Error(message, newLoggerContext(fn...).fields...)
 }
 func (l zaplogger) Fatal(message string, fn ...logger.LoggerContextFunc) {
+	if l.lvl < LevelFatal {
+		return
+	}
+
 	l.zap.Fatal(message, newLoggerContext(fn...).fields...)
 }
 

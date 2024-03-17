@@ -122,23 +122,23 @@ func (c *CMD) initCMD() (err error) {
 
 	c.l, err = c.CMD.Logger()
 	if err != nil {
-		return
+		return fmt.Errorf("fail to instantiate logger: %w", err)
 	}
 	c.aead, err = c.CMD.AEADDerivableKeyset()
 	if err != nil {
-		return
+		return fmt.Errorf("fail to instantiate aead: %w", err)
 	}
 	c.mac, err = c.CMD.MacDerivableKeyset()
 	if err != nil {
-		return
+		return fmt.Errorf("fail to instantiate mac: %w", err)
 	}
 	c.tls, err = c.CMD.TLSWrapper()
 	if err != nil {
-		return
+		return fmt.Errorf("fail to instantiate tlswrapper: %w", err)
 	}
 	c.hc, err = c.CMD.HTTPClient()
 	if err != nil {
-		return
+		return fmt.Errorf("fail to instantiate httpclient: %w", err)
 	}
 	if c.otelLoader == nil {
 		c.otelLoader = c.CMD.LoadOtelTraceProvider

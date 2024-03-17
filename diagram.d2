@@ -76,6 +76,9 @@ l1 -> l1.l2 -> l1.l2.l3 -> l1.l2.l3.l4: {
 l1 -> util.logger: {
   class: DependencyLine
 }
+l1.l2.cmd -> util.cmd: {
+  class: DependencyLine
+}
 l1.l2.cmd -> util.otel: {
   class: DependencyLine
 }
@@ -99,7 +102,10 @@ util: {
   util: pkg/util {
     class: Package
   }
-  crypt: pkg/crypt {
+  cmd: pkg/util/cmd {
+    class: Package
+  }
+  crypt: pkg/util/crypt {
     class: Package
   }
   logger: pkg/util/logger {
@@ -108,19 +114,22 @@ util: {
   otel: pkg/util/otel {
     class: Package
   }
-  httpclient: pkg/util/httpclient {
-    class: Package
-  }
   filewatcher: pkg/util/filewatcher {
     class: Package
   }
   tlswrapper: pkg/util/tlswrapper {
     class: Package
   }
-  tlswrapper -> filewatcher: {
-    class: DependencyLine
+  httpclient: pkg/util/httpclient {
+    class: Package
   }
-  tlswrapper -> logger: {
-    class: DependencyLine
-  }
+
+  cmd -> util: {class: DependencyLine}
+  cmd -> crypt: {class: DependencyLine}
+  cmd -> logger: {class: DependencyLine}
+  cmd -> otel: {class: DependencyLine}
+  cmd -> tlswrapper: {class: DependencyLine}
+  cmd -> httpclient: {class: DependencyLine}
+  tlswrapper -> filewatcher: {class: DependencyLine}
+  tlswrapper -> logger: {class: DependencyLine}
 }

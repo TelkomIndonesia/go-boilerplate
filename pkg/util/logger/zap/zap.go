@@ -37,8 +37,8 @@ func WithLevelString(s string) OptFunc {
 		l = 4
 	}
 	return WithLevel(l)
-
 }
+
 func WithLevel(l Level) OptFunc {
 	return func(z *zaplogger) (err error) {
 		if l < LevelDebug || l > LevelFatal {

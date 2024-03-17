@@ -72,20 +72,20 @@ services:
         condition: service_started
     restart: unless-stopped
     environment:
+      PROFILE_AEAD_DERIVABLE_KEYSET_PATH: /local/tink-aead.json
+      PROFILE_MAC_DERIVABLE_KEYSET_PATH: /local/tink-mac.json
+      PROFILE_TLS_KEY_PATH: /local/profile.key
+      PROFILE_TLS_CERT_PATH: /local/profile.crt
+      PROFILE_TLS_CA_PATH: /local/ca.crt
+      PROFILE_TLS_MUTUAL_AUTH: "false"
+      PROFILE_OTEL_TRACE_PROVIDER:
+      PROFILE_LOG_LEVEL:
+
       PROFILE_HTTP_LISTEN_ADDRESS: :8443
-      PROFILE_HTTP_TLS_KEY_PATH: /local/profile.key
-      PROFILE_HTTP_TLS_CERT_PATH: /local/profile.crt
-      PROFILE_HTTP_CA_CERTS_PATHS: /local/ca.crt
-      PROFILE_HTTP_MTLS: "false"
-
       PROFILE_TENANT_SERVICE_BASE_URL: https://tenant:8443
-
       PROFILE_KAFKA_BROKERS: kafka:9092
-      PROFILE_KAFKA_TOPIC_OUTBOX: outbox      
-
+      PROFILE_KAFKA_TOPIC_OUTBOX: outbox
       PROFILE_POSTGRES_URL: postgres://testing:testing@postgres:5432/testing?sslmode=disable
-      PROFILE_POSTGRES_AEAD_KEY_PATH: /local/tink-aead.json
-      PROFILE_POSTGRES_MAC_KEY_PATH: /local/tink-mac.json
     volumes:
       - ./.local:/local
     ports:

@@ -60,7 +60,7 @@ type CMD struct {
 	TenantServiceBaseUrl string   `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`
-	l          logger.Logger
+	logger     logger.Logger
 	aead       *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 	mac        *crypt.DerivableKeyset[crypt.PrimitiveMAC]
 	hc         httpclient.HTTPClient
@@ -120,32 +120,17 @@ func (c *CMD) initCMD() (err error) {
 		return fmt.Errorf("fail to instantiate cmd: %w", err)
 	}
 
-	c.l, err = c.CMD.Logger()
-	if err != nil {
-		return fmt.Errorf("fail to instantiate logger: %w", err)
-	}
-	c.aead, err = c.CMD.AEADDerivableKeyset()
-	if err != nil {
-		return fmt.Errorf("fail to instantiate aead: %w", err)
-	}
-	c.mac, err = c.CMD.MacDerivableKeyset()
-	if err != nil {
-		return fmt.Errorf("fail to instantiate mac: %w", err)
-	}
-	c.tls, err = c.CMD.TLSWrapper()
-	if err != nil {
-		return fmt.Errorf("fail to instantiate tlswrapper: %w", err)
-	}
-	c.hc, err = c.CMD.HTTPClient()
-	if err != nil {
-		return fmt.Errorf("fail to instantiate httpclient: %w", err)
-	}
 	if c.otelLoader == nil {
 		c.otelLoader = c.CMD.LoadOtelTraceProvider
 	}
 	if c.canceler == nil {
 		c.canceler = c.CMD.CancelOnExitSignal
 	}
+	c.logger = util.Require(c.CMD.Logger, logger.Global().WithCtx(logger.String("name", "logger")))
+	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithCtx(logger.String("name", "aead")))
+	c.mac = util.Require(c.CMD.MacDerivableKeyset, c.logger.WithCtx(logger.String("name", "mac")))
+	c.tls = util.Require(c.CMD.TLSWrapper, c.logger.WithCtx(logger.String("name", "tlswrapper")))
+	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithCtx(logger.String("name", "httpclient")))
 	return
 }
 
@@ -158,7 +143,7 @@ func (c *CMD) initKafka() (err error) {
 		kafka.WithBrokers(c.KafkaBrokers),
 	)
 	if err != nil {
-		return fmt.Errorf("fail to instantiate kafka:%w", err)
+		return fmt.Errorf("fail to instantiate kafka: %w", err)
 	}
 
 	if c.k != nil && c.KafkaTopicOutbox == "" {
@@ -184,7 +169,7 @@ func (c *CMD) initPostgres() (err error) {
 	opts := []postgres.OptFunc{
 		postgres.WithConnString(c.PostgresUrl),
 		postgres.WithDerivableKeysets(c.aead, c.mac),
-		postgres.WithLogger(c.l),
+		postgres.WithLogger(c.logger),
 	}
 	if c.pok != nil {
 		opts = append(opts, postgres.WithOutboxSender(c.pok))
@@ -202,7 +187,7 @@ func (c *CMD) initTenantService() (err error) {
 	c.ts, err = tenantservice.New(
 		tenantservice.WithBaseUrl(c.TenantServiceBaseUrl),
 		tenantservice.WithHTTPClient(c.hc.Client),
-		tenantservice.WithLogger(c.l),
+		tenantservice.WithLogger(c.logger),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate tenant service: %w", err)
@@ -220,7 +205,7 @@ func (c *CMD) initHTTPServer() (err error) {
 		httpserver.WithListener(c.tls.WrapListener(l)),
 		httpserver.WithProfileRepository(c.p),
 		httpserver.WithTenantRepository(c.ts),
-		httpserver.WithLogger(c.l),
+		httpserver.WithLogger(c.logger),
 	)
 	if err != nil {
 		return fmt.Errorf("fail to instantiate http server: %w", err)
@@ -229,17 +214,18 @@ func (c *CMD) initHTTPServer() (err error) {
 	c.closers = append(c.closers, c.h.Close)
 	return
 }
-
 func (c *CMD) Run(ctx context.Context) (err error) {
 	ctx = c.canceler(ctx)
+	defer errors.Join(err, c.close(ctx))
 	defer c.otelLoader(ctx)
-	defer func() {
-		for _, fn := range c.closers {
-			err = errors.Join(err, fn(ctx))
-		}
-	}()
 
-	c.l.Info("server starting", logger.Any("server", c))
-	err = c.h.Start(ctx)
+	c.logger.Info("server starting", logger.Any("server", c))
+	return c.h.Start(ctx)
+}
+
+func (c *CMD) close(ctx context.Context) (err error) {
+	for _, fn := range c.closers {
+		err = errors.Join(err, fn(ctx))
+	}
 	return
 }

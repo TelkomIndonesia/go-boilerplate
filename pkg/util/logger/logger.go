@@ -8,6 +8,8 @@ type Logger interface {
 	Warn(message string, fn ...LoggerContextFunc)
 	Error(message string, fn ...LoggerContextFunc)
 	Fatal(message string, fn ...LoggerContextFunc)
+
+	WithCtx(LoggerContextFunc) Logger
 }
 
 type LoggerContextFunc func(LoggerContext)

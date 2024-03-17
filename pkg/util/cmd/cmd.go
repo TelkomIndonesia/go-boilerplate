@@ -111,6 +111,7 @@ func (c CMD) TLSWrapper() (tlswrapper.TLSWrapper, error) {
 func (c *CMD) initAEADDerivableKeySet() {
 	if c.AEADDerivableKeysetPath == nil {
 		c.getAEAD = func() (*crypt.DerivableKeyset[crypt.PrimitiveAEAD], error) { return nil, nil }
+		return
 	}
 
 	a, err := crypt.NewInsecureCleartextDerivableKeyset(*c.AEADDerivableKeysetPath, crypt.NewPrimitiveAEAD)
@@ -124,6 +125,7 @@ func (c CMD) AEADDerivableKeyset() (*crypt.DerivableKeyset[crypt.PrimitiveAEAD],
 func (c *CMD) initMACDerivableKeySet() {
 	if c.MACDerivableKeysetPath == nil {
 		c.getMAC = func() (*crypt.DerivableKeyset[crypt.PrimitiveMAC], error) { return nil, nil }
+		return
 	}
 
 	m, err := crypt.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, crypt.NewPrimitiveMAC)

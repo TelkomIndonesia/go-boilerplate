@@ -13,3 +13,21 @@ func TestLog(t *testing.T) {
 	msg := struct{ Hello string }{Hello: "world"}
 	l.Info("test", logger.Any("hello", msg), logger.String("hi", "hello"))
 }
+
+func BenchmarkAppendNil(b *testing.B) {
+	a := []string{"a", "b", "c"}
+	var anil []string = nil
+	var anotnil []string = []string{"d"}
+
+	f := func(s ...string) {}
+
+	b.Run("no append", func(b *testing.B) {
+		f(a...)
+	})
+	b.Run("append nil", func(b *testing.B) {
+		f(append(a, anil...)...)
+	})
+	b.Run("append not nil", func(b *testing.B) {
+		f(append(a, anotnil...)...)
+	})
+}

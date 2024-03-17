@@ -51,8 +51,9 @@ func WithLevel(l Level) OptFunc {
 }
 
 type zaplogger struct {
-	zap *zap.Logger
-	lvl Level
+	zap     *zap.Logger
+	lvl     Level
+	ctxFunc []logger.LoggerContextFunc
 }
 
 func New(opts ...OptFunc) (l logger.Logger, err error) {
@@ -72,39 +73,44 @@ func New(opts ...OptFunc) (l logger.Logger, err error) {
 }
 
 func (l zaplogger) Debug(message string, fn ...logger.LoggerContextFunc) {
-	if l.lvl < LevelDebug {
+	if l.lvl > LevelDebug {
 		return
 	}
 
-	l.zap.Debug(message, newLoggerContext(fn...).fields...)
+	l.zap.Debug(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
 func (l zaplogger) Info(message string, fn ...logger.LoggerContextFunc) {
-	if l.lvl < LevelInfo {
+	if l.lvl > LevelInfo {
 		return
 	}
 
-	l.zap.Info(message, newLoggerContext(fn...).fields...)
+	l.zap.Info(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
 func (l zaplogger) Warn(message string, fn ...logger.LoggerContextFunc) {
-	if l.lvl < LevelWarn {
+	if l.lvl > LevelWarn {
 		return
 	}
 
-	l.zap.Warn(message, newLoggerContext(fn...).fields...)
+	l.zap.Warn(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
 func (l zaplogger) Error(message string, fn ...logger.LoggerContextFunc) {
-	if l.lvl < LevelError {
+	if l.lvl > LevelError {
 		return
 	}
 
-	l.zap.Error(message, newLoggerContext(fn...).fields...)
+	l.zap.Error(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
 func (l zaplogger) Fatal(message string, fn ...logger.LoggerContextFunc) {
-	if l.lvl < LevelFatal {
+	if l.lvl > LevelFatal {
 		return
 	}
 
-	l.zap.Fatal(message, newLoggerContext(fn...).fields...)
+	l.zap.Fatal(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
+}
+
+func (l zaplogger) WithCtx(fn logger.LoggerContextFunc) logger.Logger {
+	l.ctxFunc = append(l.ctxFunc, fn)
+	return l
 }
 
 type loggerContext struct {

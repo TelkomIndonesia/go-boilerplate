@@ -21,6 +21,8 @@ func WithWritter(w io.Writer) OptFunc {
 
 type deflogger struct {
 	w io.Writer
+
+	ctxFunc []LoggerContextFunc
 }
 
 func New(opts ...OptFunc) (l Logger, err error) {
@@ -53,20 +55,24 @@ func (d deflogger) println(level string, message string, fn ...LoggerContextFunc
 }
 
 func (d deflogger) Debug(message string, fn ...LoggerContextFunc) {
-	d.println("DEBUG", message, fn...)
+	d.println("DEBUG", message, append(fn, d.ctxFunc...)...)
 }
 func (d deflogger) Info(message string, fn ...LoggerContextFunc) {
-	d.println("INFO", message, fn...)
+	d.println("INFO", message, append(fn, d.ctxFunc...)...)
 }
 func (d deflogger) Warn(message string, fn ...LoggerContextFunc) {
-	d.println("WARN", message, fn...)
+	d.println("WARN", message, append(fn, d.ctxFunc...)...)
 }
 func (d deflogger) Error(message string, fn ...LoggerContextFunc) {
-	d.println("ERROR", message, fn...)
+	d.println("ERROR", message, append(fn, d.ctxFunc...)...)
 }
 func (d deflogger) Fatal(message string, fn ...LoggerContextFunc) {
-	d.println("FATAL", message, fn...)
+	d.println("FATAL", message, append(fn, d.ctxFunc...)...)
 	os.Exit(1)
+}
+func (d deflogger) WithCtx(f LoggerContextFunc) Logger {
+	d.ctxFunc = append(d.ctxFunc, f)
+	return d
 }
 
 var _ LoggerContext = defContext{}

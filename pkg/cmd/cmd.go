@@ -15,7 +15,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/cmd"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/httpclient"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/tlswrapper"
 )
 
@@ -60,7 +60,7 @@ type CMD struct {
 	TenantServiceBaseUrl string   `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`
-	logger     logger.Logger
+	logger     log.Logger
 	aead       *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 	mac        *crypt.DerivableKeyset[crypt.PrimitiveMAC]
 	hc         httpclient.HTTPClient
@@ -126,11 +126,11 @@ func (c *CMD) initCMD() (err error) {
 	if c.canceler == nil {
 		c.canceler = c.CMD.CancelOnExitSignal
 	}
-	c.logger = util.Require(c.CMD.Logger, logger.Global().WithCtx(logger.String("name", "logger")))
-	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithCtx(logger.String("name", "aead")))
-	c.mac = util.Require(c.CMD.MacDerivableKeyset, c.logger.WithCtx(logger.String("name", "mac")))
-	c.tls = util.Require(c.CMD.TLSWrapper, c.logger.WithCtx(logger.String("name", "tlswrapper")))
-	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithCtx(logger.String("name", "httpclient")))
+	c.logger = util.Require(c.CMD.Logger, log.Global().WithCtx(log.String("name", "logger")))
+	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithCtx(log.String("name", "aead")))
+	c.mac = util.Require(c.CMD.MacDerivableKeyset, c.logger.WithCtx(log.String("name", "mac")))
+	c.tls = util.Require(c.CMD.TLSWrapper, c.logger.WithCtx(log.String("name", "tlswrapper")))
+	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithCtx(log.String("name", "httpclient")))
 	return
 }
 
@@ -219,7 +219,7 @@ func (c *CMD) Run(ctx context.Context) (err error) {
 	defer errors.Join(err, c.close(ctx))
 	defer c.otelLoader(ctx)
 
-	c.logger.Info("server starting", logger.Any("server", c))
+	c.logger.Info("server starting", log.Any("server", c))
 	return c.h.Start(ctx)
 }
 

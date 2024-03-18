@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"github.com/tink-crypto/tink-go/v2/tink"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -153,7 +153,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 
 	_, err = tx.QueryContext(ctx, "SELECT pg_notify($1, $2)", outboxChannel, ob.CreatedAt.UnixNano())
 	if err != nil {
-		p.logger.Warn("fail to send notify", logger.Any("error", err), logger.TraceContext("trace-id", ctx))
+		p.logger.Warn("fail to send notify", log.Any("error", err), log.TraceContext("trace-id", ctx))
 	}
 
 	return
@@ -162,7 +162,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 func (p *Postgres) watchOutboxesLoop(ctx context.Context) (err error) {
 	for {
 		if err := p.watchOuboxes(ctx); err != nil {
-			p.logger.Warn("got outbox watcher error", logger.Any("error", err), logger.TraceContext("trace-id", ctx))
+			p.logger.Warn("got outbox watcher error", log.Any("error", err), log.TraceContext("trace-id", ctx))
 		}
 
 		select {
@@ -212,7 +212,7 @@ func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
 
 		last, err = p.sendOutbox(ctx, 100)
 		if err != nil {
-			p.logger.Error("fail to send outboxes", logger.Any("error", err), logger.TraceContext("trace-id", ctx))
+			p.logger.Error("fail to send outboxes", log.Any("error", err), log.TraceContext("trace-id", ctx))
 		}
 
 		if !timer.Stop() {

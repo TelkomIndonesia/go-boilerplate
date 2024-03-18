@@ -4,16 +4,16 @@ import (
 	"context"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
 func main() {
 	c, err := cmd.New()
 	if err != nil {
-		logger.Global().Fatal("fail to instantiate server", logger.Any("error", err))
+		log.Global().Fatal("fail to instantiate server", log.Any("error", err))
 	}
 
 	if err = c.Run(context.Background()); err != nil {
-		logger.Global().Fatal("error when running server", logger.Any("error", err))
+		log.Global().Fatal("error when running server", log.Any("error", err))
 	}
 }

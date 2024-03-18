@@ -2,13 +2,13 @@ package otel
 
 import (
 	"github.com/go-logr/logr"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
 var _ logr.LogSink = logsink{l: nil}
 
 type logsink struct {
-	l      logger.Logger
+	l      log.Logger
 	name   string
 	fields []any
 }
@@ -18,11 +18,11 @@ func (o logsink) Enabled(level int) bool {
 }
 
 func (o logsink) Error(err error, msg string, keysAndValues ...any) {
-	o.l.Error(msg, logger.Any("error", err), logger.String("name", o.name), logger.String("name", o.name), logger.Any("fields", append(o.fields, keysAndValues...)))
+	o.l.Error(msg, log.Any("error", err), log.String("name", o.name), log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
 }
 
 func (o logsink) Info(level int, msg string, keysAndValues ...any) {
-	o.l.Info(msg, logger.String("name", o.name), logger.Any("fields", append(o.fields, keysAndValues...)))
+	o.l.Info(msg, log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
 }
 
 func (o logsink) Init(info logr.RuntimeInfo) {}

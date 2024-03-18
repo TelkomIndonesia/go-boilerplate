@@ -10,8 +10,8 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/httpclient"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger/zap"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/otel"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/tlswrapper"
 )
@@ -45,7 +45,7 @@ type CMD struct {
 
 	tlscfg *tls.Config
 
-	getLogger     func() (logger.Logger, error)
+	getLogger     func() (log.Logger, error)
 	getTLSWrapper func() (tlswrapper.TLSWrapper, error)
 	getAEAD       func() (*crypt.DerivableKeyset[crypt.PrimitiveAEAD], error)
 	getMAC        func() (*crypt.DerivableKeyset[crypt.PrimitiveMAC], error)
@@ -77,10 +77,10 @@ func (c *CMD) initLogger() {
 	}
 	l, err := zap.New(opts...)
 
-	c.getLogger = func() (logger.Logger, error) { return l, err }
+	c.getLogger = func() (log.Logger, error) { return l, err }
 }
 
-func (c CMD) Logger() (logger.Logger, error) {
+func (c CMD) Logger() (log.Logger, error) {
 	return c.getLogger()
 }
 

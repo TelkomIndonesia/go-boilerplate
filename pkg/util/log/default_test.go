@@ -1,4 +1,4 @@
-package logger
+package log
 
 import (
 	"bytes"
@@ -23,4 +23,22 @@ func TestDefaultLog(t *testing.T) {
 	assert.Equal(t, msg.Message, "hello")
 	assert.Equal(t, msg.Fields["one"], "two")
 	assert.Equal(t, msg.Fields["three"], "four")
+}
+
+func BenchmarkAppendNil(b *testing.B) {
+	a := []string{"a", "b", "c"}
+	var anil []string = nil
+	var anotnil []string = []string{"d", "e", "f"}
+
+	f := func(s ...string) {}
+
+	b.Run("no append", func(b *testing.B) {
+		f(a...)
+	})
+	b.Run("append nil", func(b *testing.B) {
+		f(append(a, anil...)...)
+	})
+	b.Run("append not nil", func(b *testing.B) {
+		f(append(a, anotnil...)...)
+	})
 }

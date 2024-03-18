@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/filewatcher"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
 type Dialer interface {
@@ -45,14 +45,14 @@ func WithLeafCert(key, cert string) OptFunc {
 
 		cw, err := filewatcher.New(cert, func(s string, err error) {
 			if err != nil {
-				c.logger.Error("leaf-cert-file-watcher", logger.Any("error", err))
+				c.logger.Error("leaf-cert-file-watcher", log.Any("error", err))
 				return
 			}
 			if err = c.loadLeaf(); err != nil {
-				c.logger.Error("leaf-cert-file-watcher", logger.Any("error", err))
+				c.logger.Error("leaf-cert-file-watcher", log.Any("error", err))
 				return
 			}
-			c.logger.Info("leaf-cert-file-watcher", logger.String("info", "leaf cert file updated"))
+			c.logger.Info("leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("fail to instantiate leaf cert content watcher")
@@ -72,14 +72,14 @@ func WithCA(path string) OptFunc {
 
 		cw, err := filewatcher.New(path, func(s string, err error) {
 			if err != nil {
-				c.logger.Error("ca-file-watcher", logger.Any("error", err))
+				c.logger.Error("ca-file-watcher", log.Any("error", err))
 				return
 			}
 			if err = c.loadCA(); err != nil {
-				c.logger.Error("ca-file-watcher", logger.Any("error", err))
+				c.logger.Error("ca-file-watcher", log.Any("error", err))
 				return
 			}
-			c.logger.Info("ca-file-watcher", logger.String("info", "ca file updated"))
+			c.logger.Info("ca-file-watcher", log.String("info", "ca file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("fail to instantiate ca content watcher")
@@ -97,7 +97,7 @@ func WithConfigReloadListener(f func(s, c *tls.Config)) OptFunc {
 	}
 }
 
-func WithLogger(l logger.Logger) OptFunc {
+func WithLogger(l log.Logger) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.logger = l
 		return
@@ -108,7 +108,7 @@ type wrapper struct {
 	keyPath      string
 	certPath     string
 	caPath       string
-	logger       logger.Logger
+	logger       log.Logger
 	cfg          *tls.Config
 	mux          sync.Mutex
 	listenerFunc func(c, s *tls.Config)
@@ -123,7 +123,7 @@ type wrapper struct {
 
 func New(opts ...OptFunc) (c TLSWrapper, err error) {
 	cr := &wrapper{
-		logger:       logger.Global(),
+		logger:       log.Global(),
 		cfg:          &tls.Config{},
 		listenerFunc: func(c, s *tls.Config) {},
 	}

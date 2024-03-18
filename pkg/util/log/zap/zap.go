@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -53,10 +53,10 @@ func WithLevel(l Level) OptFunc {
 type zaplogger struct {
 	zap     *zap.Logger
 	lvl     Level
-	ctxFunc []logger.LoggerContextFunc
+	ctxFunc []log.LogContextFunc
 }
 
-func New(opts ...OptFunc) (l logger.Logger, err error) {
+func New(opts ...OptFunc) (l log.Logger, err error) {
 	z, err := zap.NewProduction()
 	if err != nil {
 		return nil, fmt.Errorf("fail to instantiate zap")
@@ -72,35 +72,35 @@ func New(opts ...OptFunc) (l logger.Logger, err error) {
 	return zl, nil
 }
 
-func (l zaplogger) Debug(message string, fn ...logger.LoggerContextFunc) {
+func (l zaplogger) Debug(message string, fn ...log.LogContextFunc) {
 	if l.lvl > LevelDebug {
 		return
 	}
 
 	l.zap.Debug(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
-func (l zaplogger) Info(message string, fn ...logger.LoggerContextFunc) {
+func (l zaplogger) Info(message string, fn ...log.LogContextFunc) {
 	if l.lvl > LevelInfo {
 		return
 	}
 
 	l.zap.Info(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
-func (l zaplogger) Warn(message string, fn ...logger.LoggerContextFunc) {
+func (l zaplogger) Warn(message string, fn ...log.LogContextFunc) {
 	if l.lvl > LevelWarn {
 		return
 	}
 
 	l.zap.Warn(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
-func (l zaplogger) Error(message string, fn ...logger.LoggerContextFunc) {
+func (l zaplogger) Error(message string, fn ...log.LogContextFunc) {
 	if l.lvl > LevelError {
 		return
 	}
 
 	l.zap.Error(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
-func (l zaplogger) Fatal(message string, fn ...logger.LoggerContextFunc) {
+func (l zaplogger) Fatal(message string, fn ...log.LogContextFunc) {
 	if l.lvl > LevelFatal {
 		return
 	}
@@ -108,7 +108,7 @@ func (l zaplogger) Fatal(message string, fn ...logger.LoggerContextFunc) {
 	l.zap.Fatal(message, newLoggerContext(append(fn, l.ctxFunc...)...).fields...)
 }
 
-func (l zaplogger) WithCtx(fn logger.LoggerContextFunc) logger.Logger {
+func (l zaplogger) WithCtx(fn log.LogContextFunc) log.Logger {
 	l.ctxFunc = append(l.ctxFunc, fn)
 	return l
 }
@@ -117,7 +117,7 @@ type loggerContext struct {
 	fields []zap.Field
 }
 
-func newLoggerContext(fn ...logger.LoggerContextFunc) *loggerContext {
+func newLoggerContext(fn ...log.LogContextFunc) *loggerContext {
 	lc := &loggerContext{fields: make([]zapcore.Field, 0, len(fn))}
 	for _, fn := range fn {
 		fn(lc)

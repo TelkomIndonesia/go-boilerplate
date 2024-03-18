@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
-var _ logger.Loggable = Profile{}
+var _ log.Loggable = Profile{}
 
 type Profile struct {
 	TenantID uuid.UUID `json:"tenant_id"`

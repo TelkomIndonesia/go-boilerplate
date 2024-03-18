@@ -8,7 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -45,7 +45,7 @@ func WithTracer(name string) OptFunc {
 	}
 }
 
-func WithLogger(logger logger.Logger) OptFunc {
+func WithLogger(logger log.Logger) OptFunc {
 	return func(h *HTTPServer) (err error) {
 		h.logger = logger
 		return
@@ -62,7 +62,7 @@ type HTTPServer struct {
 	server     *http.Server
 	tracerName string
 	tracer     trace.Tracer
-	logger     logger.Logger
+	logger     log.Logger
 }
 
 func New(opts ...OptFunc) (h *HTTPServer, err error) {
@@ -70,7 +70,7 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 		handler:    echo.New(),
 		tracerName: "httpserver",
 		tracer:     otel.Tracer("httpserver"),
-		logger:     logger.Global(),
+		logger:     log.Global(),
 	}
 	for _, opt := range opts {
 		if err = opt(h); err != nil {
@@ -98,7 +98,7 @@ func (h *HTTPServer) buildServer() (err error) {
 
 	h.server = &http.Server{
 		Handler:  h.handler,
-		ErrorLog: logger.NewGoLogger(h.logger, "http_server: ", 0),
+		ErrorLog: log.NewGoLogger(h.logger, "http_server: ", 0),
 	}
 	return
 }

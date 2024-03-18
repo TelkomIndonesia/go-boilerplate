@@ -10,7 +10,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"github.com/tink-crypto/tink-go/v2/tink"
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"go.opentelemetry.io/otel"
@@ -25,7 +25,7 @@ func WithTracer(name string) OptFunc {
 		return
 	}
 }
-func WithLogger(l logger.Logger) OptFunc {
+func WithLogger(l log.Logger) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.logger = l
 		return
@@ -76,14 +76,14 @@ type Postgres struct {
 	obSender OutboxSender
 
 	tracer trace.Tracer
-	logger logger.Logger
+	logger log.Logger
 
 	closers []func(context.Context) error
 }
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
 	p = &Postgres{
-		logger:  logger.Global(),
+		logger:  log.Global(),
 		bidxLen: 16,
 		tracer:  otel.Tracer("postgres"),
 	}

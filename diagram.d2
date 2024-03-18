@@ -73,7 +73,7 @@ l1 -> l1.l2 -> l1.l2.l3 -> l1.l2.l3.l4: {
   class: DependencyLine
 }
 
-l1 -> util.logger: {
+l1 -> util.log: {
   class: DependencyLine
 }
 l1.l2.cmd -> util.cmd: {
@@ -108,7 +108,7 @@ util: {
   crypt: pkg/util/crypt {
     class: Package
   }
-  logger: pkg/util/logger {
+  log: pkg/util/log {
     class: Package
   }
   otel: pkg/util/otel {
@@ -126,10 +126,10 @@ util: {
 
   cmd -> util: {class: DependencyLine}
   cmd -> crypt: {class: DependencyLine}
-  cmd -> logger: {class: DependencyLine}
+  cmd -> log: {class: DependencyLine}
   cmd -> otel: {class: DependencyLine}
   cmd -> tlswrapper: {class: DependencyLine}
   cmd -> httpclient: {class: DependencyLine}
   tlswrapper -> filewatcher: {class: DependencyLine}
-  tlswrapper -> logger: {class: DependencyLine}
+  tlswrapper -> log: {class: DependencyLine}
 }

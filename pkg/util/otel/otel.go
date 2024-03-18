@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/logger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"go.opentelemetry.io/otel"
 )
 
-func WithTraceProvider(ctx context.Context, name string, l logger.Logger) (deferer func()) {
+func WithTraceProvider(ctx context.Context, name string, l log.Logger) (deferer func()) {
 	if l != nil {
 		otel.SetLogger(logr.New(logsink{l: l, name: "otel"}))
 	}

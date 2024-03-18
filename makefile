@@ -15,3 +15,6 @@ start:
 
 stop:
 	docker compose down
+
+purge:
+	docker compose -f docker-compose.yml down --volumes

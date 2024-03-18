@@ -215,17 +215,16 @@ func (c *CMD) initHTTPServer() (err error) {
 	return
 }
 func (c *CMD) Run(ctx context.Context) (err error) {
-	ctx = c.canceler(ctx)
-	defer errors.Join(err, c.close(ctx))
+	defer c.close(ctx, err)
 	defer c.otelLoader(ctx)
 
 	c.logger.Info("server starting", log.Any("server", c))
-	return c.h.Start(ctx)
+	return c.h.Start(c.canceler(ctx))
 }
 
-func (c *CMD) close(ctx context.Context) (err error) {
+func (c *CMD) close(ctx context.Context, err error) error {
 	for _, fn := range c.closers {
 		err = errors.Join(err, fn(ctx))
 	}
-	return
+	return err
 }

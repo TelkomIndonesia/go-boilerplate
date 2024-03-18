@@ -31,4 +31,4 @@ CREATE TABLE IF NOT EXISTS text_heap (
     type VARCHAR(128) NOT NULL,
     content TEXT NOT NULL, 
     UNIQUE (tenant_id, type, content)
-)
+);

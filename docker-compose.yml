@@ -36,6 +36,10 @@ services:
   tenant:
     image: caddy:2.7.6
     restart: unless-stopped
+    environment:
+      CA_PATH: /local/ca.crt
+      TLS_KEY_PATH: /local/tenant.key
+      TLS_CERT_PATH: /local/tenant.crt
     volumes:
       - ./.local:/local
     entrypoint:
@@ -44,11 +48,11 @@ services:
       - |
         caddy run -a caddyfile -c - <<-'EOF'
         :8443 {
-          tls /local/tenant.crt /local/tenant.key {
-            ca_root /local/ca.crt
+          tls {$$TLS_CERT_PATH} {$$TLS_KEY_PATH} {
+            ca_root {$$CA_PATH}
             client_auth {
               mode require_and_verify
-              trusted_ca_cert_file /local/ca.crt
+              trusted_ca_cert_file {$$CA_PATH}
             }
           }
 
@@ -88,8 +92,6 @@ services:
       PROFILE_POSTGRES_URL: postgres://testing:testing@postgres:5432/testing?sslmode=disable
     volumes:
       - ./.local:/local
-      - ./pkg/postgres/testdata/tink-aead.json:/local/tink-aead.json
-      - ./pkg/postgres/testdata/tink-mac.json:/local/tink-mac.json
     ports:
       - 8443:8443
       

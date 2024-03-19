@@ -3,9 +3,25 @@ volumes:
   go-build:
 
 services:
+  tenant:
+    environment:
+      CA_PATH: /src/pkg/util/tlswrapper/testdata/set1/ca.crt
+      TLS_KEY_PATH: /src/pkg/util/tlswrapper/testdata/set1/tenant.key
+      TLS_CERT_PATH: /src/pkg/util/tlswrapper/testdata/set1/tenant.crt
+    volumes:
+      - .:/src
+      
+    
   profile:
     build:
       target: base
+    environment:
+      PWD: ${PWD:-/src}
+      PROFILE_AEAD_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-aead.json
+      PROFILE_MAC_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-mac.json
+      PROFILE_TLS_KEY_PATH: $$PWD/pkg/util/tlswrapper/testdata/set1/profile.key
+      PROFILE_TLS_CERT_PATH: $$PWD/pkg/util/tlswrapper/testdata/set1/profile.crt
+      PROFILE_TLS_CA_PATH: $$PWD/pkg/util/tlswrapper/testdata/set1/ca.crt
     volumes:
       - go-mod:/go/pkg/mod
       - go-build:/root/.cache/go-build

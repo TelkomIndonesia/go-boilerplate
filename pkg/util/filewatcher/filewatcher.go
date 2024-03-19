@@ -26,17 +26,20 @@ func New(path string, notify func(string, error)) (fw FileWatcher, err error) {
 }
 
 func (fw FileWatcher) watchLoop() {
+	var delay = time.Minute
+	var last = time.Now().Add(-time.Minute)
 	for {
+		d := delay - time.Now().Sub(last)
 		select {
 		case <-fw.done:
 			return
 
-		default:
+		case <-time.After(d):
 		}
 
+		last = time.Now()
 		if err := fw.watch(); err != nil {
 			fw.notify("", fmt.Errorf("cert watcher stopped due to error: %w", err))
-			<-time.After(time.Minute)
 		}
 	}
 }

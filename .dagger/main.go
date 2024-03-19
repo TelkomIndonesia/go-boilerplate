@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"dagger.io/dagger"
 )
@@ -64,6 +65,7 @@ func main() {
 		WithServiceBinding("postgres", postgresService).
 		WithServiceBinding("kafka", kafkaService).
 		WithEntrypoint([]string{"sh", "-c"}).
+		WithEnvVariable("_NOW_", time.Now().String()).
 		WithExec([]string{`
 			until nc postgres 5432; do echo "wait postgres"; sleep 1; done
 			until nc kafka 9092; do echo "wait kafka"; sleep 1; done

@@ -39,6 +39,7 @@ func TestProfileBasic(t *testing.T) {
 							pr := &profile.Profile{}
 							assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
 							if _, ok := profiles[pr.ID]; !ok {
+								t.Logf("got unknown profile: %v", pr)
 								continue
 							}
 							outboxes = append(outboxes, pr)

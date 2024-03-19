@@ -35,13 +35,18 @@ func TestProfileBasic(t *testing.T) {
 						for _, o := range obs {
 							o, err := o.AsUnEncrypted()
 							assert.NoError(t, err, "should return unencrypted outbox")
+							if o.ContentType != "profile" {
+								t.Logf("got unexpected content type: %s", o.ContentType)
+								continue
+							}
 
 							pr := &profile.Profile{}
 							assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
 							if _, ok := profiles[pr.ID]; !ok {
-								t.Logf("got unknown profile: %v", pr)
+								t.Logf("got unexpected profile: %v", pr)
 								continue
 							}
+
 							outboxes = append(outboxes, pr)
 						}
 						if len(outboxes) == cap(outboxes) {

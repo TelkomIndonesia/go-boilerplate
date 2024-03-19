@@ -27,36 +27,33 @@ func TestProfileBasic(t *testing.T) {
 		defer time.AfterFunc(30*time.Second, cancel).Stop()
 
 		for i := 0; i < 3; i++ {
+			p := tNewPostgres(t, WithOutboxSender(func(ctx context.Context, obs []*Outbox) error {
+				for _, o := range obs {
+					o, err := o.AsUnEncrypted()
+					assert.NoError(t, err, "should return unencrypted outbox")
+					if !(o.ContentType == outboxTypeProfile && o.Event == outboxEventProfileStored) {
+						t.Logf("got unexpected event or content type: %s %s", o.Event, o.ContentType)
+						continue
+					}
+
+					pr := &profile.Profile{}
+					assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
+					if _, ok := profiles[pr.ID]; !ok {
+						t.Logf("got unexpected profile: %v", pr)
+						continue
+					}
+
+					outboxes = append(outboxes, pr)
+				}
+				if len(outboxes) == cap(outboxes) {
+					cancel()
+				}
+				return nil
+			}))
+
 			go func() {
 				defer outboxesWG.Done()
-
-				p := tNewPostgres(t,
-					WithOutboxSender(func(ctx context.Context, obs []*Outbox) error {
-						for _, o := range obs {
-							o, err := o.AsUnEncrypted()
-							assert.NoError(t, err, "should return unencrypted outbox")
-							if o.ContentType != "profile" {
-								t.Logf("got unexpected content type: %s", o.ContentType)
-								continue
-							}
-
-							pr := &profile.Profile{}
-							assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
-							if _, ok := profiles[pr.ID]; !ok {
-								t.Logf("got unexpected profile: %v", pr)
-								continue
-							}
-
-							outboxes = append(outboxes, pr)
-						}
-						if len(outboxes) == cap(outboxes) {
-							cancel()
-						}
-						return nil
-					}),
-				)
 				defer p.Close(context.Background())
-
 				<-ctx.Done()
 			}()
 		}
@@ -73,8 +70,8 @@ func TestProfileBasic(t *testing.T) {
 		DOB:      time.Date(1991, 1, 1, 1, 1, 1, 1, time.UTC),
 	}
 	t.Run("store", func(t *testing.T) {
-		require.NoError(t, p.StoreProfile(ctx, pr), "should successfully store profile")
 		profiles[pr.ID] = pr
+		require.NoError(t, p.StoreProfile(ctx, pr), "should successfully store profile")
 		for i := 1; i < cap(outboxes); i++ {
 			pr := &profile.Profile{
 				TenantID: pr.TenantID,
@@ -85,8 +82,8 @@ func TestProfileBasic(t *testing.T) {
 				Phone:    fmt.Sprintf("%s-%d", pr.Phone, i),
 				DOB:      pr.DOB,
 			}
-			require.NoErrorf(t, p.StoreProfile(ctx, pr), "should successfully store profile for index %d", i)
 			profiles[pr.ID] = pr
+			require.NoErrorf(t, p.StoreProfile(ctx, pr), "should successfully store profile for index %d", i)
 		}
 	})
 

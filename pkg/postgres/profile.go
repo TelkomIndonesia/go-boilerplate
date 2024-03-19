@@ -12,6 +12,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	outboxTypeProfile        = "profile"
+	outboxEventProfileStored = "profile_stored"
+)
+
 func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err error) {
 	_, span := p.tracer.Start(ctx, "storeProfile", trace.WithAttributes(
 		attribute.Stringer("tenantID", pr.TenantID),
@@ -66,7 +71,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	}
 
 	// outbox
-	ob, err := p.newOutboxEncrypted(pr.TenantID, "profile_stored", "profile", pr)
+	ob, err := p.newOutboxEncrypted(pr.TenantID, outboxEventProfileStored, outboxTypeProfile, pr)
 	if err != nil {
 		return fmt.Errorf("fail to create outbox: %w", err)
 	}

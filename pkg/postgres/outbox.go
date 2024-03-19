@@ -16,31 +16,19 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ json.Unmarshaler = &OutboxContent{}
-var _ json.Marshaler = &OutboxContent{}
-
 type OutboxSender func(context.Context, []*Outbox) error
 
-type OutboxContent []byte
-
-func (oc OutboxContent) MarshalJSON() (data []byte, err error) {
-	return oc, nil
-}
-func (oc *OutboxContent) UnmarshalJSON(data []byte) error {
-	*oc = data
-	return nil
-}
-
 type Outbox struct {
-	ID          uuid.UUID     `json:"id"`
-	TenantID    uuid.UUID     `json:"tenant_id"`
-	ContentType string        `json:"content_type"`
-	CreatedAt   time.Time     `json:"created_at"`
-	Event       string        `json:"event"`
-	Content     OutboxContent `json:"content"`
+	ID          uuid.UUID `json:"id"`
+	TenantID    uuid.UUID `json:"tenant_id"`
+	ContentType string    `json:"content_type"`
+	CreatedAt   time.Time `json:"created_at"`
+	Event       string    `json:"event"`
+	Content     any       `json:"content"`
 
 	isEncrypted bool
 	aead        tink.AEAD
+	contentByte []byte
 }
 
 func newOutbox(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
@@ -49,25 +37,31 @@ func newOutbox(tid uuid.UUID, event string, ctype string, content any) (o *Outbo
 		Event:       event,
 		ContentType: ctype,
 		CreatedAt:   time.Now(),
+		Content:     content,
 	}
 	o.ID, err = uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("fail to create new id for outbox: %w", err)
 	}
-	o.Content, err = json.Marshal(content)
-	if err != nil {
-		return nil, fmt.Errorf("fail to marshal content as json")
-	}
 	return
 }
 
-func (p *Postgres) newOutboxEncrypted(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
+func (p *Postgres) newOutbox(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
 	o, err = newOutbox(tid, ctype, event, content)
 	if err != nil {
 		return
 	}
 
 	o.aead, err = p.getAEAD(o.TenantID)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (p *Postgres) newOutboxEncrypted(tid uuid.UUID, event string, ctype string, content any) (o *Outbox, err error) {
+	o, err = p.newOutbox(tid, ctype, event, content)
 	if err != nil {
 		return
 	}
@@ -85,14 +79,14 @@ func (ob Outbox) AsEncrypted() (o Outbox, err error) {
 		return o, fmt.Errorf("can't encrypt due to nil encryptor")
 	}
 
-	ctn, err := ob.aead.Encrypt(ob.Content, ob.ID[:])
+	b, err := json.Marshal(ob.Content)
 	if err != nil {
-		return o, fmt.Errorf("fail to encrypt outbox: %w", err)
+		return o, fmt.Errorf("fail to marshal content")
 	}
 
-	ob.Content, err = json.Marshal(ctn)
+	ob.Content, err = ob.aead.Encrypt(b, ob.ID[:])
 	if err != nil {
-		return o, fmt.Errorf("fail to marshal encrypted outbox: %w", err)
+		return o, fmt.Errorf("fail to encrypt outbox: %w", err)
 	}
 
 	ob.isEncrypted = true
@@ -108,23 +102,25 @@ func (ob Outbox) AsUnEncrypted() (o Outbox, err error) {
 		return o, fmt.Errorf("can't decrypt due to nil decryptor")
 	}
 
-	var content []byte
-	err = json.Unmarshal(ob.Content, &content)
+	content, ok := ob.Content.([]byte)
+	if !ok {
+		return o, fmt.Errorf("not a byte string of chipertext")
+	}
+	ob.contentByte, err = ob.aead.Decrypt(content, ob.ID[:])
+	if err != nil {
+		return o, fmt.Errorf("fail to decrypt encrypted outbox: %w", err)
+	}
+	err = json.Unmarshal(ob.contentByte, &ob.Content)
 	if err != nil {
 		return o, fmt.Errorf("fail to unmarshal encrypted outbox: %w", err)
 	}
 
-	ob.Content, err = ob.aead.Decrypt(content, ob.ID[:])
-	if err != nil {
-		return o, fmt.Errorf("fail to decrypt encrypted outbox: %w", err)
-	}
-
-	ob.isEncrypted = true
+	ob.isEncrypted = false
 	return ob, nil
 }
 
-func (ob Outbox) UnmarshalContent(v any) error {
-	return json.Unmarshal(ob.Content, v)
+func (o Outbox) ContentByte() []byte {
+	return o.contentByte
 }
 
 var outboxChannel = "outbox"
@@ -138,6 +134,10 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 	))
 	defer span.End()
 
+	content, err := json.Marshal(ob.Content)
+	if err != nil {
+		return fmt.Errorf("fail to marshal content")
+	}
 	outboxQ := `
 		INSERT INTO outbox 
 		(id, tenant_id, type, content, event, is_encrypted, created_at)
@@ -145,7 +145,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 		($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, ob.ContentType, ob.Content, ob.Event, ob.isEncrypted, ob.CreatedAt,
+		ob.ID, ob.TenantID, ob.ContentType, content, ob.Event, ob.isEncrypted, ob.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
@@ -249,10 +249,21 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 	outboxes := []*Outbox{}
 	for rows.Next() {
 		o := &Outbox{}
-
-		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.Content, &o.Event, &o.isEncrypted, &o.CreatedAt)
+		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.contentByte, &o.Event, &o.isEncrypted, &o.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("fail to scan row: %w", err)
+		}
+		switch o.isEncrypted {
+		case false:
+			err = json.Unmarshal(o.contentByte, o.Content)
+
+		case true:
+			var content []byte
+			err = json.Unmarshal(o.contentByte, &content)
+			o.Content = content
+		}
+		if err != nil {
+			return nil, fmt.Errorf("fail to unmarshall content")
 		}
 		o.aead, err = p.getAEAD(o.TenantID)
 		if err != nil {

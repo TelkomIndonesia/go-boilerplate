@@ -22,7 +22,7 @@ func TestProfileBasic(t *testing.T) {
 
 	outboxesWG := sync.WaitGroup{}
 	outboxesWG.Add(3)
-	t.Run("outboxWatch", func(t *testing.T) {
+	{
 		ctx, cancel := context.WithCancel(ctx)
 		defer time.AfterFunc(30*time.Second, cancel).Stop()
 
@@ -31,13 +31,16 @@ func TestProfileBasic(t *testing.T) {
 				defer outboxesWG.Done()
 
 				p := tNewPostgres(t,
-					WithOutboxSender(func(ctx context.Context, o []*Outbox) error {
-						for _, o := range o {
+					WithOutboxSender(func(ctx context.Context, obs []*Outbox) error {
+						for _, o := range obs {
 							o, err := o.AsUnEncrypted()
 							assert.NoError(t, err, "should return unencrypted outbox")
 
 							pr := &profile.Profile{}
-							require.NoError(t, json.Unmarshal(o.Content, &pr), "should return valid json")
+							assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
+							if _, ok := profiles[pr.ID]; !ok {
+								continue
+							}
 							outboxes = append(outboxes, pr)
 						}
 						if len(outboxes) == cap(outboxes) {
@@ -51,7 +54,7 @@ func TestProfileBasic(t *testing.T) {
 				<-ctx.Done()
 			}()
 		}
-	})
+	}
 
 	p := tGetPostgres(t)
 	pr := &profile.Profile{

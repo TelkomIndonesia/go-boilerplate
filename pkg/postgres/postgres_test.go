@@ -8,11 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
-	"github.com/tink-crypto/tink-go/v2/aead"
-	"github.com/tink-crypto/tink-go/v2/keyderivation"
-	"github.com/tink-crypto/tink-go/v2/keyset"
-	"github.com/tink-crypto/tink-go/v2/mac"
-	"github.com/tink-crypto/tink-go/v2/prf"
 )
 
 var testPostgres *Postgres
@@ -53,21 +48,14 @@ func tGetKeysetHandle(t *testing.T) (aeadh *crypt.DerivableKeyset[crypt.Primitiv
 		defer testKeysetHandleSync.Unlock()
 	}
 
+	var err error
 	if testAEAD == nil {
-		aeadT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
-		require.NoError(t, err, "should create prf based key template")
-		h, err := keyset.NewHandle(aeadT)
-		require.NoError(t, err, "should create aead handle")
-		testAEAD, err = crypt.NewDerivableKeyset(h, crypt.NewPrimitiveAEAD)
-		require.NoError(t, err, "should create mac derivable keyset")
+		testAEAD, err = crypt.NewInsecureCleartextDerivableKeyset("./testdata/tink-aead.json", crypt.NewPrimitiveAEAD)
+		require.NoError(t, err, "should create aead derivable keyset")
 	}
 
 	if testMAC == nil {
-		macT, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), mac.HMACSHA256Tag128KeyTemplate())
-		require.NoError(t, err, "should create prf based key template")
-		h, err := keyset.NewHandle(macT)
-		require.NoError(t, err, "should create mac handle")
-		testMAC, err = crypt.NewDerivableKeyset(h, crypt.NewPrimitiveMAC)
+		testMAC, err = crypt.NewInsecureCleartextDerivableKeyset("./testdata/tink-mac.json", crypt.NewPrimitiveMAC)
 		require.NoError(t, err, "should create mac derivable keyset")
 	}
 

@@ -88,6 +88,8 @@ services:
       PROFILE_POSTGRES_URL: postgres://testing:testing@postgres:5432/testing?sslmode=disable
     volumes:
       - ./.local:/local
+      - ./pkg/postgres/testdata/tink-aead.json:/local/tink-aead.json
+      - ./pkg/postgres/testdata/tink-mac.json:/local/tink-mac.json
     ports:
       - 8443:8443
       

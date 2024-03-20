@@ -1,14 +1,18 @@
 package crypt
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tink-crypto/tink-go/v2/aead"
+	"github.com/tink-crypto/tink-go/v2/insecurecleartextkeyset"
 	"github.com/tink-crypto/tink-go/v2/keyderivation"
 	"github.com/tink-crypto/tink-go/v2/keyset"
+	"github.com/tink-crypto/tink-go/v2/mac"
 	"github.com/tink-crypto/tink-go/v2/prf"
 )
 
@@ -60,4 +64,47 @@ func TestDerivedKeyRotation(t *testing.T) {
 	})
 
 	assert.Equal(t, message, plaintext, "decrypted message should be equal to original message")
+}
+
+func TestLoadKeysFromFile(t *testing.T) {
+
+	t.Run("AEAD", func(t *testing.T) {
+		tmpl, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
+		require.NoError(t, err, "should create template")
+		h, err := keyset.NewHandle(tmpl)
+		require.NoError(t, err, "should create handle")
+		k := filepath.Join(t.TempDir(), "key.json")
+		f, err := os.Create(k)
+		require.NoError(t, err, "should open file for write")
+		insecurecleartextkeyset.Write(h, keyset.NewJSONWriter(f))
+		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveAEAD)
+		require.NoError(t, err, "should read key")
+		p1, err := d.GetPrimitive(nil)
+		require.NoError(t, err, "should get primitive")
+		p2, err := d.GetPrimitive(nil)
+		require.NoError(t, err, "should get primitive")
+		assert.Equal(t, p1, p2, "should return the same primitive")
+		_, err = p1.Encrypt([]byte("test"), []byte("test"))
+		require.NoError(t, err, "should encrypt")
+	})
+
+	t.Run("MAC", func(t *testing.T) {
+		tmpl, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), mac.HMACSHA256Tag256KeyTemplate())
+		require.NoError(t, err, "should create template")
+		h, err := keyset.NewHandle(tmpl)
+		require.NoError(t, err, "should create handle")
+		k := filepath.Join(t.TempDir(), "key.json")
+		f, err := os.Create(k)
+		require.NoError(t, err, "should open file for write")
+		insecurecleartextkeyset.Write(h, keyset.NewJSONWriter(f))
+		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveMAC)
+		require.NoError(t, err, "should read key")
+		m1, err := d.GetPrimitive(nil)
+		require.NoError(t, err, "should get primitive")
+		m2, err := d.GetPrimitive(nil)
+		require.NoError(t, err, "should get primitive")
+		assert.Equal(t, m1, m2, "should return the same primitive")
+		_, err = m1.ComputeMAC([]byte("test"))
+		require.NoError(t, err, "should hash")
+	})
 }

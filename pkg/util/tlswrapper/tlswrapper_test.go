@@ -14,6 +14,7 @@ import (
 	cp "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
 func TestReload(t *testing.T) {
@@ -27,21 +28,26 @@ func TestReload(t *testing.T) {
 	require.NoError(t, os.Symlink(testdir1, testdirI), "should create symlink")
 	require.NoError(t, os.Symlink(testdirI, testdirR), "should create symlink")
 
+	cfg := &tls.Config{ClientAuth: tls.RequireAndVerifyClientCert}
 	eventR := make(chan struct{}, 10)
 	twR, err := New(
+		WithTLSConfig(cfg),
 		WithCA(filepath.Join(testdirR, "ca.crt")),
 		WithLeafCert(filepath.Join(testdirR, "profile.key"), filepath.Join(testdirR, "profile.crt")),
 		WithConfigReloadListener(func(s, c *tls.Config) { t.Log("event"); eventR <- struct{}{} }),
+		WithLogger(log.Global().WithCtx(log.Any("test", "test"))),
 	)
 	require.NoError(t, err, "should load certificates")
 	t.Cleanup(func() { twR.Close(context.Background()) })
 	tw1, err := New(
+		WithTLSConfig(cfg),
 		WithCA("./testdata/set1/ca.crt"),
 		WithLeafCert("./testdata/set1/profile.key", "./testdata/set1/profile.crt"),
 	)
 	require.NoError(t, err, "should load certificates in set 1")
 	t.Cleanup(func() { tw1.Close(context.Background()) })
 	tw2, err := New(
+		WithTLSConfig(cfg),
 		WithCA("./testdata/set2/ca.crt"),
 		WithLeafCert("./testdata/set2/profile.key", "./testdata/set2/profile.crt"),
 	)

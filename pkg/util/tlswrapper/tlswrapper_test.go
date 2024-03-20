@@ -1,7 +1,8 @@
 package tlswrapper
 
 import (
-	"fmt"
+	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -26,21 +27,26 @@ func TestReload(t *testing.T) {
 	require.NoError(t, os.Symlink(testdir1, testdirI), "should create symlink")
 	require.NoError(t, os.Symlink(testdirI, testdirR), "should create symlink")
 
+	eventR := make(chan struct{}, 10)
 	twR, err := New(
 		WithCA(filepath.Join(testdirR, "ca.crt")),
 		WithLeafCert(filepath.Join(testdirR, "profile.key"), filepath.Join(testdirR, "profile.crt")),
+		WithConfigReloadListener(func(s, c *tls.Config) { t.Log("event"); eventR <- struct{}{} }),
 	)
 	require.NoError(t, err, "should load certificates")
+	t.Cleanup(func() { twR.Close(context.Background()) })
 	tw1, err := New(
 		WithCA("./testdata/set1/ca.crt"),
 		WithLeafCert("./testdata/set1/profile.key", "./testdata/set1/profile.crt"),
 	)
 	require.NoError(t, err, "should load certificates in set 1")
+	t.Cleanup(func() { tw1.Close(context.Background()) })
 	tw2, err := New(
 		WithCA("./testdata/set2/ca.crt"),
 		WithLeafCert("./testdata/set2/profile.key", "./testdata/set2/profile.crt"),
 	)
 	require.NoError(t, err, "should load certificates in set 2")
+	t.Cleanup(func() { tw2.Close(context.Background()) })
 
 	helloworld := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(nil) })
 	newsc := func(tw TLSWrapper) (s *httptest.Server, c *http.Client) {
@@ -73,10 +79,7 @@ func TestReload(t *testing.T) {
 
 	require.NoError(t, os.Remove(testdirI), "should remove symlink")
 	require.NoError(t, os.Symlink(testdir2, testdirI), "should create new symlink")
-	fmt.Println("before remove")
-	require.NoError(t, os.RemoveAll(testdir1+"/ca.crt"), "should remove old dir")
-	require.NoError(t, os.RemoveAll(testdir1+"/profile.crt"), "should remove old dir")
-	require.NoError(t, os.RemoveAll(testdir1+"/profile.key"), "should remove old dir")
+	require.NoError(t, os.RemoveAll(testdir1), "should remove old dir")
 	<-time.After(time.Second)
 
 	tclientR.CloseIdleConnections()
@@ -90,4 +93,11 @@ func TestReload(t *testing.T) {
 	assert.Error(t, err, "should fail sending https request")
 	_, err = tclient1.Get(tserverR.URL)
 	assert.Error(t, err, "should fail sending https request")
+
+	close(eventR)
+	count := 0
+	for range eventR {
+		count += 1
+	}
+	assert.GreaterOrEqual(t, count, 2, "should call event listener")
 }

@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt/sqlval"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -40,23 +41,19 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 		ON CONFLICT (id)
 		DO UPDATE SET updated_at = NOW()
 	`
-	args, err := argList(
-		argLiteral(pr.ID),
-		argLiteral(pr.TenantID),
-		p.argEncStr(pr.TenantID, pr.NIN, pr.ID[:]),
-		p.argBlindIdx(pr.TenantID, pr.NIN),
-		p.argEncStr(pr.TenantID, pr.Name, pr.ID[:]),
-		p.argBlindIdx(pr.TenantID, pr.Name),
-		p.argEncStr(pr.TenantID, pr.Phone, pr.ID[:]),
-		p.argBlindIdx(pr.TenantID, pr.Phone),
-		p.argEncStr(pr.TenantID, pr.Email, pr.ID[:]),
-		p.argBlindIdx(pr.TenantID, pr.Email),
-		p.argEncTime(pr.TenantID, pr.DOB, pr.ID[:]),
+	_, err = tx.ExecContext(ctx, insertProfile,
+		pr.ID,
+		pr.TenantID,
+		sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.NIN, pr.ID[:]),
+		sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.NIN),
+		sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Name, pr.ID[:]),
+		sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.Name),
+		sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Phone, pr.ID[:]),
+		sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.Phone),
+		sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Email, pr.ID[:]),
+		sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.Email),
+		sqlval.AEADTime(p.aeadFunc(pr.TenantID), pr.DOB, pr.ID[:]),
 	)
-	if err != nil {
-		return fmt.Errorf("fail to prepare arguments for insert profile: %w", err)
-	}
-	_, err = tx.ExecContext(ctx, insertProfile, args...)
 	if err != nil {
 		return fmt.Errorf("fail to insert to profile: %w", err)
 	}
@@ -93,7 +90,11 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 	))
 	defer span.End()
 
-	var nin, name, phone, email, dob []byte
+	nin := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+	name := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+	phone := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+	email := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+	dob := sqlval.AEADTime(p.aeadFunc(tenantID), time.Time{}, id[:])
 	q := `SELECT nin, name, phone, email, dob FROM profile WHERE id = $1 AND tenant_id = $2`
 	err = p.db.QueryRowContext(ctx, q,
 		id, tenantID).
@@ -105,41 +106,14 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 		return nil, fmt.Errorf("fail to select profile: %w", err)
 	}
 
-	paead, err := p.getAEAD(tenantID)
-	if err != nil {
-		return nil, err
-	}
-	nin, err = paead.Decrypt(nin, id[:])
-	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt nin : %w", err)
-	}
-	name, err = paead.Decrypt(name, id[:])
-	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt name : %w", err)
-	}
-	phone, err = paead.Decrypt(phone, id[:])
-	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt phone : %w", err)
-	}
-	email, err = paead.Decrypt(email, id[:])
-	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt email : %w", err)
-	}
-	dob, err = paead.Decrypt(dob, id[:])
-	if err != nil {
-		return nil, fmt.Errorf("fail to decrypt dob : %w", err)
-	}
-
 	pr = &profile.Profile{
 		ID:       id,
 		TenantID: tenantID,
-		NIN:      string(nin),
-		Name:     string(name),
-		Phone:    string(phone),
-		Email:    string(email),
-	}
-	if err = pr.DOB.UnmarshalBinary(dob); err != nil {
-		return nil, fmt.Errorf("fail to unmarshal dob: %w", err)
+		NIN:      nin.To(),
+		Name:     name.To(),
+		Phone:    phone.To(),
+		Email:    email.To(),
+		DOB:      dob.To(),
 	}
 
 	return
@@ -160,13 +134,10 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 	))
 	defer span.End()
 
-	nameIdxs, err := p.getBlindIdxs(tenantID, []byte(qname))
-	if err != nil {
-		return nil, fmt.Errorf("fail to compute blind indexes from profile name: %w", err)
-	}
-
 	q := `SELECT id, nin, name, phone, email, dob FROM profile WHERE tenant_id = $1 and name_bidx = ANY($2)`
-	rows, err := p.db.QueryContext(ctx, q, tenantID, pq.Array(nameIdxs))
+	rows, err := p.db.QueryContext(ctx, q,
+		tenantID,
+		sqlval.BIDXString(p.bidx.GetPrimitiveFunc(tenantID[:]), qname).ForRead(pqByteArray))
 	if err != nil {
 		return nil, fmt.Errorf("fail to query profile by name: %w", err)
 	}
@@ -174,51 +145,24 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 
 	for rows.Next() {
 		var id uuid.UUID
-		var nin, name, phone, email, dob []byte
+		nin := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+		name := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+		phone := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+		email := sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
+		dob := sqlval.AEADTime(p.aeadFunc(tenantID), time.Time{}, id[:])
 		err = rows.Scan(&id, &nin, &name, &phone, &email, &dob)
 		if err != nil {
 			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}
 
-		paead, err := p.getAEAD(tenantID)
-		if err != nil {
-			return nil, err
-		}
-		name, err = paead.Decrypt(name, id[:])
-		if err != nil {
-			return nil, fmt.Errorf("fail to decrypt name : %w", err)
-		}
-		if string(name) != qname {
-			continue
-		}
-
-		nin, err = paead.Decrypt(nin, id[:])
-		if err != nil {
-			return nil, fmt.Errorf("fail to decrypt nin : %w", err)
-		}
-		phone, err = paead.Decrypt(phone, id[:])
-		if err != nil {
-			return nil, fmt.Errorf("fail to decrypt phone : %w", err)
-		}
-		email, err = paead.Decrypt(email, id[:])
-		if err != nil {
-			return nil, fmt.Errorf("fail to decrypt email : %w", err)
-		}
-		dob, err = paead.Decrypt(dob, id[:])
-		if err != nil {
-			return nil, fmt.Errorf("fail to decrypt dob : %w", err)
-		}
-
 		pr := &profile.Profile{
 			ID:       id,
 			TenantID: tenantID,
-			NIN:      string(nin),
-			Name:     string(name),
-			Phone:    string(phone),
-			Email:    string(email),
-		}
-		if err = pr.DOB.UnmarshalBinary(dob); err != nil {
-			return nil, fmt.Errorf("fail to unmarshal dob: %w", err)
+			NIN:      nin.To(),
+			Name:     name.To(),
+			Phone:    phone.To(),
+			Email:    email.To(),
+			DOB:      dob.To(),
 		}
 		prs = append(prs, pr)
 	}

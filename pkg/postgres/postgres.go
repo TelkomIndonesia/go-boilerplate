@@ -11,7 +11,6 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
-	"github.com/tink-crypto/tink-go/v2/tink"
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -32,10 +31,10 @@ func WithLogger(l log.Logger) OptFunc {
 	}
 }
 
-func WithDerivableKeysets(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD], mac *crypt.DerivableKeyset[crypt.PrimitiveMAC]) OptFunc {
+func WithDerivableKeysets(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD], bidx *crypt.DerivableKeyset[crypt.PrimitiveBIDX]) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.aead = aead
-		p.mac = mac
+		p.bidx = bidx
 		return
 	}
 }
@@ -45,16 +44,6 @@ func WithConnString(connStr string) OptFunc {
 		p.dbUrl = connStr
 		p.db, err = otelsql.Open("postgres", connStr)
 		return
-	}
-}
-
-func WithBlindIdxLen(n int) OptFunc {
-	return func(p *Postgres) error {
-		if n < 8 {
-			return fmt.Errorf("length must be greater than equal 8")
-		}
-		p.bidxLen = n
-		return nil
 	}
 }
 
@@ -71,8 +60,7 @@ type Postgres struct {
 	dbUrl    string
 	db       *sql.DB
 	aead     *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
-	mac      *crypt.DerivableKeyset[crypt.PrimitiveMAC]
-	bidxLen  int
+	bidx     *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
 	obSender OutboxSender
 
 	tracer trace.Tracer
@@ -83,9 +71,8 @@ type Postgres struct {
 
 func New(opts ...OptFunc) (p *Postgres, err error) {
 	p = &Postgres{
-		logger:  log.Global(),
-		bidxLen: 16,
-		tracer:  otel.Tracer("postgres"),
+		logger: log.Global(),
+		tracer: otel.Tracer("postgres"),
 	}
 	for _, opt := range opts {
 		if err = opt(p); err != nil {
@@ -96,8 +83,8 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	if p.db == nil {
 		return nil, fmt.Errorf("missing db connection")
 	}
-	if p.aead == nil || p.mac == nil {
-		return nil, fmt.Errorf("missing aead or mac keyset")
+	if p.aead == nil || p.bidx == nil {
+		return nil, fmt.Errorf("missing aead or bidx primitive")
 	}
 	if p.logger == nil {
 		return nil, fmt.Errorf("missing logger")
@@ -112,20 +99,12 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	return p, nil
 }
 
-func (p *Postgres) getAEAD(tenantID uuid.UUID) (tink.AEAD, error) {
-	return p.aead.GetPrimitive(tenantID[:])
+func (p *Postgres) aeadFunc(tenantID uuid.UUID) func() (crypt.PrimitiveAEAD, error) {
+	return p.aead.GetPrimitiveFunc(tenantID[:])
 }
 
-func (p *Postgres) getMac(tenantID uuid.UUID) (tink.MAC, error) {
-	return p.mac.GetPrimitive(tenantID[:])
-}
-
-func (p *Postgres) getBlindIdxs(tenantID uuid.UUID, key []byte) (idxs [][]byte, err error) {
-	h, err := p.mac.GetHandle(tenantID[:])
-	if err != nil {
-		return nil, fmt.Errorf("fail to get keyset handle for tenant %s: %w", tenantID, err)
-	}
-	return crypt.GetBlindIdxs(h, key, p.bidxLen)
+func (p *Postgres) bidxFunc(tenantID uuid.UUID) func() (crypt.PrimitiveBIDX, error) {
+	return p.bidx.GetPrimitiveFunc(tenantID[:])
 }
 
 func (p *Postgres) Close(ctx context.Context) (err error) {

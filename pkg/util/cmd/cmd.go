@@ -36,6 +36,8 @@ func WithTLSConfig(cfg *tls.Config) OptFunc {
 type CMD struct {
 	MACDerivableKeysetPath  *string `env:"MAC_DERIVABLE_KEYSET_PATH,expand" json:"mac_derivable_keyset_path"`
 	AEADDerivableKeysetPath *string `env:"AEAD_DERIVABLE_KEYSET_PATH,expand" json:"aead_derivable_keyset_path"`
+	BIDXDerivableKeysetPath *string `env:"BIDX_DERIVABLE_KEYSET_PATH,expand" json:"bidx_derivable_keyset_path"`
+	BIDXLength              *int    `env:"BIDX_LENGTH,expand" envDefault:"16" json:"bidx_length"`
 	TLSKeyPath              *string `env:"TLS_KEY_PATH,expand" json:"tls_key_path"`
 	TLSCertPath             *string `env:"TLS_CERT_PATH,expand" json:"tls_cert_path"`
 	TLSCAPath               *string `env:"TLS_CA_PATH,expand" json:"tls_ca_path"`
@@ -49,6 +51,7 @@ type CMD struct {
 	getTLSWrapper func() (tlswrapper.TLSWrapper, error)
 	getAEAD       func() (*crypt.DerivableKeyset[crypt.PrimitiveAEAD], error)
 	getMAC        func() (*crypt.DerivableKeyset[crypt.PrimitiveMAC], error)
+	getBIDX       func() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error)
 	getHTTPClient func() (httpclient.HTTPClient, error)
 }
 
@@ -66,6 +69,7 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 	c.initTLSWrapper()
 	c.initAEADDerivableKeySet()
 	c.initMACDerivableKeySet()
+	c.initBIDXDerivableKeySet()
 	c.initHTTPClient()
 	return
 }
@@ -134,6 +138,20 @@ func (c *CMD) initMACDerivableKeySet() {
 
 func (c CMD) MacDerivableKeyset() (*crypt.DerivableKeyset[crypt.PrimitiveMAC], error) {
 	return c.getMAC()
+}
+
+func (c *CMD) initBIDXDerivableKeySet() {
+	if c.MACDerivableKeysetPath == nil {
+		c.getMAC = func() (*crypt.DerivableKeyset[crypt.PrimitiveMAC], error) { return nil, nil }
+		return
+	}
+
+	m, err := crypt.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, crypt.NewPrimitiveBIDXWithLen(*c.BIDXLength))
+	c.getBIDX = func() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error) { return m, err }
+}
+
+func (c CMD) BIDXDerivableKeyset() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error) {
+	return c.getBIDX()
 }
 
 func (c *CMD) initHTTPClient() {

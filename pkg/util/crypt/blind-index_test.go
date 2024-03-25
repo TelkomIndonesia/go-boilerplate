@@ -24,6 +24,12 @@ func TestBlindIndexes(t *testing.T) {
 	v, err := m.ComputeMAC(data[:])
 	require.NoError(t, err, "should compute mac")
 
+	bidx, err := NewBIDX(handle, 0)
+	require.NoError(t, err)
+	v1, err := bidx.ComputePrimary(data)
+	require.NoError(t, err)
+	assert.Equal(t, v, v1)
+
 	hid, err = mgr.Add(mac.HMACSHA256Tag128KeyTemplate())
 	require.NoError(t, err, "should add new mac handle")
 	err = mgr.SetPrimary(hid)
@@ -31,8 +37,14 @@ func TestBlindIndexes(t *testing.T) {
 	handle, err = mgr.Handle()
 	require.NoError(t, err, "should obtain new mac handle")
 
-	vs, err := GetBlindIdxs(handle, data[:], len(v))
-	require.NoError(t, err, "should compute multiple mac")
+	for i := 0; i < 10; i++ {
+		vs, err := GetBlindIdxs(handle, data[:], len(v))
+		require.NoError(t, err, "should compute multiple mac")
+		vs1, err := bidx.ComputeAll(data)
+		require.NoError(t, err, "should compute multiple mac")
+		assert.Equal(t, vs, vs1)
 
-	assert.Contains(t, vs, v, "should contain previous mac")
+		assert.Contains(t, vs, v, "should contain previous mac")
+	}
+
 }

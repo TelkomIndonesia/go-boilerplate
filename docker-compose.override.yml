@@ -19,6 +19,7 @@ services:
       PWD: ${PWD:-/src}
       PROFILE_AEAD_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-aead.json
       PROFILE_MAC_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-mac.json
+      PROFILE_BIDX_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-mac.json
       PROFILE_TLS_KEY_PATH: $$PWD/pkg/util/tlswrapper/testdata/set1/profile.key
       PROFILE_TLS_CERT_PATH: $$PWD/pkg/util/tlswrapper/testdata/set1/profile.crt
       PROFILE_TLS_CA_PATH: $$PWD/pkg/util/tlswrapper/testdata/set1/ca.crt

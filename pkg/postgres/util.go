@@ -2,7 +2,10 @@ package postgres
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"hash/fnv"
+
+	"github.com/lib/pq"
 )
 
 func txRollbackDeferer(tx *sql.Tx, err *error) func() {
@@ -13,17 +16,13 @@ func txRollbackDeferer(tx *sql.Tx, err *error) func() {
 	}
 }
 
-func min[T int | int16 | int32 | int64](a T, b T) T {
-	if a < b {
-		return a
-	}
-	return b
+func pqByteArray(arr [][]byte) driver.Valuer {
+	return pq.ByteaArray(arr)
 }
 
 func keyNameAsHash64(keyName string) uint64 {
 	hash := fnv.New64()
-	_, err := hash.Write([]byte(keyName))
-	if err != nil {
+	if _, err := hash.Write([]byte(keyName)); err != nil {
 		panic(err)
 	}
 	return hash.Sum64()

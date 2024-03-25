@@ -14,20 +14,35 @@ import (
 )
 
 type Primitive interface {
-	PrimitiveAEAD | PrimitiveMAC
+	PrimitiveAEAD | PrimitiveMAC | PrimitiveBIDX
 }
-type PrimitiveAEAD struct{ tink.AEAD }
-type PrimitiveMAC struct{ tink.MAC }
-
 type NewPrimitive[T Primitive] func(*keyset.Handle) (T, error)
+
+type PrimitiveAEAD struct{ tink.AEAD }
 
 func NewPrimitiveAEAD(h *keyset.Handle) (p PrimitiveAEAD, err error) {
 	p.AEAD, err = aead.New(h)
 	return
 }
+
+type PrimitiveMAC struct{ tink.MAC }
+
 func NewPrimitiveMAC(h *keyset.Handle) (p PrimitiveMAC, err error) {
 	p.MAC, err = mac.New(h)
 	return
+}
+
+type PrimitiveBIDX struct{ BIDX }
+
+func NewPrimitiveBIDX(h *keyset.Handle) (p PrimitiveBIDX, err error) {
+	p.BIDX, err = NewBIDX(h, 0)
+	return
+}
+func NewPrimitiveBIDXWithLen(len int) func(h *keyset.Handle) (p PrimitiveBIDX, err error) {
+	return func(h *keyset.Handle) (p PrimitiveBIDX, err error) {
+		p.BIDX, err = NewBIDX(h, len)
+		return
+	}
 }
 
 type DerivableKeyset[T Primitive] struct {
@@ -63,8 +78,8 @@ func NewInsecureCleartextDerivableKeyset[T Primitive](path string, c NewPrimitiv
 	return NewDerivableKeyset(h, c)
 }
 
-func (m *DerivableKeyset[T]) GetHandle(salt []byte) (h *keyset.Handle, err error) {
-	v, ok := m.keys.Load(string(salt))
+func (m *DerivableKeyset[T]) GetHandle(deriveKey []byte) (h *keyset.Handle, err error) {
+	v, ok := m.keys.Load(string(deriveKey))
 	if ok {
 		h, ok = v.(*keyset.Handle)
 	}
@@ -73,23 +88,23 @@ func (m *DerivableKeyset[T]) GetHandle(salt []byte) (h *keyset.Handle, err error
 		if err != nil {
 			return nil, fmt.Errorf("fail to initiate key derivator: %w", err)
 		}
-		h, err = deriver.DeriveKeyset(salt[:])
+		h, err = deriver.DeriveKeyset(deriveKey[:])
 		if err != nil {
 			return nil, fmt.Errorf("fail to derrive tennat keyset: %w", err)
 		}
-		m.keys.Store(string(salt), h)
+		m.keys.Store(string(deriveKey), h)
 	}
 	return
 }
 
-func (m *DerivableKeyset[T]) GetPrimitive(salt []byte) (p T, err error) {
+func (m *DerivableKeyset[T]) GetPrimitive(deriveKey []byte) (p T, err error) {
 	var h *keyset.Handle
-	v, ok := m.primitives.Load(string(salt))
+	v, ok := m.primitives.Load(string(deriveKey))
 	if ok {
 		p, ok = v.(T)
 	}
 	if !ok {
-		h, err = m.GetHandle(salt)
+		h, err = m.GetHandle(deriveKey)
 		if err != nil {
 			return p, err
 		}
@@ -98,7 +113,34 @@ func (m *DerivableKeyset[T]) GetPrimitive(salt []byte) (p T, err error) {
 			return p, fmt.Errorf("fail to instantiate primitive: %w", err)
 		}
 
-		m.primitives.Store(string(salt), p)
+		m.primitives.Store(string(deriveKey), p)
 	}
 	return
+}
+
+func (m *DerivableKeyset[T]) GetPrimitiveNHandle(deriveKey []byte) (p T, h *keyset.Handle, err error) {
+	h, err = m.GetHandle(deriveKey)
+	if err != nil {
+		return
+	}
+	p, err = m.GetPrimitive(deriveKey)
+	return
+}
+
+func (m *DerivableKeyset[T]) GetPrimitiveFunc(deriveKey []byte) func() (T, error) {
+	return func() (T, error) {
+		return m.GetPrimitive(deriveKey)
+	}
+}
+
+func (m *DerivableKeyset[T]) GetHandleFunc(deriveKey []byte) func() (*keyset.Handle, error) {
+	return func() (*keyset.Handle, error) {
+		return m.GetHandle(deriveKey)
+	}
+}
+
+func (m *DerivableKeyset[T]) GetPrimitiveNHandleFunc(deriveKey []byte) func() (T, *keyset.Handle, error) {
+	return func() (t T, h *keyset.Handle, err error) {
+		return m.GetPrimitiveNHandle(deriveKey)
+	}
 }

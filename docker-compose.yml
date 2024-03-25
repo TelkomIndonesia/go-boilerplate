@@ -78,6 +78,7 @@ services:
     environment:
       PROFILE_AEAD_DERIVABLE_KEYSET_PATH: /local/tink-aead.json
       PROFILE_MAC_DERIVABLE_KEYSET_PATH: /local/tink-mac.json
+      PROFILE_BIDX_DERIVABLE_KEYSET_PATH: /local/tink-mac.json
       PROFILE_TLS_KEY_PATH: /local/profile.key
       PROFILE_TLS_CERT_PATH: /local/profile.crt
       PROFILE_TLS_CA_PATH: /local/ca.crt

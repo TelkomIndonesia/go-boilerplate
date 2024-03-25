@@ -94,6 +94,9 @@ l1.l2.cmd -> util.httpclient: {
 l1.l2.l3.postgres -> util.crypt: {
   class: DependencyLine
 }
+l1.l2.l3.postgres -> util.sqlval: {
+  class: DependencyLine
+}
 
 util: {
   near: bottom-right
@@ -106,6 +109,9 @@ util: {
     class: Package
   }
   crypt: pkg/util/crypt {
+    class: Package
+  }
+  sqlval: pkg/util/crypt/sqlval {
     class: Package
   }
   log: pkg/util/log {
@@ -130,6 +136,7 @@ util: {
   cmd -> otel: {class: DependencyLine}
   cmd -> tlswrapper: {class: DependencyLine}
   cmd -> httpclient: {class: DependencyLine}
+  sqlval -> crypt: {class: DependencyLine}
   tlswrapper -> filewatcher: {class: DependencyLine}
   tlswrapper -> log: {class: DependencyLine}
 }

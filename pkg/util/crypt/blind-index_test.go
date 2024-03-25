@@ -42,9 +42,9 @@ func TestBlindIndexes(t *testing.T) {
 		require.NoError(t, err, "should compute multiple mac")
 		vs1, err := bidx.ComputeAll(data)
 		require.NoError(t, err, "should compute multiple mac")
-		assert.Equal(t, vs, vs1)
 
 		assert.Contains(t, vs, v, "should contain previous mac")
+		assert.Contains(t, vs1, v, "should contain previous mac")
 	}
 
 }

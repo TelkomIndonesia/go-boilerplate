@@ -154,6 +154,9 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 		if err != nil {
 			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}
+		if qname != name.To() {
+			continue
+		}
 
 		pr := &profile.Profile{
 			ID:       id,

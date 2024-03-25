@@ -115,10 +115,13 @@ func (h HTTPServer) Start(ctx context.Context) (err error) {
 		return h.server.ListenAndServe()
 	}
 
-	return h.server.Serve(h.listener)
+	go h.server.Serve(h.listener)
+	<-ctx.Done()
+	return
 }
 
 func (h HTTPServer) Close(ctx context.Context) (err error) {
+	h.logger.Info("HTTP server exit")
 	err = h.server.Shutdown(ctx)
 	return
 }

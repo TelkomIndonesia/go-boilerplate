@@ -70,6 +70,12 @@ func Time(key string, value time.Time) LogContextFunc {
 	}
 }
 
+func Error(key string, value error) LogContextFunc {
+	return func(lc LogContext) {
+		lc.Error(key, value)
+	}
+}
+
 func TraceContext(key string, ctx context.Context) LogContextFunc {
 	return func(lc LogContext) {
 		spanCtx := trace.SpanContextFromContext(ctx)

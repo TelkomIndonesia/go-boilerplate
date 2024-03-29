@@ -122,3 +122,7 @@ func (d defContext) Time(key string, value time.Time) {
 func (d defContext) Duration(key string, value time.Duration) {
 	d[key] = value
 }
+
+func (d defContext) Error(key string, value error) {
+	d[key] = value
+}

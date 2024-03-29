@@ -156,3 +156,6 @@ func (lc *loggerContext) Uint64(key string, value uint64) {
 func (lc *loggerContext) Time(key string, value time.Time) {
 	lc.fields = append(lc.fields, zap.Time(key, value))
 }
+func (lc *loggerContext) Error(key string, value error) {
+	lc.fields = append(lc.fields, zap.NamedError(key, value))
+}

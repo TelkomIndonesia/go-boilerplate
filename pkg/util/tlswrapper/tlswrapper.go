@@ -45,11 +45,11 @@ func WithLeafCert(key, cert string) OptFunc {
 
 		cw, err := filewatcher.New(cert, func(s string, err error) {
 			if err != nil {
-				c.logger.Error("leaf-cert-file-watcher", log.Any("error", err))
+				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
 				return
 			}
 			if err = c.loadLeaf(); err != nil {
-				c.logger.Error("leaf-cert-file-watcher", log.Any("error", err))
+				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
 				return
 			}
 			c.logger.Info("leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
@@ -72,11 +72,11 @@ func WithCA(path string) OptFunc {
 
 		cw, err := filewatcher.New(path, func(s string, err error) {
 			if err != nil {
-				c.logger.Error("ca-file-watcher", log.Any("error", err))
+				c.logger.Error("ca-file-watcher", log.Error("error", err))
 				return
 			}
 			if err = c.loadCA(); err != nil {
-				c.logger.Error("ca-file-watcher", log.Any("error", err))
+				c.logger.Error("ca-file-watcher", log.Error("error", err))
 				return
 			}
 			c.logger.Info("ca-file-watcher", log.String("info", "ca file updated"))

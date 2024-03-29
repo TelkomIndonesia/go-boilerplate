@@ -23,6 +23,7 @@ type LogContext interface {
 	Int64(key string, value int64)
 	Uint64(key string, value uint64)
 	Time(key string, value time.Time)
+	Error(key string, value error)
 }
 
 type Loggable interface {

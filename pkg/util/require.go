@@ -9,7 +9,7 @@ func Require[T any](f func() (T, error), l log.Logger) T {
 
 	t, err := f()
 	if err != nil {
-		l.Fatal("requirement-unsatisfied", log.Any("error", err))
+		l.Fatal("requirement-unsatisfied", log.Error("error", err))
 	}
 	return t
 }

@@ -18,7 +18,7 @@ func (o logsink) Enabled(level int) bool {
 }
 
 func (o logsink) Error(err error, msg string, keysAndValues ...any) {
-	o.l.Error(msg, log.Any("error", err), log.String("name", o.name), log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
+	o.l.Error(msg, log.Error("error", err), log.String("name", o.name), log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
 }
 
 func (o logsink) Info(level int, msg string, keysAndValues ...any) {

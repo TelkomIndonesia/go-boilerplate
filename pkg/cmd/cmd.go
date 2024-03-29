@@ -216,6 +216,7 @@ func (c *CMD) initHTTPServer() (err error) {
 }
 
 func (c *CMD) Run(ctx context.Context) (err error) {
+	defer func() { c.logger.Error("error", log.Error("error", err)) }()
 	defer func() { err = c.close(ctx, err) }()
 	defer c.otelLoader(ctx)
 

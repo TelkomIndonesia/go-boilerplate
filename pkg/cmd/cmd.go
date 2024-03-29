@@ -214,6 +214,7 @@ func (c *CMD) initHTTPServer() (err error) {
 	c.closers = append(c.closers, c.h.Close)
 	return
 }
+
 func (c *CMD) Run(ctx context.Context) (err error) {
 	defer func() { err = c.close(ctx, err) }()
 	defer c.otelLoader(ctx)

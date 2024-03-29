@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -111,17 +112,18 @@ func (h *HTTPServer) registerHealthCheck() *HTTPServer {
 }
 
 func (h HTTPServer) Start(ctx context.Context) (err error) {
+	go func() {
+		<-ctx.Done()
+		err = errors.Join(err, h.server.Shutdown(ctx))
+	}()
+
 	if h.listener == nil {
 		return h.server.ListenAndServe()
 	}
 
-	go h.server.Serve(h.listener)
-	<-ctx.Done()
-	return
+	return errors.Join(err, h.server.Serve(h.listener))
 }
 
 func (h HTTPServer) Close(ctx context.Context) (err error) {
-	h.logger.Info("HTTP server exit")
-	err = h.server.Shutdown(ctx)
-	return
+	return h.server.Shutdown(ctx)
 }

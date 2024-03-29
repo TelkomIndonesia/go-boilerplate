@@ -57,7 +57,7 @@ type zaplogger struct {
 }
 
 func New(opts ...OptFunc) (l log.Logger, err error) {
-	z, err := zap.NewProduction()
+	z, err := zap.NewProduction(zap.AddCallerSkip(1))
 	if err != nil {
 		return nil, fmt.Errorf("fail to instantiate zap")
 	}

@@ -124,5 +124,5 @@ func (d defContext) Duration(key string, value time.Duration) {
 }
 
 func (d defContext) Error(key string, value error) {
-	d[key] = value
+	d[key] = value.Error()
 }

@@ -255,6 +255,7 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 		}
 		switch o.IsEncrypted {
 		case false:
+			o.Content = map[string]interface{}{}
 			err = json.Unmarshal(o.contentByte, o.Content)
 
 		case true:

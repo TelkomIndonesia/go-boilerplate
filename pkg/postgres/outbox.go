@@ -216,7 +216,10 @@ func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
 		}
 
 		if !timer.Stop() {
-			<-timer.C
+			select {
+			case <-timer.C:
+			default:
+			}
 		}
 	}
 }

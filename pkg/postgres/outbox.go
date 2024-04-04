@@ -25,8 +25,8 @@ type Outbox struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Event       string    `json:"event"`
 	Content     any       `json:"content"`
+	IsEncrypted bool      `json:"is_encrypted"`
 
-	isEncrypted bool
 	aead        tink.AEAD
 	contentByte []byte
 }
@@ -71,7 +71,7 @@ func (p *Postgres) newOutboxEncrypted(tid uuid.UUID, event string, ctype string,
 }
 
 func (ob Outbox) AsEncrypted() (o Outbox, err error) {
-	if ob.isEncrypted {
+	if ob.IsEncrypted {
 		return ob, nil
 	}
 
@@ -89,12 +89,12 @@ func (ob Outbox) AsEncrypted() (o Outbox, err error) {
 		return o, fmt.Errorf("fail to encrypt outbox: %w", err)
 	}
 
-	ob.isEncrypted = true
+	ob.IsEncrypted = true
 	return ob, nil
 }
 
 func (ob Outbox) AsUnEncrypted() (o Outbox, err error) {
-	if !ob.isEncrypted {
+	if !ob.IsEncrypted {
 		return ob, nil
 	}
 
@@ -115,7 +115,7 @@ func (ob Outbox) AsUnEncrypted() (o Outbox, err error) {
 		return o, fmt.Errorf("fail to unmarshal encrypted outbox: %w", err)
 	}
 
-	ob.isEncrypted = false
+	ob.IsEncrypted = false
 	return ob, nil
 }
 
@@ -145,7 +145,7 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 		($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, ob.ContentType, content, ob.Event, ob.isEncrypted, ob.CreatedAt,
+		ob.ID, ob.TenantID, ob.ContentType, content, ob.Event, ob.IsEncrypted, ob.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
@@ -249,11 +249,11 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 	outboxes := []*Outbox{}
 	for rows.Next() {
 		o := &Outbox{}
-		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.contentByte, &o.Event, &o.isEncrypted, &o.CreatedAt)
+		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.contentByte, &o.Event, &o.IsEncrypted, &o.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("fail to scan row: %w", err)
 		}
-		switch o.isEncrypted {
+		switch o.IsEncrypted {
 		case false:
 			err = json.Unmarshal(o.contentByte, o.Content)
 

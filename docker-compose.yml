@@ -33,6 +33,24 @@ services:
     ports:
       - 19092:19092
 
+  kafka_topic:
+    image: bitnami/kafka
+    restart: on-failure
+    depends_on:
+      kafka: 
+        condition: service_started
+    entrypoint: [bash, -c]
+    command:
+      - |
+        set -e
+
+        kafka-topics.sh --bootstrap-server kafka:9092 --topic outbox --create || true
+
+        echo "-----------------------------------"
+        echo "start consuming from 'outbox' topic"
+        echo "-----------------------------------"
+        kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic outbox
+
   tenant:
     image: caddy:2.7.6
     restart: unless-stopped

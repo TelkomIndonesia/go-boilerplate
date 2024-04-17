@@ -39,7 +39,7 @@ func main() {
 		WithEnvVariable("POSTGRES_PASSWORD", "testing").
 		WithEnvVariable("POSTGRES_USER", "testing").
 		WithEnvVariable("POSTGRES_DB", "testing").
-		WithMountedFile("/docker-entrypoint-initdb.d/schema.sql", src.File("schema.sql"))
+		WithMountedFile("/docker-entrypoint-initdb.d/schema.sql", src.File("pkg/postgres/schema.sql"))
 	postgresService, err := postgres.AsService().Start(ctx)
 	if err != nil {
 		log.Fatalf("fail to start postgres service %v", err)

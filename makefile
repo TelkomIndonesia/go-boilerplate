@@ -5,6 +5,9 @@ keys:
 	docker compose -f docker-compose.keys.yml up
 	docker compose -f docker-compose.keys.yml down
 
+generate:
+	go generate ./...
+
 build: 
 	go build ./...
 

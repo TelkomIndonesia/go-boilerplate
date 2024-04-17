@@ -1,0 +1,54 @@
+version: "2"
+plugins:
+  - name: golang
+    wasm:
+      url: https://github.com/TelkomIndonesia/sqlc-gen-go/releases/download/v1.300.0/sqlc-gen-go_1.300.0_wasip1_wasm
+      sha256: "9b6b3a07947e4aebfc939c9d41e54bab9c1c9bb687bbe9df4efb3d9020fe8d1a"
+sql:
+  - engine: "postgresql"
+    queries: "query.sql"
+    schema: "schema.sql"
+    codegen:
+      - plugin: golang
+        out: "internal/sqlc"
+        options:
+          package: "sqlc"
+          sql_package: "database/sql"
+          emit_sql_as_comment: true
+          overrides:
+            - column: profile.nin
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: AEADString
+            - column: profile.name
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: AEADString
+            - column: profile.phone
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: AEADString
+            - column: profile.email
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: AEADString
+            - column: profile.dob
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: AEADTime
+            - column: profile.nin_bidx
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: BIDXString
+            - column: profile.name_bidx
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: BIDXString
+            - column: profile.phone_bidx
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: BIDXString
+            - column: profile.email_bidx
+              go_type:
+                import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
+                type: BIDXString

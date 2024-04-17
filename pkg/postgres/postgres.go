@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
+	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
@@ -59,6 +60,7 @@ type OptFunc func(*Postgres) error
 type Postgres struct {
 	dbUrl    string
 	db       *sql.DB
+	q        *sqlc.Queries
 	aead     *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 	bidx     *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
 	obSender OutboxSender
@@ -83,6 +85,7 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	if p.db == nil {
 		return nil, fmt.Errorf("missing db connection")
 	}
+	p.q = sqlc.New(p.db)
 	if p.aead == nil || p.bidx == nil {
 		return nil, fmt.Errorf("missing aead or bidx primitive")
 	}

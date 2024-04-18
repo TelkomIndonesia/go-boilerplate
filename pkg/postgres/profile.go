@@ -123,7 +123,7 @@ func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qna
 	return p.q.FindTextHeap(ctx, sqlc.FindTextHeapParams{
 		TenantID: tenantID,
 		Type:     textHeapTypeProfileName,
-		Column3:  sql.NullString{String: qname, Valid: true},
+		Content:  sql.NullString{String: qname, Valid: true},
 	},
 		nil, nil, // no need for initiation or additional filter
 	)

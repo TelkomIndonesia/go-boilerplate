@@ -29,7 +29,9 @@ SELECT
 FROM 
     text_heap 
 WHERE 
-    tenant_id = $1 AND type = $2 AND content LIKE $3 || '%';
+    tenant_id = $1 AND type = $2 
+    AND content LIKE sqlc.arg(content) || '%'; -- https://docs.sqlc.dev/en/latest/howto/named_parameters.html#naming-parameters
+
 
 -- name: StoreTextHeap :exec
 INSERT INTO text_heap 

@@ -135,13 +135,14 @@ SELECT
 FROM 
     text_heap 
 WHERE 
-    tenant_id = $1 AND type = $2 AND content LIKE $3 || '%'
+    tenant_id = $1 AND type = $2 
+    AND content LIKE $3 || '%'
 `
 
 type FindTextHeapParams struct {
 	TenantID uuid.UUID
 	Type     string
-	Column3  sql.NullString
+	Content  sql.NullString
 }
 
 // FindTextHeap
@@ -151,9 +152,10 @@ type FindTextHeapParams struct {
 //	FROM
 //	    text_heap
 //	WHERE
-//	    tenant_id = $1 AND type = $2 AND content LIKE $3 || '%'
+//	    tenant_id = $1 AND type = $2
+//	    AND content LIKE $3 || '%'
 func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, contentOptionalInitFunc func(*string), contentOptionalFilterFunc func(string) bool) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, findTextHeap, arg.TenantID, arg.Type, arg.Column3)
+	rows, err := q.db.QueryContext(ctx, findTextHeap, arg.TenantID, arg.Type, arg.Content)
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +234,8 @@ func (q *Queries) StoreProfile(ctx context.Context, arg StoreProfileParams) erro
 }
 
 const storeTextHeap = `-- name: StoreTextHeap :exec
+
+
 INSERT INTO text_heap 
 	(tenant_id, type, content)
 VALUES
@@ -246,7 +250,7 @@ type StoreTextHeapParams struct {
 	Content  string
 }
 
-// StoreTextHeap
+// https://docs.sqlc.dev/en/latest/howto/named_parameters.html#naming-parameters
 //
 //	INSERT INTO text_heap
 //		(tenant_id, type, content)

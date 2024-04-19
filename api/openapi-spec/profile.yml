@@ -73,10 +73,6 @@ components:
     UUID:
       type: string
       format: uuid
-      x-go-type: uuid.UUID
-      x-go-type-import:
-        path: github.com/google/uuid
-      x-go-type-name: UUID
       x-go-type-skip-optional-pointer: true
     Profile:
       properties:

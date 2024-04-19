@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/runtime"
 	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // CreateProfile defines model for CreateProfile.
@@ -44,7 +44,7 @@ type Profile struct {
 }
 
 // UUID defines model for UUID.
-type UUID = uuid.UUID
+type UUID = openapi_types.UUID
 
 // ZeroableString defines model for ZeroableString.
 type ZeroableString = string
@@ -277,16 +277,16 @@ func (sh *strictHandler) GetProfile(ctx echo.Context, tenantId UUID, profileId U
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9RUTW/bPAz+KwHf9yhH6ZrDoNs+gCG3AlsvG4pBsRlHmy1qEl0sMPzfB8pJk7TdmhbF",
-	"Pk4WaD4PPx6SPZTUBvLoOYHpIZVrbG1+voloGS8irVyDYgiRAkZ2mH9XtJTP/xFXYOA/vefRWxL9ESPZ",
-	"ZYMfXIswKMDWuuZU0HuOztcC87bFJ6CcfzworMk/OtYwKPgL2uSqhzCXl4u3/0JDFTB66/nzqSWJAvll",
-	"elhRbC2Dga5zFSjgTUAwkEZuBd+LmoqtUVymGXhgL1wbKHKW0vIaDNSO191yWlKra6K6QZ25h0PQ2FO4",
-	"Q5a+ulBQYEfeNkUg5xkjGI4dDgpuVW76n6d7IlMeosM2VJaxYLGqJ5JLd51fkdA2rkSfcoRtxQvx9LYB",
-	"BV1swMCaORitGypts6bEWU/Hshy7NZm8uliAgmuMyZEHA2fT2XQmjhTQ2+DAwHk2qaxB3iQ9DkXS/fgo",
-	"XDXoMBJmhyDBTC8c0Uoli0pCUuLddgpbtC0yxgTmUw8y0qPKu62AG3JQEPFb5yJWYyPU9jqeOJNXIx4T",
-	"v6ZqI6CSPKPPOdoQGlfmLPWXRH5/ex9iPz7LWZzjNLMhBfJpbMuL2dmzBT8KW2Eqo8szI0PVlSWmJCLO",
-	"Z7N8+o7+L2012fYDBJ26trVxAwbKXNEk3HCrX2ut++1LrBKoxnt0f4d/RnZ1L/0+42cZqyN5Z79d3vld",
-	"eT3xZEWdr26JWyMfKCu/MF7vdNgfjGT0Tl/zcj4/h+Fq+BEAAP//kGPjqpwIAAA=",
+	"H4sIAAAAAAAC/9RUTW/UMBD9K6uBo9OkdA/INz4ktLdK0AuoQm48u2tIPMaeVKyi/Hc0zn40paLbUvFx",
+	"ijX2vDcz72V6qKkN5NFzAt1DqtfYmnx8E9EwnkdaugYlECIFjOwwX1u6ks/ziEvQ8Kw84JRbkPIjRjJX",
+	"DX5wLcKgAFvjmmOT3nN0fiVp3rT4iCznH54U1uQfzDUMCv6BMTl7X87FxeLt/zBQBYzeeP58bEuiQD7p",
+	"HpYUW8OgoeucBQW8CQga0oit4HuxokKCRfrqQkGBHXnTFIGcZ4ygOXY4KLhVlO5/Gynre7NCaxgLluhj",
+	"y5TGnV+SwDauRp8ywygwLOSlNw0o6GIDGtbMQZdlQ7Vp1pQ4j9qx+Hbn4Nmr8wUouMaYHHnQcHpSnVTy",
+	"kAJ6ExxoOMshBcHwOpu8HPVKZT8eCmeHMoyA+UEQMt0LRjTSycIKJSXe/TiCFk2LjDGB/tSDuC0zwM6w",
+	"sAcHBRG/dS6iHQehtovrSLtcjvmY+DXZjSTV5Bl9rtGE0Lg6V1l+SeQPa/E+9OnGzOJMy8yBFMincSwv",
+	"qtMnI5/QWkx1dNkzYqqurjElEXFeVXkrTe6vjJ1t5wGSnbq2NXEDGurc0SzssdWvtS777UmiQrTCO3R/",
+	"h39HdnUn/KHiJ7HVRN7qj8s7/1leTzxbUuftLXFXyDeUlSuM1zsdDgsj6XKnr345n5+BzHF6vV8o2weX",
+	"w48AAAD//5emCdBYCAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

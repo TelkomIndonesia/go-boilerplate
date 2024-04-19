@@ -7,7 +7,6 @@ keys:
 
 generate:
 	go generate ./...
-	go get ./...
 	go mod tidy
 
 build: 

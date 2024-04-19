@@ -7,7 +7,9 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
@@ -93,9 +95,11 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 
 func (h *HTTPServer) buildServer() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
-	h.registerProfileGroup().
-		registerHealthCheck().
+	h.registerHealthCheck().
 		registerTenantPassthrough()
+
+	oapi.RegisterHandlers(h.handler,
+		oapi.NewStrictHandler(oapiServerImplementation{h: h}, nil))
 
 	h.server = &http.Server{
 		Handler:  h.handler,
@@ -107,6 +111,21 @@ func (h *HTTPServer) buildServer() (err error) {
 func (h *HTTPServer) registerHealthCheck() *HTTPServer {
 	h.handler.GET("/health", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Server is healthy")
+	})
+	return h
+}
+
+func (h *HTTPServer) registerTenantPassthrough() *HTTPServer {
+	h.handler.GET("/tenants/:tenantid", func(c echo.Context) error {
+		tid, err := uuid.Parse(c.Param("tenantid"))
+		if err != nil {
+			return c.String(http.StatusBadRequest, "invalid tenant id")
+		}
+		t, err := h.tenantRepo.FetchTenant(c.Request().Context(), tid)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(http.StatusOK, t)
 	})
 	return h
 }

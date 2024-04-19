@@ -10,6 +10,7 @@ Features:
   - [x] Blind index as bloom filter for exact match
   - [x] Outbox pattern (kafka)
   - [x] SQLC for query-to-code generator
+- [x] OpenAPI-to-code generator
 - [x] Env Config.
 - [x] Auto Load CA & Leaf HTTP TLS certificate.
 - [x] mTLS support.

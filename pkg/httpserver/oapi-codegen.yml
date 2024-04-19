@@ -1,0 +1,9 @@
+package: oapi
+generate:
+  models: true
+  embedded-spec: true
+  echo-server: true
+  strict-server: true
+output: internal/oapi/oapi.gen.go
+output-options:
+  skip-prune: true

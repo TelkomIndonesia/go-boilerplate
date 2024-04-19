@@ -1,0 +1,108 @@
+openapi: "3.0.0"
+info:
+  title: "Profile API"
+  version: "1.0.0"
+  license:
+    name: "Internal"
+    url: "http://localhost"
+security: []
+servers:
+  - url: "https://profile:8443"
+  - url: "https://localhost:8443"
+paths:
+  "/tenants/{tenant-id}/profiles":
+    post:
+      summary: "create profile"
+      operationId: PostProfile
+      parameters:
+        - name: tenant-id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              $ref: "#/components/schemas/CreateProfile"
+      responses:
+        201:
+          description: success
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Profile"
+        400:
+          description: bad request
+
+  "/tenants/{tenant-id}/profiles/{profile-id}":
+    get:
+      summary: "get profile"
+      operationId: "GetProfile"
+      parameters:
+        - name: tenant-id
+          required: true
+          in: path
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: profile-id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        200:
+          description: "success"
+          content:
+            "application/json":
+              schema:
+                $ref: "#/components/schemas/Profile"
+        404:
+          description: not found
+
+components:
+  schemas:
+    ZeroableString:
+      type: string
+      x-go-type-skip-optional-pointer: true
+    ZeroableTime:
+      type: string
+      format: date-time
+      x-go-type-skip-optional-pointer: true
+    UUID:
+      type: string
+      format: uuid
+      x-go-type: uuid.UUID
+      x-go-type-import:
+        path: github.com/google/uuid
+      x-go-type-name: UUID
+      x-go-type-skip-optional-pointer: true
+    Profile:
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        tenant_id:
+          $ref: "#/components/schemas/UUID"
+        nin:
+          $ref: "#/components/schemas/ZeroableString"
+        name:
+          $ref: "#/components/schemas/ZeroableString"
+        email:
+          $ref: "#/components/schemas/ZeroableString"
+        phone:
+          $ref: "#/components/schemas/ZeroableString"
+        dob:
+          $ref: "#/components/schemas/ZeroableTime"
+    CreateProfile:
+      properties:
+        nin:
+          $ref: "#/components/schemas/ZeroableString"
+        name:
+          $ref: "#/components/schemas/ZeroableString"
+        email:
+          $ref: "#/components/schemas/ZeroableString"
+        phone:
+          $ref: "#/components/schemas/ZeroableString"
+        dob:
+          $ref: "#/components/schemas/ZeroableTime"

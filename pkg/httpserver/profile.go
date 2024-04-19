@@ -1,94 +1,63 @@
 package httpserver
 
 import (
-	"encoding/json"
-	"net/http"
+	"context"
+	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
-func (h *HTTPServer) registerProfileGroup() *HTTPServer {
-	profile := h.handler.Group("/tenants/:tenantid/profiles")
-	h.getProfile(profile).
-		putProfile(profile)
-	return h
+// GetProfile implements oapi.StrictServerInterface.
+func (s oapiServerImplementation) GetProfile(ctx context.Context, request oapi.GetProfileRequestObject) (oapi.GetProfileResponseObject, error) {
+	pr, err := s.h.profileRepo.FetchProfile(ctx, request.TenantId, request.ProfileId)
+	if err != nil {
+		return nil, err
+	}
+	if pr == nil {
+		return oapi.GetProfile404Response{}, nil
+	}
+
+	return oapi.GetProfile200JSONResponse{
+		Id:       pr.ID,
+		TenantId: pr.TenantID,
+		Name:     pr.Name,
+		Nin:      pr.NIN,
+		Email:    pr.Email,
+		Dob:      pr.DOB,
+		Phone:    pr.Phone,
+	}, nil
 }
 
-func (h *HTTPServer) putProfile(g *echo.Group) *HTTPServer {
-	g.PUT("/:id", func(c echo.Context) error {
-		tid, err := uuid.Parse(c.Param("tenantid"))
-		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid tenant id")
-		}
-		pid, err := uuid.Parse(c.Param("id"))
-		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid profile id")
-		}
+// PostProfile implements oapi.StrictServerInterface.
+func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.PostProfileRequestObject) (oapi.PostProfileResponseObject, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("fail to create id: %w", err)
+	}
 
-		var pr *profile.Profile
-		err = json.NewDecoder(c.Request().Body).Decode(&pr)
-		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid profile")
-		}
-		pr.TenantID = tid
-		pr.ID = pid
+	pr := &profile.Profile{
+		ID:       id,
+		TenantID: request.TenantId,
+		NIN:      request.Body.Nin,
+		Name:     request.Body.Name,
+		Email:    request.Body.Email,
+		Phone:    request.Body.Phone,
+		DOB:      request.Body.Dob,
+	}
+	err = s.h.profileRepo.StoreProfile(ctx, pr)
+	if err != nil {
+		return nil, err
+	}
 
-		err = h.profileRepo.StoreProfile(c.Request().Context(), pr)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, "invalid profile")
-		}
-
-		h.logger.Info("profile_stored", log.TraceContext("trace-id", c.Request().Context()), log.Any("profile", pr))
-		return c.String(http.StatusCreated, "profile stored")
-	})
-	return h
-}
-
-func (h *HTTPServer) getProfile(g *echo.Group) *HTTPServer {
-	g.GET("/:id", func(c echo.Context) error {
-		tid, err := uuid.Parse(c.Param("tenantid"))
-		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid tenant id")
-		}
-		pid, err := uuid.Parse(c.Param("id"))
-		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid profile id")
-		}
-
-		pr, err := h.profileRepo.FetchProfile(c.Request().Context(), tid, pid)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		if pr == nil {
-			return c.String(http.StatusNotFound, "profile not found")
-		}
-
-		if c.QueryParam("validate") == "true" {
-			err = h.profileMgr.ValidateProfile(c.Request().Context(), pr)
-			if err != nil {
-				return c.String(http.StatusBadRequest, "invalid profile")
-			}
-		}
-
-		return c.JSON(http.StatusOK, pr)
-	})
-	return h
-}
-
-func (h *HTTPServer) registerTenantPassthrough() *HTTPServer {
-	h.handler.GET("/tenants/:tenantid", func(c echo.Context) error {
-		tid, err := uuid.Parse(c.Param("tenantid"))
-		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid tenant id")
-		}
-		t, err := h.tenantRepo.FetchTenant(c.Request().Context(), tid)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		return c.JSON(http.StatusOK, t)
-	})
-	return h
+	return oapi.PostProfile201JSONResponse{
+		Id:       pr.ID,
+		TenantId: pr.TenantID,
+		Email:    pr.Email,
+		Name:     pr.Name,
+		Nin:      pr.NIN,
+		Phone:    pr.Phone,
+		Dob:      pr.DOB,
+	}, nil
 }

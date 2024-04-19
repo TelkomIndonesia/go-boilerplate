@@ -5,19 +5,19 @@
 Features:
 
 - [x] Database (postgres) with Encryption at Rest (tink)
-  - [x] Derivable encryption key
-  - [x] Rotatable encription key
-  - [x] Blind index as bloom filter for exact match
-  - [x] Outbox pattern (kafka)
-  - [x] SQLC for query-to-code generator
-- [x] OpenAPI-to-code generator
-- [x] Env Config.
+  - [x] Derivable encryption key.
+  - [x] Rotatable encription key.
+  - [x] Blind index as bloom filter for exact match.
+  - [x] Outbox pattern (kafka).
+  - [x] SQLC for query-to-code generator.
+- [x] OpenAPI-to-code generator.
 - [x] Auto Load CA & Leaf HTTP TLS certificate.
 - [x] mTLS support.
 - [x] Opentelemetry (console, otlphttp, and datadog trace provider).
 - [x] Plugable log (zap).
 - [x] CI/CD as Code (dagger).
 - [x] Dockerized.
+- [x] Env config.
 
 ## Using as library
 

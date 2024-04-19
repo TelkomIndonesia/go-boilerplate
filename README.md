@@ -9,8 +9,8 @@ Features:
   - [x] Rotatable encription key.
   - [x] Blind index as bloom filter for exact match.
   - [x] Outbox pattern (kafka).
-  - [x] SQLC for query-to-code generator.
-- [x] OpenAPI-to-code generator.
+  - [x] Query-to-code generator (SQLC).
+- [x] OpenAPI-to-code generator (oapi-codegen).
 - [x] Auto Load CA & Leaf HTTP TLS certificate.
 - [x] mTLS support.
 - [x] Opentelemetry (console, otlphttp, and datadog trace provider).

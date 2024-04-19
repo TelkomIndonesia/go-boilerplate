@@ -93,6 +93,9 @@ func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profi
 	if res.StatusCode == http.StatusNotFound {
 		return nil, nil
 	}
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status code")
+	}
 
 	err = json.NewDecoder(res.Body).Decode(&t)
 	if err != nil {

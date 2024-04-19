@@ -87,7 +87,7 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 	if h.profileRepo == nil || h.tenantRepo == nil {
 		return nil, fmt.Errorf("profile repo and tenant repo required")
 	}
-	h.profileMgr = profile.ProfileManager{PR: h.profileRepo, TR: h.profileMgr.TR}
+	h.profileMgr = profile.ProfileManager{PR: h.profileRepo, TR: h.tenantRepo}
 
 	err = h.buildServer()
 	return

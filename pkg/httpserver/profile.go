@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
 // GetProfile implements oapi.StrictServerInterface.
@@ -46,6 +47,15 @@ func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.
 		Phone:    request.Body.Phone,
 		DOB:      request.Body.Dob,
 	}
+
+	if request.Params.Validate != nil && *request.Params.Validate {
+		err = s.h.profileMgr.ValidateProfile(ctx, pr)
+		if err != nil {
+			s.h.logger.Error("fail to validate repo", log.Error("error", err))
+			return nil, err
+		}
+	}
+
 	err = s.h.profileRepo.StoreProfile(ctx, pr)
 	if err != nil {
 		return nil, err

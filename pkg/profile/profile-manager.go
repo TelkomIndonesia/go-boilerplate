@@ -12,7 +12,7 @@ type ProfileManager struct {
 }
 
 func (pm ProfileManager) ValidateProfile(ctx context.Context, p *Profile) (err error) {
-	t, err := pm.TR.FetchTenant(ctx, p.ID)
+	t, err := pm.TR.FetchTenant(ctx, p.TenantID)
 	if err != nil {
 		return fmt.Errorf("fail to fetch tenant: %w", err)
 	}

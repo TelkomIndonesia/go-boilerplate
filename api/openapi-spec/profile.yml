@@ -20,6 +20,10 @@ paths:
           required: true
           schema:
             $ref: "#/components/schemas/UUID"
+        - name: "validate"
+          in: query
+          schema:
+            type: boolean
       requestBody:
         required: true
         content:

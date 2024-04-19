@@ -52,6 +52,11 @@ type ZeroableString = string
 // ZeroableTime defines model for ZeroableTime.
 type ZeroableTime = time.Time
 
+// PostProfileParams defines parameters for PostProfile.
+type PostProfileParams struct {
+	Validate *bool `form:"validate,omitempty" json:"validate,omitempty"`
+}
+
 // PostProfileJSONRequestBody defines body for PostProfile for application/json ContentType.
 type PostProfileJSONRequestBody = CreateProfile
 
@@ -59,7 +64,7 @@ type PostProfileJSONRequestBody = CreateProfile
 type ServerInterface interface {
 	// create profile
 	// (POST /tenants/{tenant-id}/profiles)
-	PostProfile(ctx echo.Context, tenantId UUID) error
+	PostProfile(ctx echo.Context, tenantId UUID, params PostProfileParams) error
 	// get profile
 	// (GET /tenants/{tenant-id}/profiles/{profile-id})
 	GetProfile(ctx echo.Context, tenantId UUID, profileId UUID) error
@@ -81,8 +86,17 @@ func (w *ServerInterfaceWrapper) PostProfile(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tenant-id: %s", err))
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostProfileParams
+	// ------------- Optional query parameter "validate" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "validate", ctx.QueryParams(), &params.Validate)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter validate: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.PostProfile(ctx, tenantId)
+	err = w.Handler.PostProfile(ctx, tenantId, params)
 	return err
 }
 
@@ -145,6 +159,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 type PostProfileRequestObject struct {
 	TenantId UUID `json:"tenant-id"`
+	Params   PostProfileParams
 	Body     *PostProfileJSONRequestBody
 }
 
@@ -218,10 +233,11 @@ type strictHandler struct {
 }
 
 // PostProfile operation middleware
-func (sh *strictHandler) PostProfile(ctx echo.Context, tenantId UUID) error {
+func (sh *strictHandler) PostProfile(ctx echo.Context, tenantId UUID, params PostProfileParams) error {
 	var request PostProfileRequestObject
 
 	request.TenantId = tenantId
+	request.Params = params
 
 	var body PostProfileJSONRequestBody
 	if err := ctx.Bind(&body); err != nil {
@@ -277,16 +293,16 @@ func (sh *strictHandler) GetProfile(ctx echo.Context, tenantId UUID, profileId U
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9RUTW/UMBD9K6uBo9OkdA/INz4ktLdK0AuoQm48u2tIPMaeVKyi/Hc0zn40paLbUvFx",
-	"ijX2vDcz72V6qKkN5NFzAt1DqtfYmnx8E9EwnkdaugYlECIFjOwwX1u6ks/ziEvQ8Kw84JRbkPIjRjJX",
-	"DX5wLcKgAFvjmmOT3nN0fiVp3rT4iCznH54U1uQfzDUMCv6BMTl7X87FxeLt/zBQBYzeeP58bEuiQD7p",
-	"HpYUW8OgoeucBQW8CQga0oit4HuxokKCRfrqQkGBHXnTFIGcZ4ygOXY4KLhVlO5/Gynre7NCaxgLluhj",
-	"y5TGnV+SwDauRp8ywygwLOSlNw0o6GIDGtbMQZdlQ7Vp1pQ4j9qx+Hbn4Nmr8wUouMaYHHnQcHpSnVTy",
-	"kAJ6ExxoOMshBcHwOpu8HPVKZT8eCmeHMoyA+UEQMt0LRjTSycIKJSXe/TiCFk2LjDGB/tSDuC0zwM6w",
-	"sAcHBRG/dS6iHQehtovrSLtcjvmY+DXZjSTV5Bl9rtGE0Lg6V1l+SeQPa/E+9OnGzOJMy8yBFMincSwv",
-	"qtMnI5/QWkx1dNkzYqqurjElEXFeVXkrTe6vjJ1t5wGSnbq2NXEDGurc0SzssdWvtS777UmiQrTCO3R/",
-	"h39HdnUn/KHiJ7HVRN7qj8s7/1leTzxbUuftLXFXyDeUlSuM1zsdDgsj6XKnr345n5+BzHF6vV8o2weX",
-	"w48AAAD//5emCdBYCAAA",
+	"H4sIAAAAAAAC/9RUT2/bPgz9KgF/v6Ncp2sOg277Awy5Fdh62VAMis0k2mRRlehigeHvPlB2mrod1rQd",
+	"9udkgRLfI/me2UFFTSCPnhPoDlK1xcbk45uIhvE80to6lECIFDCyxXxd00o+/0dcg4b/ygNOOYKUHzGS",
+	"WTn8YBuEXgE2xrpjk95ztH4jad40+IQs6x+fFLbkH83V9wr+gjHZ+qGci4vl239hoAoYvfH8+diWRIF8",
+	"0h2sKTaGQUPb2hoU8C4gaEgDtoJvxYYKCRbpqw0FBbbkjSsCWc8YQXNssVdwpyjdPRsp63u7wtowFizR",
+	"p5YpjVu/JoF1tkKfMsMgMCzlpTcOFLTRgYYtc9Bl6agybkuJ86gti2/3Dp69Ol+CgmuMyZIHDacn85O5",
+	"PKSA3gQLGs5ySEEwvM0mLwe9UtkNh8LWfRkGwPwgCJnuBCMa6WRZCyUl3v84ghZNg4wxgf7UgbgtM8De",
+	"sHADDgoiXrU2Yj0MQo2L60i7qBH+qsW4O+BfG2dFE7gNNwqzInJoPPT95UCOiV9TvZMnFXlGnxs0IThb",
+	"5RbLL4n8Yac+VNp03WZlpz3mQArk0zDTF/PTX0Y+oa0xVdFmw4kj26rClMQBi/k8r7TJ/crUs3EeMllI",
+	"bdOYuAMNVe5oFm6w1c+NUnbjSaJCtMEfmOYd/lnPTOEPFT8X//KevPPfLu/ivryeeLam1td3xN0g31JW",
+	"rjBe73U4bJuky72++uVicQYyx+n1zTYaH1z23wMAAP//FO7SP5UIAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

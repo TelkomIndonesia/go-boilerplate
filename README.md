@@ -5,7 +5,7 @@
 Features:
 
 - [x] Database (postgres) with Encryption at Rest (tink)
-  - [x] Derivable encryption key (per tenant)
+  - [x] Derivable encryption key
   - [x] Rotatable encription key
   - [x] Blind index as bloom filter for exact match
   - [x] Outbox pattern (kafka)

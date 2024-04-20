@@ -10,9 +10,10 @@ Features:
   - [x] Blind index as bloom filter for exact match.
   - [x] Outbox pattern (kafka).
   - [x] Query-to-code generator (SQLC).
-- [x] OpenAPI-to-code generator (oapi-codegen).
-- [x] Auto Load CA & Leaf HTTP TLS certificate.
-- [x] mTLS support.
+- [x] HTTP API
+  - [x] OpenAPI-to-code generator (oapi-codegen).
+  - [x] Auto Load CA & Leaf TLS certificate.
+  - [x] mTLS support.
 - [x] Opentelemetry (console, otlphttp, and datadog trace provider).
 - [x] Plugable log (zap).
 - [x] CI/CD as Code (dagger).

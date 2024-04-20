@@ -22,4 +22,4 @@ Features:
 
 ## Using as library
 
-The packages under `pkg/util` are reusable for importing into other project. Moreover `pkg/util/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./pkg/cmd/cmd.go#L117-135)
+The packages under `pkg/util` are reusable for importing into other project. Moreover `pkg/util/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./pkg/cmd/cmd.go#L117-L135)

@@ -74,8 +74,8 @@ services:
             }
           }
 
+          header Content-Type application/json
           respond /tenants/018e282f-0a88-7950-91d8-34cb8f9a9c2c 200 {
-            header Content-Type application/json
             body <<JSON
               {"id":"018e282f-0a88-7950-91d8-34cb8f9a9c2c","name":"dummy","expire":"2034-12-31T23:59:59.99999+07:00"}
             JSON

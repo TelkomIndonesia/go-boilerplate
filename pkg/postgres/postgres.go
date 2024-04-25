@@ -32,11 +32,10 @@ func WithLogger(l log.Logger) OptFunc {
 	}
 }
 
-func WithDerivableKeysets(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD], bidx *crypt.DerivableKeyset[crypt.PrimitiveBIDX], bidxFull *crypt.DerivableKeyset[crypt.PrimitiveBIDX]) OptFunc {
+func WithDerivableKeysets(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD], bidx *crypt.DerivableKeyset[crypt.PrimitiveBIDX]) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.aead = aead
 		p.bidx = bidx
-		p.bidxFull = bidxFull
 		return
 	}
 }
@@ -64,7 +63,6 @@ type Postgres struct {
 	q        *sqlc.Queries
 	aead     *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 	bidx     *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
-	bidxFull *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
 	obSender OutboxSender
 
 	tracer trace.Tracer
@@ -113,7 +111,12 @@ func (p *Postgres) bidxFunc(tenantID uuid.UUID) func() (crypt.PrimitiveBIDX, err
 }
 
 func (p *Postgres) bidxFullFunc(tenantID uuid.UUID) func() (crypt.PrimitiveBIDX, error) {
-	return p.bidxFull.GetPrimitiveFunc(tenantID[:])
+	pb, err := p.bidx.GetPrimitive(tenantID[:])
+	if err != nil {
+		return func() (crypt.PrimitiveBIDX, error) { return crypt.PrimitiveBIDX{}, err }
+	}
+	b, err := crypt.CopyBIDXWithLen(pb, 0)
+	return func() (crypt.PrimitiveBIDX, error) { return crypt.PrimitiveBIDX{BIDX: b}, nil }
 }
 
 func (p *Postgres) Close(ctx context.Context) (err error) {

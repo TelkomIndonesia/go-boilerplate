@@ -160,7 +160,7 @@ func (c CMD) BIDXDerivableKeysetWithLen(len int) func() (*crypt.DerivableKeyset[
 	}
 
 	p := crypt.NewPrimitiveBIDX
-	if len >= 0 {
+	if len > 0 {
 		p = crypt.NewPrimitiveBIDXWithLen(len)
 	}
 	m, err := crypt.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, p)

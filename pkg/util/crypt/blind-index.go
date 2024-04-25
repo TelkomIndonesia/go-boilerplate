@@ -65,6 +65,22 @@ func NewBIDX(h *keyset.Handle, length int) (BIDX, error) {
 	return b, nil
 }
 
+func CopyBIDXWithLen(t BIDX, len int) (BIDX, error) {
+	b, ok := t.(bidx)
+	if !ok {
+		pb, ok := t.(PrimitiveBIDX)
+		if !ok {
+			return nil, fmt.Errorf("unknwon BIDX implementation")
+		}
+		b, ok = pb.BIDX.(bidx)
+		if !ok {
+			return nil, fmt.Errorf("unknwon BIDX implementation")
+		}
+	}
+	b.len = len
+	return b, nil
+}
+
 func (b bidx) ComputePrimary(data []byte) (idx []byte, err error) {
 	idx, err = b.m.ComputeMAC(data)
 	if err != nil {

@@ -46,5 +46,30 @@ func TestBlindIndexes(t *testing.T) {
 		assert.Contains(t, vs, v, "should contain previous mac")
 		assert.Contains(t, vs1, v, "should contain previous mac")
 	}
+}
 
+func TestCopyBIDXWithLen(t *testing.T) {
+	h, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+	require.NoError(t, err, "should return new handle")
+	bidx, err := NewPrimitiveBIDX(h)
+	require.NoError(t, err, "should return bidx handle")
+	v, err := bidx.ComputePrimary([]byte("data"))
+	require.NoError(t, err, "should produce bidx")
+
+	var bidxN BIDX = bidx
+	for i := len(v); i > 0; i-- {
+		bidxN, err = CopyBIDXWithLen(bidxN, i)
+		require.NoError(t, err, "should return bidx handle")
+		vn, err := bidxN.ComputePrimary([]byte("data"))
+		require.NoError(t, err, "should produce bidx")
+		if i == 0 {
+			assert.Len(t, vn, len(v))
+		} else {
+			assert.Len(t, vn, i)
+		}
+	}
+
+	v1, err := bidx.ComputePrimary([]byte("data"))
+	require.NoError(t, err, "should produce bidx")
+	assert.Equal(t, v, v1, "should produce the same bidx")
 }

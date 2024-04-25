@@ -39,7 +39,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 		ID:        pr.ID,
 		TenantID:  pr.TenantID,
 		Nin:       sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.NIN, pr.ID[:]),
-		NinBidx:   sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.NIN),
+		NinBidx:   sqlval.BIDXString(p.bidxFullFunc(pr.TenantID), pr.NIN),
 		Name:      sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Name, pr.ID[:]),
 		NameBidx:  sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.Name),
 		Phone:     sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Phone, pr.ID[:]),

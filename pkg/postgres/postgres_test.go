@@ -13,6 +13,7 @@ import (
 var testPostgres *Postgres
 var testAEAD *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 var testBIDX *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
+var testBIDXU *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
 var testPostgresSync, testKeysetHandleSync sync.Mutex
 
 func tGetPostgres(t *testing.T) *Postgres {
@@ -42,7 +43,7 @@ func tNewPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 	return p
 }
 
-func tGetKeysetHandle(t *testing.T) (aeadh *crypt.DerivableKeyset[crypt.PrimitiveAEAD], mach *crypt.DerivableKeyset[crypt.PrimitiveBIDX]) {
+func tGetKeysetHandle(t *testing.T) (aeadh *crypt.DerivableKeyset[crypt.PrimitiveAEAD], mach *crypt.DerivableKeyset[crypt.PrimitiveBIDX], machU *crypt.DerivableKeyset[crypt.PrimitiveBIDX]) {
 	if testAEAD == nil || testBIDX == nil {
 		testKeysetHandleSync.Lock()
 		defer testKeysetHandleSync.Unlock()
@@ -58,8 +59,12 @@ func tGetKeysetHandle(t *testing.T) (aeadh *crypt.DerivableKeyset[crypt.Primitiv
 		testBIDX, err = crypt.NewInsecureCleartextDerivableKeyset("./testdata/tink-mac.json", crypt.NewPrimitiveBIDXWithLen(16))
 		require.NoError(t, err, "should create mac derivable keyset")
 	}
+	if testBIDXU == nil {
+		testBIDXU, err = crypt.NewInsecureCleartextDerivableKeyset("./testdata/tink-mac.json", crypt.NewPrimitiveBIDX)
+		require.NoError(t, err, "should create mac derivable keyset")
+	}
 
-	return testAEAD, testBIDX
+	return testAEAD, testBIDX, testBIDXU
 }
 
 func TestInstantiatePostgres(t *testing.T) {

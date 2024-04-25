@@ -63,6 +63,7 @@ type CMD struct {
 	logger     log.Logger
 	aead       *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 	bidx       *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
+	bidxFull   *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
 	hc         httpclient.HTTPClient
 	tls        tlswrapper.TLSWrapper
 	canceler   func(ctx context.Context) context.Context
@@ -129,6 +130,7 @@ func (c *CMD) initCMD() (err error) {
 	c.logger = util.Require(c.CMD.Logger, log.Global().WithCtx(log.String("name", "logger")))
 	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithCtx(log.String("name", "aead")))
 	c.bidx = util.Require(c.CMD.BIDXDerivableKeyset, c.logger.WithCtx(log.String("name", "blind-idx")))
+	c.bidxFull = util.Require(c.CMD.BIDXDerivableKeysetWithLen(-1), c.logger.WithCtx(log.String("name", "blind-idx-untrancated")))
 	c.tls = util.Require(c.CMD.TLSWrapper, c.logger.WithCtx(log.String("name", "tlswrapper")))
 	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithCtx(log.String("name", "httpclient")))
 	return
@@ -168,7 +170,7 @@ func (c *CMD) initKafka() (err error) {
 func (c *CMD) initPostgres() (err error) {
 	opts := []postgres.OptFunc{
 		postgres.WithConnString(c.PostgresUrl),
-		postgres.WithDerivableKeysets(c.aead, c.bidx),
+		postgres.WithDerivableKeysets(c.aead, c.bidx, c.bidxFull),
 		postgres.WithLogger(c.logger),
 	}
 	if c.pok != nil {

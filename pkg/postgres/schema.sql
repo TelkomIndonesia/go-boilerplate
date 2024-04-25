@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS profile (
     email_bidx BYTEA,
     dob BYTEA,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, nin)
 );
 
 CREATE TABLE IF NOT EXISTS outbox (

@@ -69,7 +69,7 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 	c.initTLSWrapper()
 	c.initAEADDerivableKeySet()
 	c.initMACDerivableKeySet()
-	c.initBIDXDerivableKeySet()
+	c.initBIDXDerivableKeyset()
 	c.initHTTPClient()
 	return
 }
@@ -140,9 +140,9 @@ func (c CMD) MacDerivableKeyset() (*crypt.DerivableKeyset[crypt.PrimitiveMAC], e
 	return c.getMAC()
 }
 
-func (c *CMD) initBIDXDerivableKeySet() {
+func (c *CMD) initBIDXDerivableKeyset() {
 	if c.MACDerivableKeysetPath == nil {
-		c.getMAC = func() (*crypt.DerivableKeyset[crypt.PrimitiveMAC], error) { return nil, nil }
+		c.getBIDX = func() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error) { return nil, nil }
 		return
 	}
 
@@ -152,6 +152,19 @@ func (c *CMD) initBIDXDerivableKeySet() {
 
 func (c CMD) BIDXDerivableKeyset() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error) {
 	return c.getBIDX()
+}
+
+func (c CMD) BIDXDerivableKeysetWithLen(len int) func() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error) {
+	if c.MACDerivableKeysetPath == nil {
+		return func() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error) { return nil, nil }
+	}
+
+	p := crypt.NewPrimitiveBIDX
+	if len >= 0 {
+		p = crypt.NewPrimitiveBIDXWithLen(len)
+	}
+	m, err := crypt.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, p)
+	return func() (*crypt.DerivableKeyset[crypt.PrimitiveBIDX], error) { return m, err }
 }
 
 func (c *CMD) initHTTPClient() {

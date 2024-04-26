@@ -3,7 +3,7 @@ plugins:
   - name: golang
     wasm:
       url: https://github.com/TelkomIndonesia/sqlc-gen-go/releases/download/v2.0.0/sqlc-gen-go_2.0.0_wasip1_wasm
-      sha256: "sha256=f439794c6ad8f52d84702391491ea341d2fe4c11cbb902e437e0beabe40cbf5b"
+      sha256: "f439794c6ad8f52d84702391491ea341d2fe4c11cbb902e437e0beabe40cbf5b"
 sql:
   - engine: "postgresql"
     queries: "query.sql"

@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -45,22 +46,35 @@ func TestReadWrite(t *testing.T) {
 	conn.Controller()
 	defer conn.Close()
 
+	msgs := [][]byte{
+		[]byte("hello"),
+		[]byte("world"),
+	}
+
 	err = k.Write(ctx, "test",
-		Message{Value: []byte("hello")},
-		Message{Topic: "test", Value: []byte("world")},
+		Message{Value: msgs[0]},
+		Message{Topic: "test", Value: msgs[1]},
 	)
 	require.NoError(t, err, "should successfully write to kafka")
 
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{os.Getenv("TEST_KAFKA_BROKERS")},
-		Topic:     "test",
-		Partition: 0,
-		MaxBytes:  10e6, // 10MB
-	})
-	m1, err := r.ReadMessage(ctx)
-	assert.NoError(t, err, "should read first message")
-	assert.Equal(t, m1.Value, []byte("hello"))
-	m2, err := r.ReadMessage(ctx)
-	assert.NoError(t, err, "should read second message")
-	assert.Equal(t, m2.Value, []byte("world"))
+	rmsgs := [][]byte{}
+	group := t.Name()
+	for i, _ := range msgs {
+		t.Run(fmt.Sprintf("read-%d", i), func(t *testing.T) {
+			r := kafka.NewReader(kafka.ReaderConfig{
+				Brokers:   []string{os.Getenv("TEST_KAFKA_BROKERS")},
+				Topic:     "test",
+				Partition: 0,
+				MaxBytes:  10e6, // 10MB
+				GroupID:   group,
+			})
+			defer r.Close()
+			m, err := r.FetchMessage(ctx)
+			assert.NoError(t, err, "should read message")
+			assert.NotNil(t, m.Value, "should not nil")
+			rmsgs = append(rmsgs, m.Value)
+			assert.NoError(t, r.CommitMessages(ctx, m), "should commit message")
+		})
+	}
+	assert.ElementsMatch(t, msgs, rmsgs, "should read all message")
 }

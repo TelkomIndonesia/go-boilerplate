@@ -16,9 +16,10 @@ Features:
   - [x] mTLS support.
 - [x] Opentelemetry (console, otlphttp, and datadog trace provider).
 - [x] Plugable log (zap).
-- [x] CI/CD as Code (dagger).
-- [x] Dockerized.
 - [x] Env config.
+- [x] Dockerized.
+- [x] CI/CD as Code (dagger)
+
 
 ## Using as library
 

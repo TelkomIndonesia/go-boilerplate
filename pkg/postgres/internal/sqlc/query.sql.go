@@ -91,7 +91,7 @@ type FindProfilesByNameRow struct {
 //	    profile
 //	WHERE
 //	    tenant_id = $1 and name_bidx = ANY($2)
-func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByNameParams, iOptionalInitFunc func(*FindProfilesByNameRow), iOptionalFilterFunc func(FindProfilesByNameRow) bool) ([]FindProfilesByNameRow, error) {
+func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByNameParams, iOptionalInitFunc func(*FindProfilesByNameRow), iOptionalFilterFunc func(FindProfilesByNameRow) (bool, error)) ([]FindProfilesByNameRow, error) {
 	rows, err := q.db.QueryContext(ctx, findProfilesByName, arg.TenantID, arg.NameBidx)
 	if err != nil {
 		return nil, err
@@ -115,9 +115,16 @@ func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByName
 			return nil, err
 		}
 
-		if iOptionalFilterFunc != nil && !iOptionalFilterFunc(i) {
-			continue
+		if iOptionalFilterFunc != nil {
+			add, err := iOptionalFilterFunc(i)
+			if err != nil {
+				return nil, err
+			}
+			if !add {
+				continue
+			}
 		}
+
 		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
@@ -154,7 +161,7 @@ type FindTextHeapParams struct {
 //	WHERE
 //	    tenant_id = $1 AND type = $2
 //	    AND content LIKE $3 || '%'
-func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, contentOptionalInitFunc func(*string), contentOptionalFilterFunc func(string) bool) ([]string, error) {
+func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, contentOptionalInitFunc func(*string), contentOptionalFilterFunc func(string) (bool, error)) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, findTextHeap, arg.TenantID, arg.Type, arg.Content)
 	if err != nil {
 		return nil, err
@@ -171,9 +178,16 @@ func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, cont
 			return nil, err
 		}
 
-		if contentOptionalFilterFunc != nil && !contentOptionalFilterFunc(content) {
-			continue
+		if contentOptionalFilterFunc != nil {
+			add, err := contentOptionalFilterFunc(content)
+			if err != nil {
+				return nil, err
+			}
+			if !add {
+				continue
+			}
 		}
+
 		items = append(items, content)
 	}
 	if err := rows.Close(); err != nil {

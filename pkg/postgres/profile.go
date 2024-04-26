@@ -149,10 +149,10 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 			fpbnr.Email = sqlval.AEADString(p.aeadFunc(tenantID), "", fpbnr.ID[:])
 			fpbnr.Dob = sqlval.AEADTime(p.aeadFunc(tenantID), time.Time{}, fpbnr.ID[:])
 		},
-		func(fpbnr sqlc.FindProfilesByNameRow) bool {
+		func(fpbnr sqlc.FindProfilesByNameRow) (bool, error) {
 			// due to bloom filter, we need to verify if the name match
 			if fpbnr.Name.To() != qname {
-				return false
+				return false, nil
 			}
 
 			prs = append(prs,
@@ -165,7 +165,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 					Phone:    fpbnr.Phone.To(),
 					DOB:      fpbnr.Dob.To(),
 				})
-			return false
+			return false, nil
 		},
 	)
 	if err != nil {

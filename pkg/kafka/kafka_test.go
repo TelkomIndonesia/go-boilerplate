@@ -38,10 +38,10 @@ func newTestKafka(t *testing.T) *Kafka {
 
 func TestReadWrite(t *testing.T) {
 	ctx := context.Background()
-
+	topic := "topic-test-" + t.Name()
 	k := getTestKafka(t)
 
-	conn, err := kafka.DialLeader(ctx, "tcp", os.Getenv("TEST_KAFKA_BROKERS"), "test", 0)
+	conn, err := kafka.DialLeader(ctx, "tcp", os.Getenv("TEST_KAFKA_BROKERS"), topic, 0)
 	require.NoError(t, err, "should dial kafka", err)
 	conn.Controller()
 	defer conn.Close()
@@ -49,21 +49,28 @@ func TestReadWrite(t *testing.T) {
 	msgs := [][]byte{
 		[]byte("hello"),
 		[]byte("world"),
+		[]byte("sya"),
+		[]byte("lala"),
+		[]byte("lalala"),
 	}
 
-	err = k.Write(ctx, "test",
-		Message{Value: msgs[0]},
-		Message{Topic: "test", Value: msgs[1]},
-	)
+	kmsgs := []Message{}
+	for _, m := range msgs {
+		kmsgs = append(kmsgs, Message{
+			Value: m,
+			Topic: topic,
+		})
+	}
+	err = k.Write(ctx, "test", kmsgs...)
 	require.NoError(t, err, "should successfully write to kafka")
 
 	rmsgs := [][]byte{}
-	group := t.Name()
+	group := "group-test-" + t.Name()
 	for i, _ := range msgs {
 		t.Run(fmt.Sprintf("read-%d", i), func(t *testing.T) {
 			r := kafka.NewReader(kafka.ReaderConfig{
 				Brokers:   []string{os.Getenv("TEST_KAFKA_BROKERS")},
-				Topic:     "test",
+				Topic:     topic,
 				Partition: 0,
 				MaxBytes:  10e6, // 10MB
 				GroupID:   group,

@@ -25,9 +25,10 @@ type AEAD[T any, A tink.AEAD] struct {
 	vtob     func([]byte) (T, error)
 	btov     func(T) ([]byte, error)
 
-	ad []byte
-	b  []byte
-	v  T
+	ad    []byte
+	b     []byte
+	v     T
+	isNil bool
 }
 
 func (s AEAD[T, A]) Value() (driver.Value, error) {
@@ -43,6 +44,11 @@ func (s AEAD[T, A]) Value() (driver.Value, error) {
 }
 
 func (s *AEAD[T, A]) Scan(src any) (err error) {
+	if src == nil {
+		s.isNil = true
+		return
+	}
+
 	b, ok := src.([]byte)
 	if !ok {
 		return fmt.Errorf("not an encrypted byte :%v", src)
@@ -63,6 +69,13 @@ func (s *AEAD[T, A]) Scan(src any) (err error) {
 
 func (s *AEAD[T, A]) To() T {
 	return s.v
+}
+
+func (s *AEAD[T, A]) ToP() *T {
+	if s.isNil {
+		return nil
+	}
+	return &s.v
 }
 
 func AEADByteArray[A tink.AEAD](aead AEADFunc[A], b []byte, ad []byte) AEAD[[]byte, A] {

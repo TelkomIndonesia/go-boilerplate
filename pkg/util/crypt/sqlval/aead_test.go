@@ -77,3 +77,19 @@ func TestAEAD(t *testing.T) {
 		assert.Equal(t, d, scanned(), "should be equal to plain value")
 	}
 }
+
+func TestAEADNilable(t *testing.T) {
+	template, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
+	require.NoError(t, err)
+	h, err := keyset.NewHandle(template)
+	require.NoError(t, err)
+	m, err := crypt.NewDerivableKeyset(h, crypt.NewPrimitiveAEAD)
+	require.NoError(t, err)
+	ad := []byte(t.Name())
+
+	s := AEADString(m.GetPrimitiveFunc(nil), "", ad)
+	err = s.Scan(nil)
+	require.NoError(t, err, "should not return error")
+	assert.Empty(t, s.To(), "should return nil pointer")
+	assert.Nil(t, s.ToP(), "should return empty value")
+}

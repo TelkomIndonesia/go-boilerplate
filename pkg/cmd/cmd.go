@@ -55,8 +55,8 @@ type CMD struct {
 
 	HTTPAddr             string   `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
 	PostgresUrl          string   `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
-	KafkaBrokers         []string `env:"KAFKA_BROKERS,required,notEmpty,expand" json:"kafka_url"`
-	KafkaTopicOutbox     string   `env:"KAFKA_TOPIC_OUTBOX,required,notEmpty,expand" json:"kafka_topic_outbox"`
+	KafkaBrokers         []string `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
+	KafkaTopicOutbox     string   `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
 	TenantServiceBaseUrl string   `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`

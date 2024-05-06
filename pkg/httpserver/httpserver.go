@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
@@ -96,10 +95,8 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 func (h *HTTPServer) buildServer() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
 	h.registerHealthCheck().
-		registerTenantPassthrough()
-
-	oapi.RegisterHandlers(h.handler,
-		oapi.NewStrictHandler(oapiServerImplementation{h: h}, nil))
+		registerOpenAPISpec().
+		registerOpenAPIImpl()
 
 	h.server = &http.Server{
 		Handler:  h.handler,
@@ -109,24 +106,27 @@ func (h *HTTPServer) buildServer() (err error) {
 }
 
 func (h *HTTPServer) registerHealthCheck() *HTTPServer {
-	h.handler.GET("/health", func(c echo.Context) error {
+	h.handler.GET("/-/health", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Server is healthy")
 	})
 	return h
 }
 
-func (h *HTTPServer) registerTenantPassthrough() *HTTPServer {
-	h.handler.GET("/tenants/:tenantid", func(c echo.Context) error {
-		tid, err := uuid.Parse(c.Param("tenantid"))
+func (h *HTTPServer) registerOpenAPISpec() *HTTPServer {
+	h.handler.GET("/-/openapi-spec", func(c echo.Context) error {
+		s, err := oapi.GetSwagger()
 		if err != nil {
-			return c.String(http.StatusBadRequest, "invalid tenant id")
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
-		t, err := h.tenantRepo.FetchTenant(c.Request().Context(), tid)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		return c.JSON(http.StatusOK, t)
+
+		return c.JSON(http.StatusOK, s)
 	})
+	return h
+}
+
+func (h *HTTPServer) registerOpenAPIImpl() *HTTPServer {
+	oapi.RegisterHandlers(h.handler,
+		oapi.NewStrictHandler(oapiServerImplementation{h: h}, nil))
 	return h
 }
 

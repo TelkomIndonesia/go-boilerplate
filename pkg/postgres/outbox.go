@@ -204,7 +204,7 @@ func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
 
 		case <-timer.C:
 		case event := <-l.NotificationChannel():
-			istr := ""
+			istr := "0"
 			if event != nil {
 				istr = event.Extra
 			}

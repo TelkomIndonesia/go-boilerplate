@@ -204,7 +204,11 @@ func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
 
 		case <-timer.C:
 		case event := <-l.NotificationChannel():
-			i, _ := strconv.ParseInt(event.Extra, 10, 64)
+			istr := ""
+			if event != nil {
+				istr = event.Extra
+			}
+			i, _ := strconv.ParseInt(istr, 10, 64)
 			if last != nil && i < last.CreatedAt.UnixNano() {
 				continue
 			}

@@ -151,10 +151,11 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 		return fmt.Errorf("fail to insert to outbox: %w", err)
 	}
 
-	_, err = tx.QueryContext(ctx, "SELECT pg_notify($1, $2)", outboxChannel, ob.CreatedAt.UnixNano())
+	rows, err := tx.QueryContext(ctx, "SELECT pg_notify($1, $2)", outboxChannel, ob.CreatedAt.UnixNano())
 	if err != nil {
 		p.logger.Warn("fail to send notify", log.Error("error", err), log.TraceContext("trace-id", ctx))
 	}
+	defer rows.Close()
 
 	return
 }

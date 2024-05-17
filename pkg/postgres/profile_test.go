@@ -26,31 +26,32 @@ func TestProfileBasic(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer time.AfterFunc(30*time.Second, cancel).Stop()
 
+		obSender := func(ctx context.Context, obs []*Outbox) error {
+			for _, o := range obs {
+				o, err := o.AsUnEncrypted()
+				assert.NoError(t, err, "should return unencrypted outbox")
+				if !(o.ContentType == outboxTypeProfile && o.Event == outboxEventProfileStored) {
+					t.Logf("got unexpected event or content type: %s %s", o.Event, o.ContentType)
+					continue
+				}
+
+				pr := &profile.Profile{}
+				assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
+				if _, ok := profiles[pr.ID]; !ok {
+					t.Logf("got unexpected profile: %v", pr)
+					continue
+				}
+
+				outboxes = append(outboxes, pr)
+			}
+			if len(outboxes) == cap(outboxes) {
+				cancel()
+			}
+			return nil
+		}
+
 		for i := 0; i < 3; i++ {
-			p := tNewPostgres(t, WithOutboxSender(func(ctx context.Context, obs []*Outbox) error {
-				for _, o := range obs {
-					o, err := o.AsUnEncrypted()
-					assert.NoError(t, err, "should return unencrypted outbox")
-					if !(o.ContentType == outboxTypeProfile && o.Event == outboxEventProfileStored) {
-						t.Logf("got unexpected event or content type: %s %s", o.Event, o.ContentType)
-						continue
-					}
-
-					pr := &profile.Profile{}
-					assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
-					if _, ok := profiles[pr.ID]; !ok {
-						t.Logf("got unexpected profile: %v", pr)
-						continue
-					}
-
-					outboxes = append(outboxes, pr)
-				}
-				if len(outboxes) == cap(outboxes) {
-					cancel()
-				}
-				return nil
-			}))
-
+			p := tNewPostgres(t, WithOutboxSender(obSender))
 			go func() {
 				defer outboxesWG.Done()
 				defer p.Close(context.Background())

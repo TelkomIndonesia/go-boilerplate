@@ -151,11 +151,10 @@ func (p *Postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob *Outbox) (err
 		return fmt.Errorf("fail to insert to outbox: %w", err)
 	}
 
-	rows, err := tx.QueryContext(ctx, "SELECT pg_notify($1, $2)", outboxChannel, ob.CreatedAt.UnixNano())
+	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", outboxChannel, ob.CreatedAt.UnixNano())
 	if err != nil {
 		p.logger.Warn("fail to send notify", log.Error("error", err), log.TraceContext("trace-id", ctx))
 	}
-	defer rows.Close()
 
 	return
 }
@@ -176,12 +175,13 @@ func (p *Postgres) watchOutboxesLoop(ctx context.Context) (err error) {
 }
 
 func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
-	obtain := false
 	conn, err := p.db.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("fail to obtain connection for lock: %w", err)
 	}
 	defer conn.Close()
+
+	obtain := false
 	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, outboxLock).Scan(&obtain)
 	if !obtain {
 		return fmt.Errorf("lock has been obtained by other process")
@@ -190,6 +190,7 @@ func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
 		return fmt.Errorf("fail to obtain lock: %w", err)
 	}
 
+	p.logger.Info("got lock for sending outbox")
 	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
 	if err = l.Listen(outboxChannel); err != nil {
 		return fmt.Errorf("fail to listen for outbox notification :%w", err)

@@ -1,0 +1,17 @@
+openapi: "3.0.0"
+info:
+  title: "Profile API"
+  version: "1.0.0"
+  license:
+    name: "Internal"
+    url: "http://localhost"
+security: []
+servers:
+  - url: "https://profile:8443"
+  - url: "https://localhost:8443"
+paths:
+  /tenants/{tenant-id}/profiles:
+    $ref: paths/create_profile.yml
+
+  /tenants/{tenant-id}/profiles/{profile-id}:
+    $ref: paths/get_profile_id.yml

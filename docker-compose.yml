@@ -14,7 +14,7 @@ services:
       - postgres:/var/lib/postgresql/data
       - ./pkg/postgres/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     ports: 
-      - 5432:5432
+      - 5435:5432
 
   kafka:
     image: bitnami/kafka

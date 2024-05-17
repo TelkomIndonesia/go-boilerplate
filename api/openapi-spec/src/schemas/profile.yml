@@ -1,0 +1,41 @@
+components:
+  schemas:
+    ZeroableString:
+      type: string
+      x-go-type-skip-optional-pointer: true
+    ZeroableTime:
+      type: string
+      format: date-time
+      x-go-type-skip-optional-pointer: true
+    UUID:
+      type: string
+      format: uuid
+      x-go-type-skip-optional-pointer: true
+    Profile:
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        tenant_id:
+          $ref: "#/components/schemas/UUID"
+        nin:
+          $ref: "#/components/schemas/ZeroableString"
+        name:
+          $ref: "#/components/schemas/ZeroableString"
+        email:
+          $ref: "#/components/schemas/ZeroableString"
+        phone:
+          $ref: "#/components/schemas/ZeroableString"
+        dob:
+          $ref: "#/components/schemas/ZeroableTime"
+    CreateProfile:
+      properties:
+        nin:
+          $ref: "#/components/schemas/ZeroableString"
+        name:
+          $ref: "#/components/schemas/ZeroableString"
+        email:
+          $ref: "#/components/schemas/ZeroableString"
+        phone:
+          $ref: "#/components/schemas/ZeroableString"
+        dob:
+          $ref: "#/components/schemas/ZeroableTime"

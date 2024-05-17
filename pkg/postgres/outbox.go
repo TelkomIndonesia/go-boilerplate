@@ -189,6 +189,7 @@ func (p *Postgres) watchOuboxes(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("fail to obtain lock: %w", err)
 	}
+	defer conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", outboxLock)
 
 	p.logger.Info("got lock for sending outbox")
 	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })

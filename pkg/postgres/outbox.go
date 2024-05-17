@@ -283,7 +283,7 @@ func (p *Postgres) sendOutbox(ctx context.Context, limit int) (last *Outbox, err
 	}
 
 	if len(outboxes) == 0 {
-		return
+		return nil, tx.Rollback()
 	}
 
 	if err = p.obSender(ctx, outboxes); err != nil {

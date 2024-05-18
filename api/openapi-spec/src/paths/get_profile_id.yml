@@ -1,26 +1,25 @@
 get:
-      security:
-        - {}
-      summary: "get profile"
-      operationId: "GetProfile"
-      parameters:
-        - name: tenant-id
-          required: true
-          in: path
+  security:
+    - {}
+  summary: "get profile"
+  operationId: "GetProfile"
+  parameters:
+    - name: tenant-id
+      required: true
+      in: path
+      schema:
+        $ref: "../schemas/profile.yml#/components/schemas/UUID"
+    - name: profile-id
+      in: path
+      required: true
+      schema:
+        $ref: "../schemas/profile.yml#/components/schemas/UUID"
+  responses:
+    200:
+      description: "success"
+      content:
+        "application/json":
           schema:
-            $ref: "../schemas/profile.yml#/components/schemas/UUID"
-        - name: profile-id
-          in: path
-          required: true
-          schema:
-            $ref: "../schemas/profile.yml#/components/schemas/UUID"
-      responses:
-        200:
-          description: "success"
-          content:
-            "application/json":
-              schema:
-                $ref: "../schemas/profile.yml#/components/schemas/Profile"
-        404:
-          description: not found
-
+            $ref: "../schemas/profile.yml#/components/schemas/Profile"
+    404:
+      description: not found

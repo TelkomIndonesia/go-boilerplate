@@ -1,4 +1,4 @@
-//go:generate go run github.com/telkomindonesia/openapi-utils/cmd/merge ../../api/openapi-spec/src/profile.yml ../../api/openapi-spec/profile.yml
+//go:generate go run github.com/telkomindonesia/openapi-utils/cmd/bundle ../../api/openapi-spec/src/profile.yml ../../api/openapi-spec/profile.yml
 //go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen --config oapi-codegen.yml ../../api/openapi-spec/profile.yml
 package httpserver
 

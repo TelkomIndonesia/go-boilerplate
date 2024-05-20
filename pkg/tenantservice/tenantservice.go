@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -36,7 +37,7 @@ func WithTracer(name string) OptFunc {
 
 func WithBaseUrl(u string) OptFunc {
 	return func(ts *TenantService) (err error) {
-		ts.base, err = url.Parse(u)
+		ts.base, err = util.EnsureUrlScheme(u)
 		return
 	}
 }

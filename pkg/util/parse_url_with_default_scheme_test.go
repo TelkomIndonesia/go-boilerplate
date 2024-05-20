@@ -6,21 +6,22 @@ import (
 
 func TestEnsureUrlScheme(t *testing.T) {
 	tests := []struct {
-		input          string
-		expectedScheme string
-		expectedHost   string
-		expectedPort   string
+		input              string
+		inputDefaultScheme string
+		expectedScheme     string
+		expectedHost       string
+		expectedPort       string
 	}{
-		{"www.example.com", "https", "www.example.com", ""},
-		{"http://www.example.com", "http", "www.example.com", ""},
-		{"https://www.example.com", "https", "www.example.com", ""},
-		{"ftp://www.example.com", "https", "www.example.com", ""},
-		{"example", "https", "example", ""},
-		{"example:8443", "https", "example", "8443"},
+		{"www.example.com", "https", "https", "www.example.com", ""},
+		{"http://www.example.com", "https", "http", "www.example.com", ""},
+		{"https://www.example.com", "https", "https", "www.example.com", ""},
+		{"ftp://www.example.com", "https", "ftp", "www.example.com", ""},
+		{"example", "https", "https", "example", ""},
+		{"example:8443", "https", "https", "example", "8443"},
 	}
 
 	for _, test := range tests {
-		result, err := EnsureUrlScheme(test.input)
+		result, err := ParseURLWithDefaultScheme(test.input, test.inputDefaultScheme)
 		if err != nil {
 			t.Errorf("did not expect an error for input %s, but got %v", test.input, err)
 			continue

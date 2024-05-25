@@ -23,14 +23,34 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// PostProfileJSONBody defines parameters for PostProfile.
-type PostProfileJSONBody struct {
-	Dob   time.Time `json:"dob,omitempty"`
-	Email string    `json:"email,omitempty"`
-	Name  string    `json:"name,omitempty"`
-	Nin   string    `json:"nin,omitempty"`
-	Phone string    `json:"phone,omitempty"`
+// CreateProfile defines model for CreateProfile.
+type CreateProfile struct {
+	Dob   ZeroableTime   `json:"dob,omitempty"`
+	Email ZeroableString `json:"email,omitempty"`
+	Name  ZeroableString `json:"name,omitempty"`
+	Nin   ZeroableString `json:"nin,omitempty"`
+	Phone ZeroableString `json:"phone,omitempty"`
 }
+
+// Profile defines model for Profile.
+type Profile struct {
+	Dob      ZeroableTime   `json:"dob,omitempty"`
+	Email    ZeroableString `json:"email,omitempty"`
+	Id       UUID           `json:"id,omitempty"`
+	Name     ZeroableString `json:"name,omitempty"`
+	Nin      ZeroableString `json:"nin,omitempty"`
+	Phone    ZeroableString `json:"phone,omitempty"`
+	TenantId UUID           `json:"tenant_id,omitempty"`
+}
+
+// UUID defines model for UUID.
+type UUID = openapi_types.UUID
+
+// ZeroableString defines model for ZeroableString.
+type ZeroableString = string
+
+// ZeroableTime defines model for ZeroableTime.
+type ZeroableTime = time.Time
 
 // PostProfileParams defines parameters for PostProfile.
 type PostProfileParams struct {
@@ -38,16 +58,16 @@ type PostProfileParams struct {
 }
 
 // PostProfileJSONRequestBody defines body for PostProfile for application/json ContentType.
-type PostProfileJSONRequestBody PostProfileJSONBody
+type PostProfileJSONRequestBody = CreateProfile
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// create profile
 	// (POST /tenants/{tenant-id}/profiles)
-	PostProfile(ctx echo.Context, tenantId openapi_types.UUID, params PostProfileParams) error
+	PostProfile(ctx echo.Context, tenantId UUID, params PostProfileParams) error
 	// get profile
 	// (GET /tenants/{tenant-id}/profiles/{profile-id})
-	GetProfile(ctx echo.Context, tenantId openapi_types.UUID, profileId openapi_types.UUID) error
+	GetProfile(ctx echo.Context, tenantId UUID, profileId UUID) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -59,7 +79,7 @@ type ServerInterfaceWrapper struct {
 func (w *ServerInterfaceWrapper) PostProfile(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "tenant-id" -------------
-	var tenantId openapi_types.UUID
+	var tenantId UUID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "tenant-id", ctx.Param("tenant-id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -84,7 +104,7 @@ func (w *ServerInterfaceWrapper) PostProfile(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) GetProfile(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "tenant-id" -------------
-	var tenantId openapi_types.UUID
+	var tenantId UUID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "tenant-id", ctx.Param("tenant-id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -92,7 +112,7 @@ func (w *ServerInterfaceWrapper) GetProfile(ctx echo.Context) error {
 	}
 
 	// ------------- Path parameter "profile-id" -------------
-	var profileId openapi_types.UUID
+	var profileId UUID
 
 	err = runtime.BindStyledParameterWithOptions("simple", "profile-id", ctx.Param("profile-id"), &profileId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
@@ -138,7 +158,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 }
 
 type PostProfileRequestObject struct {
-	TenantId openapi_types.UUID `json:"tenant-id"`
+	TenantId UUID `json:"tenant-id"`
 	Params   PostProfileParams
 	Body     *PostProfileJSONRequestBody
 }
@@ -147,15 +167,7 @@ type PostProfileResponseObject interface {
 	VisitPostProfileResponse(w http.ResponseWriter) error
 }
 
-type PostProfile201JSONResponse struct {
-	Dob      time.Time          `json:"dob,omitempty"`
-	Email    string             `json:"email,omitempty"`
-	Id       openapi_types.UUID `json:"id,omitempty"`
-	Name     string             `json:"name,omitempty"`
-	Nin      string             `json:"nin,omitempty"`
-	Phone    string             `json:"phone,omitempty"`
-	TenantId openapi_types.UUID `json:"tenant_id,omitempty"`
-}
+type PostProfile201JSONResponse Profile
 
 func (response PostProfile201JSONResponse) VisitPostProfileResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -173,23 +185,15 @@ func (response PostProfile400Response) VisitPostProfileResponse(w http.ResponseW
 }
 
 type GetProfileRequestObject struct {
-	TenantId  openapi_types.UUID `json:"tenant-id"`
-	ProfileId openapi_types.UUID `json:"profile-id"`
+	TenantId  UUID `json:"tenant-id"`
+	ProfileId UUID `json:"profile-id"`
 }
 
 type GetProfileResponseObject interface {
 	VisitGetProfileResponse(w http.ResponseWriter) error
 }
 
-type GetProfile200JSONResponse struct {
-	Dob      time.Time          `json:"dob,omitempty"`
-	Email    string             `json:"email,omitempty"`
-	Id       openapi_types.UUID `json:"id,omitempty"`
-	Name     string             `json:"name,omitempty"`
-	Nin      string             `json:"nin,omitempty"`
-	Phone    string             `json:"phone,omitempty"`
-	TenantId openapi_types.UUID `json:"tenant_id,omitempty"`
-}
+type GetProfile200JSONResponse Profile
 
 func (response GetProfile200JSONResponse) VisitGetProfileResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -229,7 +233,7 @@ type strictHandler struct {
 }
 
 // PostProfile operation middleware
-func (sh *strictHandler) PostProfile(ctx echo.Context, tenantId openapi_types.UUID, params PostProfileParams) error {
+func (sh *strictHandler) PostProfile(ctx echo.Context, tenantId UUID, params PostProfileParams) error {
 	var request PostProfileRequestObject
 
 	request.TenantId = tenantId
@@ -261,7 +265,7 @@ func (sh *strictHandler) PostProfile(ctx echo.Context, tenantId openapi_types.UU
 }
 
 // GetProfile operation middleware
-func (sh *strictHandler) GetProfile(ctx echo.Context, tenantId openapi_types.UUID, profileId openapi_types.UUID) error {
+func (sh *strictHandler) GetProfile(ctx echo.Context, tenantId UUID, profileId UUID) error {
 	var request GetProfileRequestObject
 
 	request.TenantId = tenantId
@@ -289,15 +293,16 @@ func (sh *strictHandler) GetProfile(ctx echo.Context, tenantId openapi_types.UUI
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+yWQY/TPhDFv0o1Z2eT/W8Pf/kGF9Tb3lGF3GTaGhyP155URFG+Oxon3bYsAkErBGh7",
-	"ipzneTOv9k8ZwPotgR7A2Rp9Qnn0pkXQsPKM0RsHCrroQMOeOeiydFQbt6fEMCpgy07Ej5G21uHizeMK",
-	"FBwwJkseNNzfVXeVCCmgN8GChoe8pCAY3ifxKxm98ZzKYXoobDOWYSqYBUHM9CA1omFLftWIJSWebXO1",
-	"aFpkjAn0exkLdHYAdZznuTgoiPjU2YgNaI4dKkj1HlsjHluKrWHQ0HVZyX2QzYmj9TtQ8LnYUSGLRfpk",
-	"Q0FB+jGuCGQlr6ngOKq5hacOY3/q4WCcbQxLwyfL2WJD5NB4GMf11CAmfktNL5KaPKPPIZgQnK1zDOXH",
-	"JCEPZ7VClJDYTsE1tLmYSawLti3+8mAKsDXWnbX90wWmKK7Yb/0128Oe/BX+8vv6/OSFFMinKfb/qvt/",
-	"7U+zze0ux99+BNSMkg+3DGU6Vw2mOtqskBJdXWNKgs9lVeWzcfF+Y5rFDAqQ3QnrLlruhYACkdS1rYk9",
-	"aKgjGsbFDNUs/i51y2F+klUx3uE3CPwO/3wAX7Zwmup39LB+wYXqlQuvXLgtF5YvueCJF1vqfPMDKuyQ",
-	"z5CQpfFwvMCnb76kyyMY9P/L5QPI5bp8/fxNOAvW45cAAAD//wC+6rNaCgAA",
+	"H4sIAAAAAAAC/9RUTW/bMAz9KwG3o1ynaw6DbvsAhtwKbL1sKAbFZhJtsqhKdLHA8H8fKDtNvQ5r2g77",
+	"OEWgyfdIvhd2UFETyKPnBLqDVG2xMfn5JqJhPI+0tg4lECIFjGwxf65pJT/PI65Bw7PygFOOIOVHjGRW",
+	"Dj/YBqFXgI2x7tii9xyt30iZNw0+osr6hxeFLfkHc/W9gn9gTba+r+biYvn2f1ioAkZvPH8+diRRIL90",
+	"B2uKjWHQ0La2BgW8Cwga0oCt4FuxoUKCRfpqQ0GBLXnjikDWM0bQHFvsFfzQlO6ejJT1vd1hbRgLluhj",
+	"25TBrV+TwDpboU+ZYRAYlpLpjQMFbXSgYcscdFk6qozbUuK8asvi272DZ6/Ol6DgGmOy5EHD6cn8ZC6J",
+	"FNCbYEHDWQ4pCIa32eTloFcqu+FR2LovwwCYE4KQ6U4wopFJlrVQUuL9H0fQommQMSbQnzoQt2UG2BsW",
+	"bsBBQcSr1kash0Wo8XAdaRc1wl+1GHcH/GvjrGgCt+FGYVZEDo2Hvr8cyDHxa6p3klKRZ/R5QBOCs1Ue",
+	"sfySyB9u6n2tTc9tVnY6Yw6kQD4NO30xP/1t5BPaGlMVbTacOLKtKkxJHLCYz/NJm3xfmXo27kM2Cwmr",
+	"NlreiYiyq9Q2jYk70FDlCWfhhkv92jhlN74kKsQb/ImJ3uHf9dAU/tDxU/Ev78g9/+NyL+7K7Ylna2p9",
+	"fY/YG+RbSufUeL3X5XCNki73euuXi8UZyF6nn2+u1Zhw2X8PAAD//3kfZ7S1CAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

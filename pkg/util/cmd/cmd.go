@@ -95,7 +95,7 @@ func (c *CMD) initTLSWrapper() {
 		cfg.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 	opts := []tlswrapper.OptFunc{
-		tlswrapper.WithTLSConfig(c.tlscfg),
+		tlswrapper.WithTLSConfig(cfg),
 	}
 	if c.TLSCAPath != nil {
 		opts = append(opts, tlswrapper.WithCA(*c.TLSCAPath))

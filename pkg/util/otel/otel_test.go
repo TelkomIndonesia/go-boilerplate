@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/sdk/trace"
 	ddotel "gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentelemetry"
 )
 
@@ -20,6 +21,14 @@ func TestInstantiate(t *testing.T) {
 		{
 			name: "datadog",
 			t:    &ddotel.TracerProvider{},
+		},
+		{
+			name: "otlphttp",
+			t:    &trace.TracerProvider{},
+		},
+		{
+			name: "console",
+			t:    &trace.TracerProvider{},
 		},
 	}
 

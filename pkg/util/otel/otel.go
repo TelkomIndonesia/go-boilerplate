@@ -24,6 +24,6 @@ func WithTraceProvider(ctx context.Context, name string, l log.Logger) (deferer 
 	case "console":
 		return withTraceConsoleExporter(ctx)
 	default:
-		return
+		return func() {}
 	}
 }

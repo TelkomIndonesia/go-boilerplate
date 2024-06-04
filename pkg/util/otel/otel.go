@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/otel"
 )
 
@@ -12,6 +13,8 @@ func WithTraceProvider(ctx context.Context, name string, l log.Logger) (deferer 
 	if l != nil {
 		otel.SetLogger(logr.New(logsink{l: l, name: "otel"}))
 	}
+
+	otel.SetTextMapPropagator(autoprop.NewTextMapPropagator())
 
 	switch name {
 	case "datadog":

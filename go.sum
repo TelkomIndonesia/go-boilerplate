@@ -277,6 +277,8 @@ github.com/telkomindonesia/openapi-utils v0.0.0-20240518140922-7b00d8134a18 h1:d
 github.com/telkomindonesia/openapi-utils v0.0.0-20240518140922-7b00d8134a18/go.mod h1:BMng/7iYwgHt7ieTnSLC8Rrs9RFmENcGF4ZDLvn6As0=
 github.com/telkomindonesia/openapi-utils v0.0.0-20240525061549-edd9a49f0a0d h1:cqJDIIW9X2RzKT4ziFq1dKlEciBzwk0oOe2n15iBABw=
 github.com/telkomindonesia/openapi-utils v0.0.0-20240525061549-edd9a49f0a0d/go.mod h1:BMng/7iYwgHt7ieTnSLC8Rrs9RFmENcGF4ZDLvn6As0=
+github.com/telkomindonesia/openapi-utils v0.0.0-20240605123306-205b43a186ea h1:pyJF61qVrFP7cy0TYVEFCff74XTvGnja3hfVvXaE/Wk=
+github.com/telkomindonesia/openapi-utils v0.0.0-20240605123306-205b43a186ea/go.mod h1:ZoR65iENttX1WVh/xyejc6JBXVJEwrmwoIdaTEeMX6Q=
 github.com/tetratelabs/wazero v1.7.0 h1:jg5qPydno59wqjpGrHph81lbtHzTrWzwwtD4cD88+hQ=
 github.com/tetratelabs/wazero v1.7.0/go.mod h1:ytl6Zuh20R/eROuyDaGPkp82O9C/DJfXAwJfQ3X6/7Y=
 github.com/tink-crypto/tink-go/v2 v2.1.0 h1:QXFBguwMwTIaU17EgZpEJWsUSc60b1BAGTzBIoMdmok=

@@ -15,7 +15,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/sqlc-dev/sqlc v1.26.0
 	github.com/stretchr/testify v1.9.0
-	github.com/telkomindonesia/openapi-utils v0.0.0-20240605123306-205b43a186ea
+	github.com/telkomindonesia/openapi-utils v0.0.0-20240605131523-37d6da43039c
 	github.com/tink-crypto/tink-go/v2 v2.1.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.49.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0

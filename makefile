@@ -1,7 +1,7 @@
 .PHONY: build test start stop certs
 
 keys:
-	go run ./tools/gentinkey .local/tink-aead.json .local/tink-mac.json .local/tink-jwtmac.json
+	go run ./tools/gentinkey .local/tink-aead.json .local/tink-mac.json .local/tink-jwt-mac.json
 	docker compose -f docker-compose.keys.yml up
 	docker compose -f docker-compose.keys.yml down
 

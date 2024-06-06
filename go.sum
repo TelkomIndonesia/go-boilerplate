@@ -275,6 +275,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/telkomindonesia/openapi-utils v0.0.0-20240606045225-f6be9b2a8fd3 h1:u7/enmACQmAQRP/cDKi+E/lJu+AneiR1iAa0fn2z+IQ=
 github.com/telkomindonesia/openapi-utils v0.0.0-20240606045225-f6be9b2a8fd3/go.mod h1:ZoR65iENttX1WVh/xyejc6JBXVJEwrmwoIdaTEeMX6Q=
+github.com/telkomindonesia/openapi-utils v0.0.0-20240606071041-a8a4d9ad7ae3 h1:GDJglBZ5zDplI9QBogH+Tbp17zDKuDipvHnq+/W6Zeo=
+github.com/telkomindonesia/openapi-utils v0.0.0-20240606071041-a8a4d9ad7ae3/go.mod h1:ZoR65iENttX1WVh/xyejc6JBXVJEwrmwoIdaTEeMX6Q=
 github.com/tetratelabs/wazero v1.7.0 h1:jg5qPydno59wqjpGrHph81lbtHzTrWzwwtD4cD88+hQ=
 github.com/tetratelabs/wazero v1.7.0/go.mod h1:ytl6Zuh20R/eROuyDaGPkp82O9C/DJfXAwJfQ3X6/7Y=
 github.com/tink-crypto/tink-go/v2 v2.1.0 h1:QXFBguwMwTIaU17EgZpEJWsUSc60b1BAGTzBIoMdmok=

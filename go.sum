@@ -280,6 +280,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/telkomindonesia/oapik v0.1.0 h1:IhyUmhN15IsgHW6RhtbYKdTThZKOcTrwxl4ltVXs404=
 github.com/telkomindonesia/oapik v0.1.0/go.mod h1:+7gH7yV1FliBUHE/IWyaXwBCQ+nufpQtSkd2AwxRxoA=
+github.com/telkomindonesia/oapik v0.1.1 h1:G5DAEZe1TDSBAJ8Oy1WEoe75p24HoPTA9OVWrATV4W0=
+github.com/telkomindonesia/oapik v0.1.1/go.mod h1:+7gH7yV1FliBUHE/IWyaXwBCQ+nufpQtSkd2AwxRxoA=
 github.com/tetratelabs/wazero v1.7.0 h1:jg5qPydno59wqjpGrHph81lbtHzTrWzwwtD4cD88+hQ=
 github.com/tetratelabs/wazero v1.7.0/go.mod h1:ytl6Zuh20R/eROuyDaGPkp82O9C/DJfXAwJfQ3X6/7Y=
 github.com/tink-crypto/tink-go/v2 v2.1.0 h1:QXFBguwMwTIaU17EgZpEJWsUSc60b1BAGTzBIoMdmok=

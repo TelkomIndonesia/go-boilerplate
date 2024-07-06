@@ -20,7 +20,8 @@ Features:
 - [x] Dockerized.
 - [x] CI/CD as Code (dagger)
 
-
 ## Using as library
 
 The packages under `pkg/util` are reusable for importing into other project. Moreover `pkg/util/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./pkg/cmd/cmd.go#L117-L135)
+
+test

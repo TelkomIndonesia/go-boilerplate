@@ -85,7 +85,12 @@ func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profi
 	))
 	defer span.End()
 
-	res, err := ts.hc.Get(ts.base.JoinPath("tenants", id.String()).String())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.base.JoinPath("tenants", id.String()).String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("fail to create http request: %w", err)
+	}
+
+	res, err := ts.hc.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fail to invoke http request: %w", err)
 	}

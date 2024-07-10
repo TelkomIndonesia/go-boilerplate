@@ -103,6 +103,9 @@ func (c *CMD) initTLSWrapper() {
 	if c.TLSCertPath != nil && c.TLSKeyPath != nil {
 		opts = append(opts, tlswrapper.WithLeafCert(*c.TLSKeyPath, *c.TLSCertPath))
 	}
+	if l, err := c.Logger(); err == nil && l != nil {
+		opts = append(opts, tlswrapper.WithLogger(l))
+	}
 
 	t, err := tlswrapper.New(opts...)
 	c.getTLSWrapper = func() (tlswrapper.TLSWrapper, error) { return t, err }

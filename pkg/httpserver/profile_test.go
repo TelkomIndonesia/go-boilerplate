@@ -33,11 +33,13 @@ func TestGetProfile(t *testing.T) {
 	pid := uuid.New()
 
 	// set up expectation
-	pr.EXPECT().FetchProfile(mock.MatchedBy(mctx), tid, pid).Return(&profile.Profile{
-		TenantID: tid,
-		ID:       pid,
-		NIN:      "1",
-	}, nil)
+	pr.EXPECT().
+		FetchProfile(mock.MatchedBy(mctx), tid, pid).
+		Return(&profile.Profile{
+			TenantID: tid,
+			ID:       pid,
+			NIN:      "1",
+		}, nil)
 
 	// exec
 	res, err := s.GetProfile(ctx, oapi.GetProfileRequestObject{

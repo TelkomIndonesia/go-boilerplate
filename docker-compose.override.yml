@@ -14,7 +14,7 @@ services:
     
   profile:
     build:
-      target: base
+      target: ${PROFILE_DOCKERFILE_TARGET:-base}
     environment:
       PWD: ${PWD:-/src}
       PROFILE_AEAD_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-aead.json
@@ -28,5 +28,6 @@ services:
       - go-build:/root/.cache/go-build
 
       - ${PWD:-.}:${PWD:-/src}
+    ports:
+      - 2345:2345
     working_dir: ${PWD:-/src}
-    entrypoint: [ go, run, ./cmd ]

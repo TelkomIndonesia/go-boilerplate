@@ -16,7 +16,10 @@ test:
 	cd .dagger && go run . ..
 
 start:
-	docker compose up profile
+	docker compose up --build profile
+
+debug:
+	PROFILE_DOCKERFILE_TARGET=debugger docker compose up --build profile
 
 stop:
 	docker compose down

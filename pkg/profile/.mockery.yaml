@@ -1,0 +1,10 @@
+packages:
+  github.com/telkomindonesia/go-boilerplate/pkg/profile:
+    config:
+      with-expecter: True
+      dir: mock
+      outpkg: "{{.PackageName}}mock"
+      filename: "mock_{{.InterfaceName | snakecase}}.go"
+    interfaces:
+      ProfileRepository:
+      TenantRepository:

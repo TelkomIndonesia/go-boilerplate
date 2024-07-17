@@ -11,6 +11,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	profilemock "github.com/telkomindonesia/go-boilerplate/pkg/profile/mock"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/test"
 )
 
 func TestGetProfile(t *testing.T) {
@@ -27,12 +28,12 @@ func TestGetProfile(t *testing.T) {
 	s := oapiServerImplementation{h: h}
 
 	// set up test data
-	ctx := context.Background()
+	ctx, mctx := test.ContextWithMatcher(context.Background())
 	tid := uuid.New()
 	pid := uuid.New()
 
 	// set up expectation
-	pr.EXPECT().FetchProfile(mock.Anything, tid, pid).Return(&profile.Profile{
+	pr.EXPECT().FetchProfile(mock.MatchedBy(mctx), tid, pid).Return(&profile.Profile{
 		TenantID: tid,
 		ID:       pid,
 		NIN:      "1",

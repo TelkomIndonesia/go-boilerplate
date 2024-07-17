@@ -12,7 +12,6 @@ import (
 
 // GetProfile implements oapi.StrictServerInterface.
 func (s oapiServerImplementation) GetProfile(ctx context.Context, request oapi.GetProfileRequestObject) (oapi.GetProfileResponseObject, error) {
-	ctx = context.WithValue(ctx, "test", "test")
 	pr, err := s.h.profileRepo.FetchProfile(ctx, request.TenantId, request.ProfileId)
 	if err != nil {
 		return nil, err

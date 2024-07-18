@@ -60,7 +60,7 @@ func TestProfileBasic(t *testing.T) {
 		}
 	}
 
-	p := tGetPostgres(t)
+	p := tGetPostgresTruncated(t)
 	pr := &profile.Profile{
 		TenantID: tRequireUUIDV7(t),
 		ID:       tRequireUUIDV7(t),

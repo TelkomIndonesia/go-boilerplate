@@ -66,7 +66,7 @@ func TestReadWrite(t *testing.T) {
 
 	rmsgs := [][]byte{}
 	group := "group-test-" + t.Name()
-	for i, _ := range msgs {
+	for i := range msgs {
 		t.Run(fmt.Sprintf("read-%d", i), func(t *testing.T) {
 			r := kafka.NewReader(kafka.ReaderConfig{
 				Brokers:   []string{os.Getenv("TEST_KAFKA_BROKERS")},

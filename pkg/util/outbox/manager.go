@@ -18,21 +18,23 @@ type Manager interface {
 
 type AEADFunc func(ob Outbox) (tink.AEAD, error)
 
-var _ Manager = noopManager{}
+var _ Manager = managerNOP{}
 
-type noopManager struct{}
+type managerNOP struct{}
 
 // StoreOutbox implements Manager.
-func (n noopManager) StoreOutbox(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
-	return nil
+func (n managerNOP) StoreOutbox(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
+	return
 }
 
-func (n noopManager) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
-	return nil
+func (n managerNOP) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
+	return
 }
 
 // WatchOuboxes implements Manager.
-func (n noopManager) WatchOuboxes(ctx context.Context) (err error) {
+func (n managerNOP) WatchOuboxes(ctx context.Context) (err error) {
 	<-ctx.Done()
 	return ctx.Err()
 }
+
+func ManagerNOP() Manager { return managerNOP{} }

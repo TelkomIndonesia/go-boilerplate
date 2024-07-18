@@ -18,6 +18,12 @@ func txRollbackDeferer(tx *sql.Tx, err *error) func() {
 }
 
 func WatchOutboxesLoop(ctx context.Context, m Manager, l log.Logger) {
+	if m == nil {
+		m = ManagerNOP()
+	}
+	if l == nil {
+		l = log.Global()
+	}
 	for {
 		if err := m.WatchOuboxes(ctx); err != nil {
 			l.Warn("got outbox watcher error", log.Error("error", err), log.TraceContext("trace-id", ctx))

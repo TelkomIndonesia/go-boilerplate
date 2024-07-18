@@ -31,17 +31,21 @@ func keyNameAsHash64(keyName string) uint64 {
 
 var _ Manager = &postgres{}
 
-type postgres struct {
-	dbUrl string
-	db    *sql.DB
+type ManagerPostgresOptFunc func(*postgres) error
 
-	obSender Sender
-	aeadFunc AEADFunc
+func ManagerPostgresWithDB(db *sql.DB, url string) ManagerPostgresOptFunc {
+	return func(p *postgres) error {
+		p.db = db
+		p.dbUrl = url
+		return nil
+	}
+}
 
-	channelName string
-	lockID      uint64
-	tracer      trace.Tracer
-	logger      log.Logger
+func ManagerPostgresWithSender(sender Sender) ManagerPostgresOptFunc {
+	return func(p *postgres) error {
+		p.sender = sender
+		return nil
+	}
 }
 
 func ManagerPostgresWithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD]) ManagerPostgresOptFunc {
@@ -53,7 +57,32 @@ func ManagerPostgresWithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAE
 	}
 }
 
-type ManagerPostgresOptFunc func(*postgres) error
+func ManagerPostgresWithAEADFunc(aeadFunc AEADFunc) ManagerPostgresOptFunc {
+	return func(p *postgres) error {
+		p.aeadFunc = aeadFunc
+		return nil
+	}
+}
+
+func ManagerPostgresWithLogger(l log.Logger) ManagerPostgresOptFunc {
+	return func(p *postgres) error {
+		p.logger = l
+		return nil
+	}
+}
+
+type postgres struct {
+	dbUrl string
+	db    *sql.DB
+
+	sender   Sender
+	aeadFunc AEADFunc
+
+	channelName string
+	lockID      uint64
+	tracer      trace.Tracer
+	logger      log.Logger
+}
 
 func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
 	p := &postgres{
@@ -64,6 +93,12 @@ func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
 		aeadFunc: func(ob Outbox) (tink.AEAD, error) {
 			return nil, fmt.Errorf("nil aead primitive")
 		},
+	}
+
+	for _, opt := range opts {
+		if err := opt(p); err != nil {
+			return nil, fmt.Errorf("fail to apply options: %w", err)
+		}
 	}
 
 	if p.dbUrl == "" {
@@ -81,6 +116,7 @@ func (p *postgres) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob Outb
 	if err != nil {
 		return fmt.Errorf("fail to load encryption primitive: %w", err)
 	}
+
 	o, err := ob.AsEncrypted(aead)
 	if err != nil {
 		return fmt.Errorf("fail to encrypt outbox")
@@ -123,7 +159,7 @@ func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob Outbox) (err 
 }
 
 func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
-	if p.obSender == nil {
+	if p.sender == nil {
 		p.logger.Info("not outbox sender, will do nothing.")
 		<-ctx.Done()
 		return
@@ -242,7 +278,7 @@ func (p *postgres) sendOutbox(ctx context.Context, limit int) (last Outbox, err 
 		return last, tx.Rollback()
 	}
 
-	if err = p.obSender(ctx, outboxes); err != nil {
+	if err = p.sender(ctx, outboxes); err != nil {
 		return last, fmt.Errorf("fail to send outboxes: %w", err)
 	}
 

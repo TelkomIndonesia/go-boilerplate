@@ -22,7 +22,7 @@ type Outbox struct {
 	contentByte []byte
 }
 
-func newOutbox(tid uuid.UUID, event string, ctype string, content any) (o Outbox, err error) {
+func NewOutbox(tid uuid.UUID, event string, ctype string, content any) (o Outbox, err error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return o, fmt.Errorf("fail to create new id for outbox: %w", err)

@@ -1,6 +1,7 @@
 volumes:
   postgres:
   kafka:
+  goose:
 
 services:
   postgres:
@@ -15,6 +16,22 @@ services:
       - ./pkg/postgres/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     ports: 
       - 5432:5432
+  
+  goose:
+    image: golang:1.22
+    depends_on:
+      postgres:
+        condition: service_started
+    volumes:
+      - goose:/go/pkg/mod
+      - ${PWD:-.}:${PWD:-/src}
+    working_dir: ${PWD:-/src}
+    entrypoint: [go, run, -mod=mod, github.com/pressly/goose/v3/cmd/goose ]
+    command: 
+      - -dir=./pkg/util/outbox/migration/postgres/
+      - postgres
+      - postgres://testing:testing@postgres:5432/testing?sslmode=disable
+      - up
 
   kafka:
     image: bitnami/kafka

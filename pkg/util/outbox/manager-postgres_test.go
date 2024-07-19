@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -74,31 +73,17 @@ func TestPostgresOutbox(t *testing.T) {
 	ctype := "data"
 	event := "data_incoming"
 	contents := map[string]map[string]interface{}{}
-	outboxes := make([]map[string]interface{}, 0, 21)
+	outboxes := make([]Outbox, 0, 21)
 
 	ctx := context.Background()
 	outboxesWG := sync.WaitGroup{}
 	outboxesWG.Add(3)
 	{
 		ctx, cancel := context.WithCancel(ctx)
-		defer time.AfterFunc(30*time.Second, cancel).Stop()
+		defer time.AfterFunc(61*time.Second, cancel).Stop()
 
 		obSender := func(ctx context.Context, obs []Outbox) error {
-			for _, o := range obs {
-				assert.Equal(t, ctype, o.ContentType)
-				assert.Equal(t, event, o.Event)
-
-				o, err := o.AsUnEncrypted()
-				assert.NoError(t, err, "should return correctly encrypted outbox")
-
-				pr := map[string]interface{}{}
-				assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
-
-				_, ok := contents[pr["id"].(string)]
-				assert.True(t, ok, "should contain expected outbox")
-
-				outboxes = append(outboxes, pr)
-			}
+			outboxes = append(outboxes, obs...)
 			if len(outboxes) == cap(outboxes) {
 				cancel()
 			}
@@ -106,12 +91,12 @@ func TestPostgresOutbox(t *testing.T) {
 		}
 
 		for i := 0; i < 3; i++ {
-			p := tNewManagerPostgres(t, ManagerPostgresWithSender(obSender))
 			go func() {
 				defer outboxesWG.Done()
-				<-ctx.Done()
+
+				p := tNewManagerPostgres(t, ManagerPostgresWithSender(obSender))
+				WatchOutboxesLoop(ctx, p, nil)
 			}()
-			go WatchOutboxesLoop(ctx, p, nil)
 		}
 
 	}
@@ -122,26 +107,36 @@ func TestPostgresOutbox(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := 0; i < cap(outboxes); i++ {
-		t.Run(fmt.Sprintf("store-%d", i), func(t *testing.T) {
+		func() {
 			tx, err := p.db.Begin()
 			require.NoError(t, err)
 			defer tx.Commit()
 
 			id := uuid.New().String()
-			content := map[string]interface{}{"id": id}
+			content := map[string]interface{}{"id": id, "test": uuid.New().String()}
 			contents[id] = content
 			ob, err := NewOutbox(uuid.New(), event, ctype, content)
 			require.NoError(t, err)
 
 			err = p.StoreOutboxEncrypted(ctx, tx, ob)
 			require.NoError(t, err)
-		})
+		}()
 	}
 
 	outboxesWG.Wait()
-	for _, pr := range outboxes {
+	for _, o := range outboxes {
+		assert.Equal(t, ctype, o.ContentType)
+		assert.Equal(t, event, o.Event)
+		assert.True(t, o.IsEncrypted)
+
+		o, err := o.AsUnEncrypted()
+		assert.NoError(t, err, "should return correctly encrypted outbox")
+
+		pr := map[string]interface{}{}
+		assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
+
 		c, ok := contents[pr["id"].(string)]
-		require.True(t, ok, "should return stored outbox")
+		require.True(t, ok, "should contains expected content")
 		assert.Equal(t, c, pr)
 	}
 	assert.Len(t, outboxes, cap(outboxes), "should send all outbox")

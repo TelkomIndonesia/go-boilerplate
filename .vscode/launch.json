@@ -10,6 +10,12 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd",
+            "substitutePath": [
+                {
+                    "from": "${workspaceFolder}",
+                    "to": "${workspaceFolder}"
+                }
+            ],
             "host": "127.0.0.1",
             "port": 2345,
             "trace": "verbose",

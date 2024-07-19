@@ -78,6 +78,7 @@ type postgres struct {
 	sender   Sender
 	aeadFunc AEADFunc
 
+	waitTime    time.Duration
 	channelName string
 	lockID      uint64
 	tracer      trace.Tracer
@@ -86,6 +87,7 @@ type postgres struct {
 
 func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
 	p := &postgres{
+		waitTime:    time.Minute,
 		channelName: outboxChannel,
 		lockID:      outboxLock,
 		logger:      log.Global(),
@@ -165,22 +167,11 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 		return
 	}
 
-	conn, err := p.db.Conn(ctx)
-	if err != nil {
-		return fmt.Errorf("fail to obtain connection for lock: %w", err)
-	}
-	defer conn.Close()
-
-	obtain := false
-	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, p.lockID).Scan(&obtain)
-	if !obtain {
-		return fmt.Errorf("lock has been obtained by other process")
-	}
+	unlocker, err := p.lock(ctx)
 	if err != nil {
 		return fmt.Errorf("fail to obtain lock: %w", err)
 	}
-	defer conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", p.lockID)
-	p.logger.Info("got lock for sending outbox")
+	defer unlocker()
 
 	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
 	if err = l.Listen(p.channelName); err != nil {
@@ -190,7 +181,7 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 
 	var last Outbox
 	for {
-		timer := time.NewTimer(time.Minute)
+		timer := time.NewTimer(p.waitTime)
 		select {
 		case <-ctx.Done():
 			return
@@ -207,7 +198,7 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 			}
 		}
 
-		last, err = p.sendOutbox(ctx, 100)
+		last, err = p.sendOutboxes(ctx, 100)
 		if err != nil {
 			p.logger.Error("fail to send outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
@@ -221,7 +212,28 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 	}
 }
 
-func (p *postgres) sendOutbox(ctx context.Context, limit int) (last Outbox, err error) {
+func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
+	conn, err := p.db.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("fail to obtain connection for lock: %w", err)
+	}
+	defer conn.Close()
+
+	obtain := false
+	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, p.lockID).Scan(&obtain)
+	if !obtain {
+		return nil, fmt.Errorf("lock has been obtained by other process")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("fail to obtain lock: %w", err)
+	}
+
+	return func() {
+		conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", p.lockID)
+	}, nil
+}
+
+func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last Outbox, err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return last, fmt.Errorf("fail to open transaction: %w", err)
@@ -253,22 +265,27 @@ func (p *postgres) sendOutbox(ctx context.Context, limit int) (last Outbox, err 
 		if err != nil {
 			return last, fmt.Errorf("fail to scan row: %w", err)
 		}
+
 		switch o.IsEncrypted {
+		case true:
+			o.aead, err = p.aeadFunc(o)
+			if err != nil {
+				return last, fmt.Errorf("fail to load encryption primitive: %w", err)
+			}
+
+			var content []byte
+			err = json.Unmarshal(o.contentByte, &content)
+			if err != nil {
+				return last, fmt.Errorf("fail to unmarshall content")
+			}
+			o.Content = content
+
 		case false:
 			o.Content = map[string]interface{}{}
 			err = json.Unmarshal(o.contentByte, &o.Content)
-
-		case true:
-			var content []byte
-			err = json.Unmarshal(o.contentByte, &content)
-			o.Content = content
-		}
-		if err != nil {
-			return last, fmt.Errorf("fail to unmarshall content")
-		}
-		o.aead, err = p.aeadFunc(o)
-		if err != nil {
-			return last, fmt.Errorf("fail to load encryption primitive: %w", err)
+			if err != nil {
+				return last, fmt.Errorf("fail to unmarshall content")
+			}
 		}
 
 		outboxes = append(outboxes, o)

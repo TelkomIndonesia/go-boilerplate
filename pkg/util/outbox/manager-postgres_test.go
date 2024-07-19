@@ -90,9 +90,16 @@ func TestPostgresOutbox(t *testing.T) {
 
 			ctype := "data" + uuid.NewString()
 			event := "data_incoming" + uuid.NewString()
-			count := 30 + rand.Int()%10
 			contents := map[string]map[string]interface{}{}
-			outboxes := []Outbox{}
+			for i := 0; i < 30+rand.Int()%10; i++ {
+				id := uuid.New().String()
+				contents[id] = map[string]interface{}{
+					"id":   id,
+					"test": uuid.New().String(),
+				}
+			}
+
+			sentOutboxes := []Outbox{}
 
 			// start replicas of manager that should wait for outboxes
 			outboxesWG := sync.WaitGroup{}
@@ -105,9 +112,9 @@ func TestPostgresOutbox(t *testing.T) {
 						return fmt.Errorf("simulated intermittent error")
 					}
 
-					outboxes = append(outboxes, obs...)
+					sentOutboxes = append(sentOutboxes, obs...)
 
-					if len(outboxes) >= count {
+					if len(sentOutboxes) >= len(contents) {
 						time.AfterFunc(time.Second, cancel)
 					}
 					return nil
@@ -132,16 +139,8 @@ func TestPostgresOutbox(t *testing.T) {
 			// store data
 			{
 				wg := sync.WaitGroup{}
-				wg.Add(count)
-				for i := 0; i < count; i++ {
-					id := uuid.New().String()
-					contents[id] = map[string]interface{}{
-						"id":   id,
-						"test": uuid.New().String(),
-					}
-					outbox, err := NewOutbox(uuid.New(), event, ctype, contents[id])
-					require.NoError(t, err)
-
+				wg.Add(len(contents))
+				for _, content := range contents {
 					go func() {
 						defer wg.Done()
 
@@ -149,12 +148,15 @@ func TestPostgresOutbox(t *testing.T) {
 						require.NoError(t, err)
 						defer tx.Commit()
 
+						outbox, err := NewOutbox(uuid.New(), event, ctype, content)
+						require.NoError(t, err)
+
 						if isEncrypted {
 							err = manager.StoreOutboxEncrypted(ctx, tx, outbox)
 						} else {
 							err = manager.StoreOutbox(ctx, tx, outbox)
 						}
-						require.NoError(t, err)
+						require.NoError(t, err, "should store outbox")
 					}()
 				}
 				wg.Wait()
@@ -163,11 +165,11 @@ func TestPostgresOutbox(t *testing.T) {
 			// check sent outboxes
 			{
 				outboxesWG.Wait()
-				assert.Len(t, outboxes, count, "should send all new outbox")
-				for _, o := range outboxes {
-					assert.Equal(t, ctype, o.ContentType)
-					assert.Equal(t, event, o.Event)
-					assert.Equal(t, isEncrypted, o.IsEncrypted)
+				assert.Len(t, sentOutboxes, len(contents), "should send all new outbox")
+				for _, o := range sentOutboxes {
+					assert.Equal(t, ctype, o.ContentType, "should contain valid content type")
+					assert.Equal(t, event, o.Event, "should contain valid event name")
+					assert.Equal(t, isEncrypted, o.IsEncrypted, "should contains correct encryption status")
 
 					o, err := o.AsUnEncrypted()
 					assert.NoError(t, err, "should return unencrypted outbox")
@@ -177,7 +179,7 @@ func TestPostgresOutbox(t *testing.T) {
 
 					c, ok := contents[pr["id"].(string)]
 					assert.True(t, ok, "should contains expected content")
-					assert.Equal(t, c, pr)
+					assert.Equal(t, c, pr, "should contains valid content")
 				}
 			}
 		})

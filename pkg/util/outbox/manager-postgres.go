@@ -78,8 +78,8 @@ type postgres struct {
 	sender   Sender
 	aeadFunc AEADFunc
 
-	waitTime time.Duration
-	limit    int
+	maxIdle time.Duration
+	limit   int
 
 	channelName string
 	lockID      uint64
@@ -89,7 +89,7 @@ type postgres struct {
 
 func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
 	p := &postgres{
-		waitTime:    time.Minute,
+		maxIdle:     time.Minute,
 		limit:       100,
 		channelName: outboxChannel,
 		lockID:      outboxLock,
@@ -184,7 +184,7 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 
 	var last Outbox
 	for {
-		timer := time.NewTimer(p.waitTime)
+		timer := time.NewTimer(p.maxIdle)
 		select {
 		case <-ctx.Done():
 			return

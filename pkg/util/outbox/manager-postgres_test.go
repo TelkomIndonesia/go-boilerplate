@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"sync"
 	"testing"
@@ -83,27 +84,27 @@ func TestNewManagerPostgres(t *testing.T) {
 func TestPostgresOutbox(t *testing.T) {
 	manager := tGetManagerPostgresTruncated(t)
 
-	for _, isEncrypted := range []bool{false, true} {
+	for _, isEncrypted := range []bool{false, true, false, true} {
 		t.Run(fmt.Sprintf("encrypted:%v", isEncrypted), func(t *testing.T) {
+			ctx := context.Background()
+
 			ctype := "data" + uuid.NewString()
 			event := "data_incoming" + uuid.NewString()
-			count := 20
+			count := 30 + rand.Int()%10
 			contents := map[string]map[string]interface{}{}
 			outboxes := []Outbox{}
 
-			ctx := context.Background()
-
-			// start manager that wait for outboxes
+			// start replicas of manager that should wait for outboxes
 			outboxesWG := sync.WaitGroup{}
 			{
-				ctx, cancel := context.WithTimeout(ctx, 61*time.Second)
+				ctx, cancel := context.WithTimeout(ctx, time.Minute)
 
-				i := 0
+				i := -1
 				obSender := func(ctx context.Context, obs []Outbox) error {
-					if i%2 == 0 {
-						i = i + 1
-						return fmt.Errorf("intermittent error")
+					if i = i + 1; i%2 == 0 {
+						return fmt.Errorf("simulated intermittent error")
 					}
+
 					outboxes = append(outboxes, obs...)
 
 					if len(outboxes) >= count {
@@ -119,7 +120,8 @@ func TestPostgresOutbox(t *testing.T) {
 						defer outboxesWG.Done()
 
 						p := tNewManagerPostgres(t, ManagerPostgresWithSender(obSender))
-						p.waitTime = 10 * time.Second
+						p.maxIdle = time.Second
+						p.limit = 10
 						defer p.db.Close()
 
 						WatchOutboxesLoop(ctx, p, nil)

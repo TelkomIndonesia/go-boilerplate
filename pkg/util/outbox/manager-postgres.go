@@ -78,7 +78,9 @@ type postgres struct {
 	sender   Sender
 	aeadFunc AEADFunc
 
-	waitTime    time.Duration
+	waitTime time.Duration
+	limit    int
+
 	channelName string
 	lockID      uint64
 	tracer      trace.Tracer
@@ -88,6 +90,7 @@ type postgres struct {
 func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
 	p := &postgres{
 		waitTime:    time.Minute,
+		limit:       100,
 		channelName: outboxChannel,
 		lockID:      outboxLock,
 		logger:      log.Global(),
@@ -198,7 +201,7 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 			}
 		}
 
-		last, err = p.sendOutboxes(ctx, 100)
+		last, err = p.sendOutboxes(ctx, p.limit)
 		if err != nil {
 			p.logger.Error("fail to send outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
@@ -243,7 +246,8 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last Outbox, er
 	q := `
 		WITH cte AS (
 			SELECT id FROM outbox
-			WHERE is_delivered = false ORDER BY created_at
+			WHERE is_delivered = false 
+			ORDER BY created_at
 			LIMIT $1
 		)
 		UPDATE outbox o 

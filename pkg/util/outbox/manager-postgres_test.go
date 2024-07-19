@@ -20,6 +20,16 @@ var testPostgres *postgres
 var testAEAD *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 var testPostgresSync, testKeysetHandleSync sync.Mutex
 
+func tGetManagerPostgresTruncated(t *testing.T) *postgres {
+	p := tGetManagerPostgres(t)
+
+	sqlStatement := `TRUNCATE TABLE outbox RESTART IDENTITY CASCADE`
+	_, err := p.db.Exec(sqlStatement)
+	require.NoError(t, err)
+
+	return testPostgres
+}
+
 func tGetManagerPostgres(t *testing.T) *postgres {
 	if testPostgres == nil {
 		testPostgresSync.Lock()
@@ -71,73 +81,87 @@ func TestNewManagerPostgres(t *testing.T) {
 }
 
 func TestPostgresOutbox(t *testing.T) {
-	for _, isEncrypted := range []bool{true, false} {
+	manager := tGetManagerPostgresTruncated(t)
+
+	for _, isEncrypted := range []bool{false, true} {
 		t.Run(fmt.Sprintf("encrypted:%v", isEncrypted), func(t *testing.T) {
 			ctype := "data" + uuid.NewString()
 			event := "data_incoming" + uuid.NewString()
+			count := 20
 			contents := map[string]map[string]interface{}{}
-			outboxes := make([]Outbox, 0, 21)
+			outboxes := []Outbox{}
 
 			ctx := context.Background()
 
-			// start manager
+			// start manager that wait for outboxes
 			outboxesWG := sync.WaitGroup{}
 			{
-				ctx, cancel := context.WithCancel(ctx)
-				defer time.AfterFunc(61*time.Second, cancel).Stop()
+				ctx, cancel := context.WithTimeout(ctx, 61*time.Second)
 
+				i := 0
 				obSender := func(ctx context.Context, obs []Outbox) error {
+					if i%2 == 0 {
+						i = i + 1
+						return fmt.Errorf("intermittent error")
+					}
 					outboxes = append(outboxes, obs...)
-					if len(outboxes) >= len(contents) {
-						cancel()
+
+					if len(outboxes) >= count {
+						time.AfterFunc(time.Second, cancel)
 					}
 					return nil
 				}
 
-				outboxesWG.Add(3)
-				for i := 0; i < 3; i++ {
+				replica := 10
+				outboxesWG.Add(replica)
+				for i := 0; i < replica; i++ {
 					go func() {
 						defer outboxesWG.Done()
 
 						p := tNewManagerPostgres(t, ManagerPostgresWithSender(obSender))
+						p.waitTime = 10 * time.Second
+						defer p.db.Close()
+
 						WatchOutboxesLoop(ctx, p, nil)
 					}()
 				}
-
 			}
 
 			// store data
 			{
-				p := tGetManagerPostgres(t)
-				sqlStatement := `TRUNCATE TABLE outbox RESTART IDENTITY CASCADE`
-				_, err := p.db.Exec(sqlStatement)
-				require.NoError(t, err)
-
-				for i := 0; i < cap(outboxes); i++ {
+				wg := sync.WaitGroup{}
+				wg.Add(count)
+				for i := 0; i < count; i++ {
 					id := uuid.New().String()
-					content := map[string]interface{}{"id": id, "test": uuid.New().String()}
-					contents[id] = content
-					outbox, err := NewOutbox(uuid.New(), event, ctype, content)
+					contents[id] = map[string]interface{}{
+						"id":   id,
+						"test": uuid.New().String(),
+					}
+					outbox, err := NewOutbox(uuid.New(), event, ctype, contents[id])
 					require.NoError(t, err)
 
-					func() {
-						tx, err := p.db.Begin()
+					go func() {
+						defer wg.Done()
+
+						tx, err := manager.db.Begin()
 						require.NoError(t, err)
 						defer tx.Commit()
 
 						if isEncrypted {
-							err = p.StoreOutboxEncrypted(ctx, tx, outbox)
+							err = manager.StoreOutboxEncrypted(ctx, tx, outbox)
 						} else {
-							err = p.StoreOutbox(ctx, tx, outbox)
+							err = manager.StoreOutbox(ctx, tx, outbox)
 						}
 						require.NoError(t, err)
 					}()
 				}
+				wg.Wait()
 			}
 
 			// check sent outboxes
 			{
 				outboxesWG.Wait()
+				assert.Len(t, outboxes, count, "should send all new outbox")
 				for _, o := range outboxes {
 					assert.Equal(t, ctype, o.ContentType)
 					assert.Equal(t, event, o.Event)
@@ -150,11 +174,9 @@ func TestPostgresOutbox(t *testing.T) {
 					assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
 
 					c, ok := contents[pr["id"].(string)]
-					t.Log("send:", pr["id"].(string))
-					require.True(t, ok, "should contains expected content")
+					assert.True(t, ok, "should contains expected content")
 					assert.Equal(t, c, pr)
 				}
-				assert.Len(t, outboxes, cap(outboxes), "should send all outbox")
 			}
 		})
 	}

@@ -5,13 +5,15 @@ ARG GOLANG=golang:1.22
 
 FROM ${GOLANG} AS base
 
-ENTRYPOINT [ "go", "run", "./cmd"]
+ENTRYPOINT [ "go", "run", ]
+CMD [ "./cmd" ]
 
 
 
 FROM base AS debugger
 
-ENTRYPOINT [ "go", "run", "-mod=mod", "github.com/go-delve/delve/cmd/dlv@latest", "dap", "--listen=:2345"]
+ENTRYPOINT [ "go", "run", "-mod=mod", "github.com/go-delve/delve/cmd/dlv@latest"]
+CMD [ "debug", "./cmd", "--headless", "--listen=:2345", "--accept-multiclient", "--continue", "--build-flags='-buildvcs=false'" , "--api-version=2"]
 
 
 

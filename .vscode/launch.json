@@ -5,18 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "run and debug",
+            "name": "attach and debug",
             "type": "go",
-            "request": "launch",
-            "mode": "debug",
-            "program": "${workspaceFolder}/cmd",
+            "request": "attach",
+            "mode": "remote",
+            // WARN: if working directory is mounted to different directory
+            // "substitutePath": [
+            //     {
+            //         "from": "${workspaceFolder}",
+            //         "to": "/src"
+            //     }
+            // ],
             "host": "127.0.0.1",
-            "port": 2345,
-            "trace": "verbose",
-            "showLog": true,
-            "buildFlags": [
-                "-buildvcs=false"
-            ]
+            "port": 2345
         }
     ]
 }

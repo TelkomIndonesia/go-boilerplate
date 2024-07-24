@@ -3,3 +3,4 @@
 .dagger/dagger
 .env
 coverage.out
+__debug_bin*

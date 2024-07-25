@@ -89,7 +89,10 @@ func TestProfileBasic(t *testing.T) {
 	t.Run("outbox", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		ob, err := postgres.New(postgres.WithDB(p.db, p.dbUrl), postgres.WithTenantAEAD(p.aead), postgres.WithMaxNotifyWait(0))
+		ob, err := postgres.New(
+			postgres.WithDB(p.db, p.dbUrl),
+			postgres.WithTenantAEAD(p.aead),
+			postgres.WithMaxNotifyWait(0))
 		require.NoError(t, err)
 
 		i := 0
@@ -99,16 +102,17 @@ func TestProfileBasic(t *testing.T) {
 					cancel()
 				}
 
-				assert.True(t, ob.IsEncrypted)
-				assert.Equal(t, "profile_stored", ob.EventName)
-				assert.Equal(t, "profile", ob.ContentType)
+				assert.Equal(t, outboxEventProfileStored, ob.EventName, "should store correct event name")
+				assert.Equal(t, outboxTypeProfile, ob.ContentType, "shoulld store correct content type")
+				assert.True(t, ob.IsEncrypted, "should store as encrypted ")
+
 				var p profile.Profile
 				require.NoError(t, ob.Content.Unmarshal(&p))
-				require.NotNil(t, profiles[p.ID])
-				assert.Equal(t, *profiles[p.ID], p)
+				require.NotNil(t, profiles[p.ID], "should store correct profile")
+				assert.Equal(t, *profiles[p.ID], p, "should store correct profile")
 			}
 			return nil
 		})
-		assert.Equal(t, len(profiles), i)
+		assert.Equal(t, len(profiles), i, "should store all profile")
 	})
 }

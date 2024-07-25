@@ -8,7 +8,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
-func WatchOutboxesLoop(ctx context.Context, m Manager, l log.Logger) {
+func ObserveOutboxesWithRetry(ctx context.Context, m Manager, s Relay, l log.Logger) {
 	if m == nil {
 		m = ManagerNOP()
 	}
@@ -16,8 +16,8 @@ func WatchOutboxesLoop(ctx context.Context, m Manager, l log.Logger) {
 		l = log.Global()
 	}
 	for {
-		if err := m.WatchOuboxes(ctx); err != nil {
-			l.Warn("got outbox watcher error", log.Error("error", err), log.TraceContext("trace-id", ctx))
+		if err := m.ObserveOutboxes(ctx, s); err != nil {
+			l.Warn("got outbox observer error", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
 
 		select {

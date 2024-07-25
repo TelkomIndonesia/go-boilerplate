@@ -7,13 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
-type SerializedI interface {
-	ByteArray() []byte
+type Unmarshalable interface {
 	Unmarshal(pointer any) error
 }
 
 type Serialized struct {
-	SerializedI
+	ByteArray []byte
+	Unmarshalable
 }
 
 type Outbox[T any | Serialized] struct {
@@ -26,18 +26,19 @@ type Outbox[T any | Serialized] struct {
 	IsEncrypted bool      `json:"is_encrypted" msgpack:"is_encrypted"`
 }
 
-func NewOutbox(tid uuid.UUID, event string, ctype string, content any) (o Outbox[any], err error) {
+func NewOutbox(tid uuid.UUID, eventName string, contentType string, content any) (o Outbox[any], err error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return o, fmt.Errorf("fail to create new id for outbox: %w", err)
 	}
 
 	o = Outbox[any]{
-		ID:          id,
+		ID:        id,
+		CreatedAt: time.Now(),
+
 		TenantID:    tid,
-		EventName:   event,
-		ContentType: ctype,
-		CreatedAt:   time.Now(),
+		EventName:   eventName,
+		ContentType: contentType,
 		Content:     content,
 	}
 	return

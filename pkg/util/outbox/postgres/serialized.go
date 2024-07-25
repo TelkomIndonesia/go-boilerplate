@@ -8,8 +8,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ outbox.SerializedI = serialized{}
-
 type serialized struct {
 	b []byte
 
@@ -17,27 +15,23 @@ type serialized struct {
 	ad   []byte
 }
 
-// ByteArray implements SerializedI.
-func (m serialized) ByteArray() []byte {
-	return m.b
-}
-
 // Unmarshal implements SerializedI.
-func (m serialized) Unmarshal(pointer any) error {
+func (m serialized) Unmarshal(pointer any) (err error) {
 	if m.aead == nil {
 		return msgpack.Unmarshal(m.b, pointer)
 	}
 
-	var b []byte
-	err := msgpack.Unmarshal(m.b, &b)
-	if err != nil {
-		return fmt.Errorf("fail to unmarshal encrypted data: %w", err)
-	}
-
-	b, err = m.aead.Decrypt(b, m.ad)
+	b, err := m.aead.Decrypt(m.b, m.ad)
 	if err != nil {
 		return fmt.Errorf("fail to decrypt data: %w", err)
 	}
 
 	return msgpack.Unmarshal(b, pointer)
+}
+
+func (m serialized) Serialized() outbox.Serialized {
+	return outbox.Serialized{
+		ByteArray:     m.b,
+		Unmarshalable: m,
+	}
 }

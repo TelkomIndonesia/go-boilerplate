@@ -43,13 +43,6 @@ func ManagerPostgresWithDB(db *sql.DB, url string) ManagerPostgresOptFunc {
 	}
 }
 
-func ManagerPostgresWithSender(sender outbox.Sender) ManagerPostgresOptFunc {
-	return func(p *postgres) error {
-		p.sender = sender
-		return nil
-	}
-}
-
 func ManagerPostgresWithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD]) ManagerPostgresOptFunc {
 	return func(p *postgres) error {
 		p.aeadFunc = func(ob outbox.Outbox[any]) (tink.AEAD, error) {
@@ -77,7 +70,6 @@ type postgres struct {
 	dbUrl string
 	db    *sql.DB
 
-	sender   outbox.Sender
 	aeadFunc outbox.AEADFunc
 
 	maxIdle time.Duration
@@ -135,22 +127,28 @@ func (p *postgres) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob outb
 	}
 
 	ob.IsEncrypted = true
-
-	return p.StoreOutbox(ctx, tx, ob)
+	return p.storeOutbox(ctx, tx, ob)
 }
 
 func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
+	ob.Content, err = msgpack.Marshal(ob.Content)
+	if err != nil {
+		return fmt.Errorf("fail to marshal content")
+	}
+
+	ob.IsEncrypted = false
+	return p.storeOutbox(ctx, tx, ob)
+}
+
+func (p *postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
 	_, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
 		attribute.Stringer("tenantID", ob.TenantID),
 		attribute.Stringer("id", ob.ID),
+		attribute.String("eventName", ob.EventName),
 		attribute.String("contentType", ob.ContentType),
 	))
 	defer span.End()
 
-	content, err := msgpack.Marshal(ob.Content)
-	if err != nil {
-		return fmt.Errorf("fail to marshal content")
-	}
 	outboxQ := `
 		INSERT INTO outbox 
 		(id, tenant_id, content_type, content, event_name, is_encrypted, created_at)
@@ -158,7 +156,7 @@ func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox
 		($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, ob.ContentType, content, ob.EventName, ob.IsEncrypted, ob.CreatedAt,
+		ob.ID, ob.TenantID, ob.ContentType, ob.Content, ob.EventName, ob.IsEncrypted, ob.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
@@ -172,8 +170,8 @@ func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox
 	return
 }
 
-func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
-	if p.sender == nil {
+func (p *postgres) ObserveOutboxes(ctx context.Context, relayer outbox.Relay) (err error) {
+	if relayer == nil {
 		p.logger.Info("not outbox sender, will do nothing.")
 		<-ctx.Done()
 		return
@@ -210,9 +208,9 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 			}
 		}
 
-		last, err = p.sendOutboxes(ctx, p.limit)
+		last, err = p.relayOutboxes(ctx, relayer, p.limit)
 		if err != nil {
-			p.logger.Error("fail to send outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
+			p.logger.Error("fail to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
 
 		if !timer.Stop() {
@@ -245,7 +243,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 	}, nil
 }
 
-func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last outbox.Outbox[outbox.Serialized], err error) {
+func (p *postgres) relayOutboxes(ctx context.Context, relay outbox.Relay, limit int) (last outbox.Outbox[outbox.Serialized], err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return last, fmt.Errorf("fail to open transaction: %w", err)
@@ -293,7 +291,7 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last outbox.Out
 			TenantID:    o.TenantID,
 			EventName:   o.EventName,
 			ContentType: o.ContentType,
-			Content:     outbox.Serialized{SerializedI: cb},
+			Content:     cb.Serialized(),
 			IsEncrypted: o.IsEncrypted,
 			CreatedAt:   o.CreatedAt,
 		}
@@ -305,8 +303,8 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last outbox.Out
 		return last, tx.Rollback()
 	}
 
-	if err = p.sender(ctx, outboxes); err != nil {
-		return last, fmt.Errorf("sender returns error: %w", err)
+	if err = relay(ctx, outboxes); err != nil {
+		return last, fmt.Errorf("fail to relay outboxes: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {

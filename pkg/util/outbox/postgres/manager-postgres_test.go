@@ -107,7 +107,7 @@ func TestPostgresOutbox(t *testing.T) {
 				ctx, cancel := context.WithTimeout(ctx, time.Minute)
 
 				i := -1
-				obSender := func(ctx context.Context, obs []outbox.Outbox[outbox.Serialized]) error {
+				sender := func(ctx context.Context, obs []outbox.Outbox[outbox.Serialized]) error {
 					if i = i + 1; i%2 == 0 {
 						return fmt.Errorf("simulated intermittent error")
 					}
@@ -126,12 +126,12 @@ func TestPostgresOutbox(t *testing.T) {
 					go func() {
 						defer outboxesWG.Done()
 
-						p := tNewManagerPostgres(t, ManagerPostgresWithSender(obSender))
+						p := tNewManagerPostgres(t)
 						p.maxIdle = time.Second
 						p.limit = 10
 						defer p.db.Close()
 
-						outbox.WatchOutboxesLoop(ctx, p, nil)
+						outbox.ObserveOutboxesWithRetry(ctx, p, sender, nil)
 					}()
 				}
 			}

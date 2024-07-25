@@ -280,7 +280,7 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last outbox.Out
 			return last, fmt.Errorf("fail to scan row: %w", err)
 		}
 
-		cb := msgpackSerialized{b: content}
+		cb := serialized{b: content}
 		if o.IsEncrypted {
 			cb.ad = o.ID[:]
 			cb.aead, err = p.aeadFunc(o)
@@ -314,38 +314,4 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last outbox.Out
 	}
 
 	return outboxes[len(outboxes)-1], err
-}
-
-var _ outbox.SerializedI = msgpackSerialized{}
-
-type msgpackSerialized struct {
-	b []byte
-
-	aead tink.AEAD
-	ad   []byte
-}
-
-// ByteArray implements SerializedI.
-func (m msgpackSerialized) ByteArray() []byte {
-	return m.b
-}
-
-// Unmarshal implements SerializedI.
-func (m msgpackSerialized) Unmarshal(pointer any) error {
-	if m.aead == nil {
-		return msgpack.Unmarshal(m.b, pointer)
-	}
-
-	var b []byte
-	err := msgpack.Unmarshal(m.b, &b)
-	if err != nil {
-		return fmt.Errorf("fail to unmarshal encrypted data: %w", err)
-	}
-
-	b, err = m.aead.Decrypt(b, m.ad)
-	if err != nil {
-		return fmt.Errorf("fail to decrypt data: %w", err)
-	}
-
-	return msgpack.Unmarshal(b, pointer)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outbox"
 )
 
-func (k *Kafka) OutboxRelayer() outbox.Relay {
+func (k *Kafka) OutboxRelayer() outbox.RelayFunc {
 	return func(ctx context.Context, o []outbox.Outbox[outbox.Serialized]) (err error) {
 		msgs := make([]Message, 0, len(o))
 		for _, o := range o {

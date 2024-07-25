@@ -168,8 +168,8 @@ func (p *postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox
 	return
 }
 
-func (p *postgres) Observe(ctx context.Context, relayer outbox.Relay) (err error) {
-	if relayer == nil {
+func (p *postgres) Observe(ctx context.Context, relayFunc outbox.RelayFunc) (err error) {
+	if relayFunc == nil {
 		p.logger.Info("not outbox sender, will do nothing.")
 		<-ctx.Done()
 		return
@@ -216,7 +216,7 @@ func (p *postgres) Observe(ctx context.Context, relayer outbox.Relay) (err error
 			}
 		}
 
-		last, err = p.relayOutboxes(ctx, relayer, p.limit)
+		last, err = p.relayOutboxes(ctx, relayFunc, p.limit)
 		if err != nil {
 			p.logger.Error("fail to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
@@ -246,7 +246,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 	}, nil
 }
 
-func (p *postgres) relayOutboxes(ctx context.Context, relay outbox.Relay, limit int) (last outbox.Outbox[outbox.Serialized], err error) {
+func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outbox.RelayFunc, limit int) (last outbox.Outbox[outbox.Serialized], err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return last, fmt.Errorf("fail to open transaction: %w", err)
@@ -306,7 +306,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relay outbox.Relay, limit 
 		return last, tx.Rollback()
 	}
 
-	if err = relay(ctx, outboxes); err != nil {
+	if err = relayFunc(ctx, outboxes); err != nil {
 		return last, fmt.Errorf("fail to relay outboxes: %w", err)
 	}
 

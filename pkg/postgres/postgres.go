@@ -50,7 +50,7 @@ func WithConnString(connStr string) OptFunc {
 	}
 }
 
-func WithOutboxRelay(r outbox.Relay) OptFunc {
+func WithOutboxRelay(r outbox.RelayFunc) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.outboxRelay = r
 		return
@@ -74,7 +74,7 @@ type Postgres struct {
 	bidx  *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
 
 	outboxManager outbox.Manager
-	outboxRelay   outbox.Relay
+	outboxRelay   outbox.RelayFunc
 
 	tracer trace.Tracer
 	logger log.Logger

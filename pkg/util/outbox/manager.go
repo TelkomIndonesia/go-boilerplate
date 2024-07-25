@@ -10,11 +10,11 @@ import (
 
 type AEADFunc func(ob Outbox[any]) (tink.AEAD, error)
 
-type Relay func(ctx context.Context, obs []Outbox[Serialized]) error
+type RelayFunc func(ctx context.Context, obs []Outbox[Serialized]) error
 
 type Manager interface {
 	Store(ctx context.Context, tx *sql.Tx, ob Outbox[any]) (err error)
 	StoreAsEncrypted(ctx context.Context, tx *sql.Tx, ob Outbox[any]) (err error)
 
-	Observe(ctx context.Context, relay Relay) (err error)
+	Observe(ctx context.Context, relayFunc RelayFunc) (err error)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 
-func ObserveWithRetry(ctx context.Context, m Manager, s Relay, l log.Logger) {
+func ObserveWithRetry(ctx context.Context, m Manager, s RelayFunc, l log.Logger) {
 	if m == nil {
 		m = ManagerNOP()
 	}

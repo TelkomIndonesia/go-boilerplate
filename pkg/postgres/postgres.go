@@ -97,6 +97,12 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		return nil, fmt.Errorf("missing db connection")
 	}
 	p.q = sqlc.New(p.db)
+	if p.aead == nil || p.bidx == nil {
+		return nil, fmt.Errorf("missing aead or bidx primitive")
+	}
+	if p.logger == nil {
+		return nil, fmt.Errorf("missing logger")
+	}
 	if p.outboxManager == nil {
 		p.outboxManager, err = postgres.New(
 			postgres.WithDB(p.db, p.dbUrl),
@@ -106,12 +112,6 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("fail to instantiate outbox manager: %w", err)
 		}
-	}
-	if p.aead == nil || p.bidx == nil {
-		return nil, fmt.Errorf("missing aead or bidx primitive")
-	}
-	if p.logger == nil {
-		return nil, fmt.Errorf("missing logger")
 	}
 
 	go p.observeOutboxes()

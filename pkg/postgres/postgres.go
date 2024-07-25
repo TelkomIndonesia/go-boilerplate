@@ -57,6 +57,13 @@ func WithOutboxRelay(r outbox.Relay) OptFunc {
 	}
 }
 
+func WithOutboxManager(m outbox.Manager) OptFunc {
+	return func(p *Postgres) (err error) {
+		p.outboxManager = m
+		return
+	}
+}
+
 type OptFunc func(*Postgres) error
 
 type Postgres struct {
@@ -107,11 +114,15 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		return nil, fmt.Errorf("missing logger")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
-	go outbox.ObserveWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
+	go p.observeOutboxes()
 
 	return p, nil
+}
+
+func (p *Postgres) observeOutboxes() {
+	ctx, cancel := context.WithCancel(context.Background())
+	p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
+	outbox.ObserveWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
 }
 
 func (p *Postgres) aeadFunc(tenantID uuid.UUID) func() (crypt.PrimitiveAEAD, error) {

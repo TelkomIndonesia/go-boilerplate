@@ -5,7 +5,6 @@ import (
 	"database/sql"
 
 	"fmt"
-	"hash/fnv"
 	"strconv"
 	"time"
 
@@ -22,14 +21,6 @@ import (
 
 var outboxChannel = "outbox"
 var outboxLock = keyNameAsHash64("outbox")
-
-func keyNameAsHash64(keyName string) uint64 {
-	hash := fnv.New64()
-	if _, err := hash.Write([]byte(keyName)); err != nil {
-		panic(err)
-	}
-	return hash.Sum64()
-}
 
 var _ outbox.Manager = &postgres{}
 
@@ -85,8 +76,8 @@ func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (outbox.Manager, error) 
 	p := &postgres{
 		maxIdle:     time.Minute,
 		limit:       100,
-		channelName: outboxChannel,
-		lockID:      outboxLock,
+		channelName: "outbox",
+		lockID:      keyNameAsHash64("outbox"),
 		logger:      log.Global(),
 		tracer:      otel.Tracer("postgres-outbox"),
 		aeadFunc: func(ob outbox.Outbox[any]) (tink.AEAD, error) {
@@ -192,6 +183,15 @@ func (p *postgres) ObserveOutboxes(ctx context.Context, relayer outbox.Relay) (e
 	var last outbox.Outbox[outbox.Serialized]
 	for {
 		timer := time.NewTimer(p.maxIdle)
+		stopper := func() {
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -204,6 +204,7 @@ func (p *postgres) ObserveOutboxes(ctx context.Context, relayer outbox.Relay) (e
 			}
 			i, _ := strconv.ParseInt(istr, 10, 64)
 			if i < last.CreatedAt.UnixNano() {
+				stopper()
 				continue
 			}
 		}
@@ -213,12 +214,7 @@ func (p *postgres) ObserveOutboxes(ctx context.Context, relayer outbox.Relay) (e
 			p.logger.Error("fail to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
 
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
+		stopper()
 	}
 }
 

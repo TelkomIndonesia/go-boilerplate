@@ -17,6 +17,7 @@ func (k *Kafka) OutboxRelayer() outbox.Relay {
 				return fmt.Errorf("fail to unmarshal content: %w", err)
 			}
 
+			// TODO: change this to more proper message such as one defined using protobuf
 			msg := map[string]interface{}{
 				"id":           o.ID,
 				"tenant_id":    o.TenantID,

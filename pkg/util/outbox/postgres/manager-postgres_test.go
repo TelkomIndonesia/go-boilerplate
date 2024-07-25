@@ -127,11 +127,11 @@ func TestPostgresOutbox(t *testing.T) {
 						defer outboxesWG.Done()
 
 						p := tNewManagerPostgres(t)
-						p.maxIdle = time.Second
+						p.maxNotifyWait = time.Second
 						p.limit = 10
 						defer p.db.Close()
 
-						outbox.ObserveOutboxesWithRetry(ctx, p, sender, nil)
+						outbox.ObserveWithRetry(ctx, p, sender, nil)
 					}()
 				}
 			}
@@ -152,9 +152,9 @@ func TestPostgresOutbox(t *testing.T) {
 						require.NoError(t, err)
 
 						if isEncrypted {
-							err = manager.StoreOutboxEncrypted(ctx, tx, outbox)
+							err = manager.StoreAsEncrypted(ctx, tx, outbox)
 						} else {
-							err = manager.StoreOutbox(ctx, tx, outbox)
+							err = manager.Store(ctx, tx, outbox)
 						}
 						require.NoError(t, err, "should store outbox")
 					}()

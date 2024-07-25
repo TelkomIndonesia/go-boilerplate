@@ -67,7 +67,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	if err != nil {
 		return fmt.Errorf("fail to create outbox: %w", err)
 	}
-	if err = p.outboxManager.StoreOutboxEncrypted(ctx, tx, ob); err != nil {
+	if err = p.outboxManager.StoreAsEncrypted(ctx, tx, ob); err != nil {
 		return fmt.Errorf("fail to store profile to outbox: %w", err)
 	}
 

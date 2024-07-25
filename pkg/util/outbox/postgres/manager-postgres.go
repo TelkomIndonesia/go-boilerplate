@@ -50,9 +50,9 @@ func WithAEADFunc(aeadFunc outbox.AEADFunc) OptFunc {
 	}
 }
 
-func WithMaxIdle(d time.Duration) OptFunc {
+func WithMaxNotifyWait(d time.Duration) OptFunc {
 	return func(p *postgres) error {
-		p.maxIdle = d
+		p.maxNotifyWait = d
 		return nil
 	}
 }
@@ -70,8 +70,8 @@ type postgres struct {
 
 	aeadFunc outbox.AEADFunc
 
-	maxIdle time.Duration
-	limit   int
+	maxNotifyWait time.Duration
+	limit         int
 
 	channelName string
 	lockID      uint64
@@ -81,12 +81,12 @@ type postgres struct {
 
 func New(opts ...OptFunc) (outbox.Manager, error) {
 	p := &postgres{
-		maxIdle:     time.Minute,
-		limit:       100,
-		channelName: "outbox",
-		lockID:      keyNameAsHash64("outbox"),
-		logger:      log.Global(),
-		tracer:      otel.Tracer("postgres-outbox"),
+		maxNotifyWait: time.Minute,
+		limit:         100,
+		channelName:   "outbox",
+		lockID:        keyNameAsHash64("outbox"),
+		logger:        log.Global(),
+		tracer:        otel.Tracer("postgres-outbox"),
 		aeadFunc: func(ob outbox.Outbox[any]) (tink.AEAD, error) {
 			return nil, fmt.Errorf("nil aead primitive")
 		},
@@ -108,7 +108,7 @@ func New(opts ...OptFunc) (outbox.Manager, error) {
 	return p, nil
 }
 
-func (p *postgres) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
+func (p *postgres) StoreAsEncrypted(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
 	aead, err := p.aeadFunc(ob)
 	if err != nil {
 		return fmt.Errorf("fail to load encryption primitive: %w", err)
@@ -128,7 +128,7 @@ func (p *postgres) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob outb
 	return p.storeOutbox(ctx, tx, ob)
 }
 
-func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
+func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
 	ob.Content, err = msgpack.Marshal(ob.Content)
 	if err != nil {
 		return fmt.Errorf("fail to marshal content")
@@ -168,7 +168,7 @@ func (p *postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox
 	return
 }
 
-func (p *postgres) ObserveOutboxes(ctx context.Context, relayer outbox.Relay) (err error) {
+func (p *postgres) Observe(ctx context.Context, relayer outbox.Relay) (err error) {
 	if relayer == nil {
 		p.logger.Info("not outbox sender, will do nothing.")
 		<-ctx.Done()
@@ -189,7 +189,7 @@ func (p *postgres) ObserveOutboxes(ctx context.Context, relayer outbox.Relay) (e
 
 	var last outbox.Outbox[outbox.Serialized]
 	for {
-		timer := time.NewTimer(p.maxIdle)
+		timer := time.NewTimer(p.maxNotifyWait)
 		stopper := func() {
 			if !timer.Stop() {
 				select {

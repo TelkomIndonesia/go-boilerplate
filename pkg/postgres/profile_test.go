@@ -89,11 +89,11 @@ func TestProfileBasic(t *testing.T) {
 	t.Run("outbox", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		ob, err := postgres.New(postgres.WithDB(p.db, p.dbUrl), postgres.WithTenantAEAD(p.aead), postgres.WithMaxIdle(0))
+		ob, err := postgres.New(postgres.WithDB(p.db, p.dbUrl), postgres.WithTenantAEAD(p.aead), postgres.WithMaxNotifyWait(0))
 		require.NoError(t, err)
 
 		i := 0
-		ob.ObserveOutboxes(ctx, func(ctx context.Context, obs []outbox.Outbox[outbox.Serialized]) error {
+		ob.Observe(ctx, func(ctx context.Context, obs []outbox.Outbox[outbox.Serialized]) error {
 			for _, ob := range obs {
 				if i++; i >= len(profiles) {
 					cancel()

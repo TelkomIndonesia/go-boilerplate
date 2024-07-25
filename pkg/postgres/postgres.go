@@ -109,7 +109,7 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
-	go outbox.ObserveOutboxesWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
+	go outbox.ObserveWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
 
 	return p, nil
 }

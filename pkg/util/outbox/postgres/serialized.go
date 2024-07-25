@@ -31,7 +31,7 @@ func (m serialized) Unmarshal(pointer any) (err error) {
 
 func (m serialized) Serialized() outbox.Serialized {
 	return outbox.Serialized{
-		ByteArray:     m.b,
+		Value:         m.b,
 		Unmarshalable: m,
 	}
 }

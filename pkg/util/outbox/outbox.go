@@ -12,7 +12,7 @@ type Unmarshalable interface {
 }
 
 type Serialized struct {
-	ByteArray []byte
+	Value []byte
 	Unmarshalable
 }
 

@@ -14,7 +14,7 @@ Features:
   - [x] OpenAPI-to-code generator (oapi-codegen).
   - [x] Auto Load CA & Leaf TLS certificate.
   - [x] mTLS support.
-- [x] Opentelemetry (console, otlphttp, and datadog trace provider).
+- [x] Opentelemetry (console, otlphttp, otlpgrpc, and datadog trace provider).
 - [x] Plugable log (zap).
 - [x] Env config.
 - [x] Dockerized.

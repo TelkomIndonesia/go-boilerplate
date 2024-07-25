@@ -19,7 +19,9 @@ func WithTraceProvider(ctx context.Context, name string, l log.Logger) (deferer 
 	switch name {
 	case "datadog":
 		return withTraceProviderDatadog()
-	case "otlphttp":
+	case "otlpgrpc", "otlp-grpc":
+		return withTraceOTLPGRPCExporter(ctx)
+	case "otlphttp", "otlp-http":
 		return withTraceOTLPHTTPExporter(ctx)
 	case "console":
 		return withTraceConsoleExporter(ctx)

@@ -26,7 +26,7 @@ type Outbox[T any | Serialized] struct {
 	IsEncrypted bool      `json:"is_encrypted" msgpack:"is_encrypted"`
 }
 
-func NewOutbox(tid uuid.UUID, eventName string, contentType string, content any) (o Outbox[any], err error) {
+func New(tid uuid.UUID, eventName string, contentType string, content any) (o Outbox[any], err error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return o, fmt.Errorf("fail to create new id for outbox: %w", err)

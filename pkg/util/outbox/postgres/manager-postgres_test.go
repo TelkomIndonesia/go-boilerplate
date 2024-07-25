@@ -44,7 +44,7 @@ func tGetManagerPostgres(t *testing.T) *postgres {
 	return testPostgres
 }
 
-func tNewManagerPostgres(t *testing.T, opts ...ManagerPostgresOptFunc) *postgres {
+func tNewManagerPostgres(t *testing.T, opts ...OptFunc) *postgres {
 	url, ok := os.LookupEnv("TEST_POSTGRES_URL")
 	if !ok {
 		t.Skip("no postgres url found")
@@ -53,9 +53,9 @@ func tNewManagerPostgres(t *testing.T, opts ...ManagerPostgresOptFunc) *postgres
 	db, err := sql.Open("postgres", url)
 	require.NoError(t, err)
 
-	p, err := NewManagerPostgres(append(opts,
-		ManagerPostgresWithDB(db, url),
-		ManagerPostgresWithTenantAEAD(tGetKeysetHandle(t)))...,
+	p, err := New(append(opts,
+		WithDB(db, url),
+		WithTenantAEAD(tGetKeysetHandle(t)))...,
 	)
 	require.NoError(t, err, "should create postgres")
 	return p.(*postgres)
@@ -148,7 +148,7 @@ func TestPostgresOutbox(t *testing.T) {
 						require.NoError(t, err)
 						defer tx.Commit()
 
-						outbox, err := outbox.NewOutbox(uuid.New(), event, ctype, content)
+						outbox, err := outbox.New(uuid.New(), event, ctype, content)
 						require.NoError(t, err)
 
 						if isEncrypted {

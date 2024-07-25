@@ -12,6 +12,8 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outbox"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outbox/postgres"
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -48,22 +50,24 @@ func WithConnString(connStr string) OptFunc {
 	}
 }
 
-func WithOutboxSender(f OutboxSender) OptFunc {
-	return func(p *Postgres) error {
-		p.obSender = f
-		return nil
+func WithOutboxRelay(r outbox.Relay) OptFunc {
+	return func(p *Postgres) (err error) {
+		p.outboxRelay = r
+		return
 	}
 }
 
 type OptFunc func(*Postgres) error
 
 type Postgres struct {
-	dbUrl    string
-	db       *sql.DB
-	q        *sqlc.Queries
-	aead     *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
-	bidx     *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
-	obSender OutboxSender
+	dbUrl string
+	db    *sql.DB
+	q     *sqlc.Queries
+	aead  *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
+	bidx  *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
+
+	outboxManager outbox.Manager
+	outboxRelay   outbox.Relay
 
 	tracer trace.Tracer
 	logger log.Logger
@@ -85,6 +89,17 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	if p.db == nil {
 		return nil, fmt.Errorf("missing db connection")
 	}
+	if p.outboxManager == nil {
+		p.outboxManager, err = postgres.New(
+			postgres.WithDB(p.db, p.dbUrl),
+			postgres.WithTenantAEAD(p.aead),
+			postgres.WithLogger(p.logger),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("fail to instantiate outbox manager: %w", err)
+		}
+	}
+
 	p.q = sqlc.New(p.db)
 	if p.aead == nil || p.bidx == nil {
 		return nil, fmt.Errorf("missing aead or bidx primitive")
@@ -93,11 +108,9 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		return nil, fmt.Errorf("missing logger")
 	}
 
-	if p.obSender != nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
-		go p.watchOutboxesLoop(ctx)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
+	go outbox.ObserveOutboxesWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
 
 	return p, nil
 }

@@ -1,3 +1,4 @@
+//go:generate go run github.com/vektra/mockery/v2
 package outbox
 
 import (
@@ -9,7 +10,7 @@ import (
 
 type AEADFunc func(ob Outbox[any]) (tink.AEAD, error)
 
-type Relay func(context.Context, []Outbox[Serialized]) error
+type Relay func(ctx context.Context, obs []Outbox[Serialized]) error
 
 type Manager interface {
 	StoreOutbox(ctx context.Context, tx *sql.Tx, ob Outbox[any]) (err error)

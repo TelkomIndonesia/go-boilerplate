@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -68,11 +67,10 @@ type CMD struct {
 	canceler   func(ctx context.Context) context.Context
 	otelLoader func(ctx context.Context) func()
 
-	h   *httpserver.HTTPServer
-	p   *postgres.Postgres
-	k   *kafka.Kafka
-	pok postgres.OutboxSender
-	ts  *tenantservice.TenantService
+	h  *httpserver.HTTPServer
+	p  *postgres.Postgres
+	k  *kafka.Kafka
+	ts *tenantservice.TenantService
 
 	closers []func(context.Context) error
 }
@@ -149,17 +147,6 @@ func (c *CMD) initKafka() (err error) {
 	if c.k != nil && c.KafkaTopicOutbox == "" {
 		return fmt.Errorf("invalid kafka outboox topic: %s", c.KafkaTopicOutbox)
 	}
-	c.pok = func(ctx context.Context, o []*postgres.Outbox) error {
-		msgs := make([]kafka.Message, 0, len(o))
-		for _, o := range o {
-			var msg kafka.Message
-			if msg.Value, err = json.Marshal(o); err != nil {
-				return fmt.Errorf("fail to marshal outbox: %w", err)
-			}
-			msgs = append(msgs, msg)
-		}
-		return c.k.Write(ctx, c.KafkaTopicOutbox, msgs...)
-	}
 
 	c.closers = append(c.closers, c.k.Close)
 	return
@@ -171,8 +158,8 @@ func (c *CMD) initPostgres() (err error) {
 		postgres.WithDerivableKeysets(c.aead, c.bidx),
 		postgres.WithLogger(c.logger),
 	}
-	if c.pok != nil {
-		opts = append(opts, postgres.WithOutboxSender(c.pok))
+	if c.k != nil {
+		opts = append(opts, postgres.WithOutboxRelay(c.k.OutboxRelayer()))
 	}
 	c.p, err = postgres.New(opts...)
 	if err != nil {

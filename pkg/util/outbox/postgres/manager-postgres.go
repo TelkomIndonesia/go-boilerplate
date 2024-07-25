@@ -24,9 +24,9 @@ var outboxLock = keyNameAsHash64("outbox")
 
 var _ outbox.Manager = &postgres{}
 
-type ManagerPostgresOptFunc func(*postgres) error
+type OptFunc func(*postgres) error
 
-func ManagerPostgresWithDB(db *sql.DB, url string) ManagerPostgresOptFunc {
+func WithDB(db *sql.DB, url string) OptFunc {
 	return func(p *postgres) error {
 		p.db = db
 		p.dbUrl = url
@@ -34,7 +34,7 @@ func ManagerPostgresWithDB(db *sql.DB, url string) ManagerPostgresOptFunc {
 	}
 }
 
-func ManagerPostgresWithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD]) ManagerPostgresOptFunc {
+func WithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD]) OptFunc {
 	return func(p *postgres) error {
 		p.aeadFunc = func(ob outbox.Outbox[any]) (tink.AEAD, error) {
 			return aead.GetPrimitive(ob.TenantID[:])
@@ -43,14 +43,21 @@ func ManagerPostgresWithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAE
 	}
 }
 
-func ManagerPostgresWithAEADFunc(aeadFunc outbox.AEADFunc) ManagerPostgresOptFunc {
+func WithAEADFunc(aeadFunc outbox.AEADFunc) OptFunc {
 	return func(p *postgres) error {
 		p.aeadFunc = aeadFunc
 		return nil
 	}
 }
 
-func ManagerPostgresWithLogger(l log.Logger) ManagerPostgresOptFunc {
+func WithMaxIdle(d time.Duration) OptFunc {
+	return func(p *postgres) error {
+		p.maxIdle = d
+		return nil
+	}
+}
+
+func WithLogger(l log.Logger) OptFunc {
 	return func(p *postgres) error {
 		p.logger = l
 		return nil
@@ -72,7 +79,7 @@ type postgres struct {
 	logger      log.Logger
 }
 
-func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (outbox.Manager, error) {
+func New(opts ...OptFunc) (outbox.Manager, error) {
 	p := &postgres{
 		maxIdle:     time.Minute,
 		limit:       100,

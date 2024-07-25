@@ -1,9 +1,8 @@
-package outbox
+package postgres
 
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outbox"
 )
 
 var testPostgres *postgres
@@ -99,7 +99,7 @@ func TestPostgresOutbox(t *testing.T) {
 				}
 			}
 
-			sentOutboxes := []Outbox{}
+			sentOutboxes := []outbox.Outbox[outbox.Serialized]{}
 
 			// start replicas of manager that should wait for outboxes
 			outboxesWG := sync.WaitGroup{}
@@ -107,7 +107,7 @@ func TestPostgresOutbox(t *testing.T) {
 				ctx, cancel := context.WithTimeout(ctx, time.Minute)
 
 				i := -1
-				obSender := func(ctx context.Context, obs []Outbox) error {
+				obSender := func(ctx context.Context, obs []outbox.Outbox[outbox.Serialized]) error {
 					if i = i + 1; i%2 == 0 {
 						return fmt.Errorf("simulated intermittent error")
 					}
@@ -131,7 +131,7 @@ func TestPostgresOutbox(t *testing.T) {
 						p.limit = 10
 						defer p.db.Close()
 
-						WatchOutboxesLoop(ctx, p, nil)
+						outbox.WatchOutboxesLoop(ctx, p, nil)
 					}()
 				}
 			}
@@ -148,7 +148,7 @@ func TestPostgresOutbox(t *testing.T) {
 						require.NoError(t, err)
 						defer tx.Commit()
 
-						outbox, err := NewOutbox(uuid.New(), event, ctype, content)
+						outbox, err := outbox.NewOutbox(uuid.New(), event, ctype, content)
 						require.NoError(t, err)
 
 						if isEncrypted {
@@ -168,14 +168,11 @@ func TestPostgresOutbox(t *testing.T) {
 				assert.Len(t, sentOutboxes, len(contents), "should send all new outbox")
 				for _, o := range sentOutboxes {
 					assert.Equal(t, ctype, o.ContentType, "should contain valid content type")
-					assert.Equal(t, event, o.Event, "should contain valid event name")
+					assert.Equal(t, event, o.EventName, "should contain valid event name")
 					assert.Equal(t, isEncrypted, o.IsEncrypted, "should contains correct encryption status")
 
-					o, err := o.AsUnEncrypted()
-					assert.NoError(t, err, "should return unencrypted outbox")
-
 					pr := map[string]interface{}{}
-					assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
+					assert.NoError(t, o.Content.Unmarshal(&pr), "should return valid json")
 
 					c, ok := contents[pr["id"].(string)]
 					assert.True(t, ok, "should contains expected content")

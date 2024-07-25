@@ -4,9 +4,9 @@
 CREATE TABLE IF NOT EXISTS outbox (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
-    type VARCHAR(128) NOT NULL,
-    content JSONB NOT NULL,
-    event VARCHAR(128) NOT NULL,
+    event_name VARCHAR(128) NOT NULL,
+    content_type VARCHAR(128) NOT NULL,
+    content BYTEA NOT NULL,
     is_encrypted BOOLEAN DEFAULT FALSE,
     is_delivered BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

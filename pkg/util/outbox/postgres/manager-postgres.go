@@ -1,9 +1,9 @@
-package outbox
+package postgres
 
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+
 	"fmt"
 	"hash/fnv"
 	"strconv"
@@ -12,7 +12,9 @@ import (
 	"github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outbox"
 	"github.com/tink-crypto/tink-go/v2/tink"
+	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -29,7 +31,7 @@ func keyNameAsHash64(keyName string) uint64 {
 	return hash.Sum64()
 }
 
-var _ Manager = &postgres{}
+var _ outbox.Manager = &postgres{}
 
 type ManagerPostgresOptFunc func(*postgres) error
 
@@ -41,7 +43,7 @@ func ManagerPostgresWithDB(db *sql.DB, url string) ManagerPostgresOptFunc {
 	}
 }
 
-func ManagerPostgresWithSender(sender Sender) ManagerPostgresOptFunc {
+func ManagerPostgresWithSender(sender outbox.Sender) ManagerPostgresOptFunc {
 	return func(p *postgres) error {
 		p.sender = sender
 		return nil
@@ -50,14 +52,14 @@ func ManagerPostgresWithSender(sender Sender) ManagerPostgresOptFunc {
 
 func ManagerPostgresWithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD]) ManagerPostgresOptFunc {
 	return func(p *postgres) error {
-		p.aeadFunc = func(ob Outbox) (tink.AEAD, error) {
+		p.aeadFunc = func(ob outbox.Outbox[any]) (tink.AEAD, error) {
 			return aead.GetPrimitive(ob.TenantID[:])
 		}
 		return nil
 	}
 }
 
-func ManagerPostgresWithAEADFunc(aeadFunc AEADFunc) ManagerPostgresOptFunc {
+func ManagerPostgresWithAEADFunc(aeadFunc outbox.AEADFunc) ManagerPostgresOptFunc {
 	return func(p *postgres) error {
 		p.aeadFunc = aeadFunc
 		return nil
@@ -75,8 +77,8 @@ type postgres struct {
 	dbUrl string
 	db    *sql.DB
 
-	sender   Sender
-	aeadFunc AEADFunc
+	sender   outbox.Sender
+	aeadFunc outbox.AEADFunc
 
 	maxIdle time.Duration
 	limit   int
@@ -87,7 +89,7 @@ type postgres struct {
 	logger      log.Logger
 }
 
-func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
+func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (outbox.Manager, error) {
 	p := &postgres{
 		maxIdle:     time.Minute,
 		limit:       100,
@@ -95,7 +97,7 @@ func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
 		lockID:      outboxLock,
 		logger:      log.Global(),
 		tracer:      otel.Tracer("postgres-outbox"),
-		aeadFunc: func(ob Outbox) (tink.AEAD, error) {
+		aeadFunc: func(ob outbox.Outbox[any]) (tink.AEAD, error) {
 			return nil, fmt.Errorf("nil aead primitive")
 		},
 	}
@@ -116,21 +118,28 @@ func NewManagerPostgres(opts ...ManagerPostgresOptFunc) (Manager, error) {
 	return p, nil
 }
 
-func (p *postgres) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
+func (p *postgres) StoreOutboxEncrypted(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
 	aead, err := p.aeadFunc(ob)
 	if err != nil {
 		return fmt.Errorf("fail to load encryption primitive: %w", err)
 	}
 
-	o, err := ob.AsEncrypted(aead)
+	b, err := msgpack.Marshal(ob.Content)
 	if err != nil {
-		return fmt.Errorf("fail to encrypt outbox")
+		return fmt.Errorf("fail to marshal content")
 	}
 
-	return p.StoreOutbox(ctx, tx, o)
+	ob.Content, err = aead.Encrypt(b, ob.ID[:])
+	if err != nil {
+		return fmt.Errorf("fail to encrypt outbox: %w", err)
+	}
+
+	ob.IsEncrypted = true
+
+	return p.StoreOutbox(ctx, tx, ob)
 }
 
-func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
+func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob outbox.Outbox[any]) (err error) {
 	_, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
 		attribute.Stringer("tenantID", ob.TenantID),
 		attribute.Stringer("id", ob.ID),
@@ -138,18 +147,18 @@ func (p *postgres) StoreOutbox(ctx context.Context, tx *sql.Tx, ob Outbox) (err 
 	))
 	defer span.End()
 
-	content, err := json.Marshal(ob.Content)
+	content, err := msgpack.Marshal(ob.Content)
 	if err != nil {
 		return fmt.Errorf("fail to marshal content")
 	}
 	outboxQ := `
 		INSERT INTO outbox 
-		(id, tenant_id, type, content, event, is_encrypted, created_at)
+		(id, tenant_id, content_type, content, event_name, is_encrypted, created_at)
 		VALUES
 		($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, ob.ContentType, content, ob.Event, ob.IsEncrypted, ob.CreatedAt,
+		ob.ID, ob.TenantID, ob.ContentType, content, ob.EventName, ob.IsEncrypted, ob.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
@@ -182,7 +191,7 @@ func (p *postgres) WatchOuboxes(ctx context.Context) (err error) {
 	}
 	defer l.Close()
 
-	var last Outbox
+	var last outbox.Outbox[outbox.Serialized]
 	for {
 		timer := time.NewTimer(p.maxIdle)
 		select {
@@ -236,7 +245,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 	}, nil
 }
 
-func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last Outbox, err error) {
+func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last outbox.Outbox[outbox.Serialized], err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return last, fmt.Errorf("fail to open transaction: %w", err)
@@ -254,7 +263,7 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last Outbox, er
 		SET is_delivered = true 
 		FROM cte
 		WHERE o.id = cte.id
-		RETURNING o.id, o.tenant_id, o.type, o.content, o.event, o.is_encrypted, o.created_at
+		RETURNING o.id, o.tenant_id, o.content_type, o.content, o.event_name, o.is_encrypted, o.created_at
 	`
 	rows, err := tx.QueryContext(ctx, q, limit)
 	if err != nil {
@@ -262,37 +271,34 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last Outbox, er
 	}
 	defer rows.Close()
 
-	outboxes := []Outbox{}
+	outboxes := []outbox.Outbox[outbox.Serialized]{}
 	for rows.Next() {
-		o := Outbox{}
-		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &o.contentByte, &o.Event, &o.IsEncrypted, &o.CreatedAt)
+		var o outbox.Outbox[any]
+		var content []byte
+		err = rows.Scan(&o.ID, &o.TenantID, &o.ContentType, &content, &o.EventName, &o.IsEncrypted, &o.CreatedAt)
 		if err != nil {
 			return last, fmt.Errorf("fail to scan row: %w", err)
 		}
 
-		switch o.IsEncrypted {
-		case true:
-			o.aead, err = p.aeadFunc(o)
+		cb := msgpackSerialized{b: content}
+		if o.IsEncrypted {
+			cb.ad = o.ID[:]
+			cb.aead, err = p.aeadFunc(o)
 			if err != nil {
 				return last, fmt.Errorf("fail to load encryption primitive: %w", err)
 			}
-
-			var content []byte
-			err = json.Unmarshal(o.contentByte, &content)
-			if err != nil {
-				return last, fmt.Errorf("fail to unmarshall content")
-			}
-			o.Content = content
-
-		case false:
-			o.Content = map[string]interface{}{}
-			err = json.Unmarshal(o.contentByte, &o.Content)
-			if err != nil {
-				return last, fmt.Errorf("fail to unmarshall content")
-			}
+		}
+		os := outbox.Outbox[outbox.Serialized]{
+			ID:          o.ID,
+			TenantID:    o.TenantID,
+			EventName:   o.EventName,
+			ContentType: o.ContentType,
+			Content:     outbox.Serialized{SerializedI: cb},
+			IsEncrypted: o.IsEncrypted,
+			CreatedAt:   o.CreatedAt,
 		}
 
-		outboxes = append(outboxes, o)
+		outboxes = append(outboxes, os)
 	}
 
 	if len(outboxes) == 0 {
@@ -300,7 +306,7 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last Outbox, er
 	}
 
 	if err = p.sender(ctx, outboxes); err != nil {
-		return last, fmt.Errorf("fail to send outboxes: %w", err)
+		return last, fmt.Errorf("sender returns error: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -308,4 +314,38 @@ func (p *postgres) sendOutboxes(ctx context.Context, limit int) (last Outbox, er
 	}
 
 	return outboxes[len(outboxes)-1], err
+}
+
+var _ outbox.SerializedI = msgpackSerialized{}
+
+type msgpackSerialized struct {
+	b []byte
+
+	aead tink.AEAD
+	ad   []byte
+}
+
+// ByteArray implements SerializedI.
+func (m msgpackSerialized) ByteArray() []byte {
+	return m.b
+}
+
+// Unmarshal implements SerializedI.
+func (m msgpackSerialized) Unmarshal(pointer any) error {
+	if m.aead == nil {
+		return msgpack.Unmarshal(m.b, pointer)
+	}
+
+	var b []byte
+	err := msgpack.Unmarshal(m.b, &b)
+	if err != nil {
+		return fmt.Errorf("fail to unmarshal encrypted data: %w", err)
+	}
+
+	b, err = m.aead.Decrypt(b, m.ad)
+	if err != nil {
+		return fmt.Errorf("fail to decrypt data: %w", err)
+	}
+
+	return msgpack.Unmarshal(b, pointer)
 }

@@ -2,20 +2,11 @@ package outbox
 
 import (
 	"context"
-	"database/sql"
 
 	"time"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
-
-func txRollbackDeferer(tx *sql.Tx, err *error) func() {
-	return func() {
-		if *err != nil {
-			tx.Rollback()
-		}
-	}
-}
 
 func WatchOutboxesLoop(ctx context.Context, m Manager, l log.Logger) {
 	if m == nil {

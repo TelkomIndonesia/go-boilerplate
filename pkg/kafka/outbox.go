@@ -12,12 +12,11 @@ func (k *Kafka) OutboxRelayer() outbox.RelayFunc {
 	return func(ctx context.Context, o []outbox.Outbox[outbox.Serialized]) (err error) {
 		msgs := make([]Message, 0, len(o))
 		for _, o := range o {
+			// TODO: change this to more proper message such as one defined using protobuf
 			var content map[string]interface{}
 			if err = o.Content.Unmarshal(&content); err != nil {
 				return fmt.Errorf("fail to unmarshal content: %w", err)
 			}
-
-			// TODO: change this to more proper message such as one defined using protobuf
 			msg := map[string]interface{}{
 				"id":           o.ID,
 				"tenant_id":    o.TenantID,
@@ -26,11 +25,12 @@ func (k *Kafka) OutboxRelayer() outbox.RelayFunc {
 				"content":      content,
 				"created_at":   o.CreatedAt,
 			}
-			var kmsg Message
-			if kmsg.Value, err = json.Marshal(msg); err != nil {
+			val, err := json.Marshal(msg)
+			if err != nil {
 				return fmt.Errorf("fail to marshal outbox: %w", err)
 			}
-			msgs = append(msgs, kmsg)
+
+			msgs = append(msgs, Message{Value: val})
 		}
 		return k.Write(ctx, k.topic, msgs...)
 	}

@@ -5,6 +5,7 @@ plugins:
       url: https://github.com/TelkomIndonesia/sqlc-gen-go/releases/download/v2.0.0/sqlc-gen-go_2.0.0_wasip1_wasm
       sha256: "f439794c6ad8f52d84702391491ea341d2fe4c11cbb902e437e0beabe40cbf5b"
 sql:
+  # used when `generate`
   - engine: "postgresql"
     queries: "query.sql"
     schema: "schema.sql"
@@ -52,3 +53,16 @@ sql:
               go_type:
                 import: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types
                 type: BIDXString
+
+  # used when `vet`
+  - engine: "postgresql"
+    queries: "query.sql"
+    database:
+      uri: "postgresql://testing:testing@localhost:5432/testing?sslmode=disable"
+    rules:
+      - postgresql-no-seq-scan
+
+rules:
+  - name: postgresql-no-seq-scan
+    message: "Query plan results in a sequential scan"
+    rule: "postgresql.explain.plan.node_type == 'Seq Scan'"

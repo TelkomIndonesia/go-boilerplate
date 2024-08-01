@@ -1,2 +1,2 @@
-//go:generate protoc --go_out=. --go_opt=paths=source_relative outbox.proto
+//go:generate go run github.com/bufbuild/buf/cmd/buf generate
 package sample

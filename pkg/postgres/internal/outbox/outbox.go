@@ -1,4 +1,4 @@
-//go:generate protoc --proto_path=../../../api/protobuf/outbox --go_out=. --go_opt=paths=source_relative --go_opt=Moutbox.proto=github.com/telkomindonesia/go-boilerplate/pkg/postgres/outbox ../../../api/protobuf/outbox/outbox.proto
+//go:generate go run github.com/bufbuild/buf/cmd/buf generate
 package outbox
 
 import (

@@ -3,11 +3,6 @@ volumes:
   go-build:
 
 services:
-  goose:
-    volumes:
-      - go-mod:/go/pkg/mod
-      - go-build:/root/.cache/go-build
-
   tenant:
     environment:
       CA_PATH: /src/pkg/httpserver/testdata/set1/ca.crt

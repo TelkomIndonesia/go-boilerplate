@@ -45,14 +45,8 @@ func New(source string, eventType string, tenantID uuid.UUID, content proto.Mess
 	return o
 }
 
-func (o OutboxCE) WithOverriddenID(id uuid.UUID) OutboxCE {
-	o.ID, o.errID = id, nil
-	return o
-}
-
-func (o OutboxCE) WithOverriddenTime(t time.Time) OutboxCE {
-	o.Time = t
-	return o
+func (o OutboxCE) WithModifier(fn func(o OutboxCE) OutboxCE) OutboxCE {
+	return fn(o)
 }
 
 func (o OutboxCE) WithEncryptor(fn func(event.Event) (tink.AEAD, error)) OutboxCE {
@@ -60,7 +54,7 @@ func (o OutboxCE) WithEncryptor(fn func(event.Event) (tink.AEAD, error)) OutboxC
 	return o
 }
 
-func (o *OutboxCE) Build() (ce event.Event, err error) {
+func (o OutboxCE) Build() (ce event.Event, err error) {
 	if o.errID != nil {
 		return ce, fmt.Errorf("fail to generate id: %w", err)
 	}

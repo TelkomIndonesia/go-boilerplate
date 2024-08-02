@@ -105,7 +105,7 @@ func TestPostgresOutbox(t *testing.T) {
 				}}
 			}
 
-			setnEvents := []event.Event{}
+			sentEvents := []event.Event{}
 
 			// start replicas of manager that should wait for outboxes
 			outboxesWG := sync.WaitGroup{}
@@ -118,9 +118,9 @@ func TestPostgresOutbox(t *testing.T) {
 						return fmt.Errorf("simulated intermittent error")
 					}
 
-					setnEvents = append(setnEvents, obs...)
+					sentEvents = append(sentEvents, obs...)
 
-					if len(setnEvents) >= len(contents) {
+					if len(sentEvents) >= len(contents) {
 						time.AfterFunc(time.Second, cancel)
 					}
 					return nil
@@ -171,8 +171,8 @@ func TestPostgresOutbox(t *testing.T) {
 			// check sent outboxes
 			{
 				outboxesWG.Wait()
-				assert.Len(t, setnEvents, len(contents), "should send all new outbox")
-				for _, e := range setnEvents {
+				assert.Len(t, sentEvents, len(contents), "should send all new outbox")
+				for _, e := range sentEvents {
 					assert.Equal(t, eventSource, e.Context.GetSource(), "should contain valid content type")
 					assert.Equal(t, eventType, e.Context.GetType(), "should contain valid event name")
 					if isEncrypted {

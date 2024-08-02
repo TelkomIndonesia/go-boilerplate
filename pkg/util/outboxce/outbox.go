@@ -27,8 +27,7 @@ type Outbox struct {
 	Type     string
 	Content  proto.Message
 
-	ce   event.Event
-	data []byte
+	ce event.Event
 }
 
 func New(tid uuid.UUID, source string, eventType string, content proto.Message) (o Outbox, err error) {
@@ -58,11 +57,11 @@ func (ob *Outbox) setCloudEvent() (err error) {
 	ob.ce.SetExtension(ExtensionTenantID, ob.TenantID.String())
 	ob.ce.SetTime(ob.CreatedAt)
 
-	ob.data, err = proto.Marshal(ob.Content)
+	data, err := proto.Marshal(ob.Content)
 	if err != nil {
 		return fmt.Errorf("fail to marshal content: %w", err)
 	}
-	ob.ce.SetData(protobufce.ContentTypeProtobuf, ob.data)
+	ob.ce.SetData(protobufce.ContentTypeProtobuf, data)
 
 	err = ob.ce.Validate()
 	if err != nil {
@@ -76,7 +75,7 @@ func (ob Outbox) CloudEvent() (ce event.Event) {
 }
 
 func (ob Outbox) EncryptedCloudEvent(a tink.AEAD) (ce event.Event, err error) {
-	b, err := a.Encrypt(ob.data, ob.ID[:])
+	b, err := a.Encrypt(ob.ce.Data(), ob.ID[:])
 	if err != nil {
 		return ce, fmt.Errorf("fail to encrypt cloudevent data: %w", err)
 	}

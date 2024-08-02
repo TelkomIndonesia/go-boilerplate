@@ -182,7 +182,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 	var last outboxce.Outbox
 	for {
 		timer := time.NewTimer(p.maxNotifyWait)
-		stopper := func() {
+		stopTimer := func() {
 			if !timer.Stop() {
 				select {
 				case <-timer.C:
@@ -203,7 +203,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 			}
 			i, _ := strconv.ParseInt(istr, 10, 64)
 			if i < last.CreatedAt.UnixNano() {
-				stopper()
+				stopTimer()
 				continue
 			}
 		}
@@ -213,7 +213,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 			p.logger.Error("fail to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
 
-		stopper()
+		stopTimer()
 	}
 }
 
@@ -223,7 +223,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 		return nil, fmt.Errorf("fail to obtain connection for lock: %w", err)
 	}
 	defer func() {
-		if err != nil {
+		if conn != nil && err != nil {
 			conn.Close()
 		}
 	}()

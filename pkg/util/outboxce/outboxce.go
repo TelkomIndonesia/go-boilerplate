@@ -20,8 +20,8 @@ const (
 type AEADFunc func(event.Event) (tink.AEAD, error)
 
 type OutboxCE struct {
-	ID          uuid.UUID
-	CreatedTime time.Time
+	ID   uuid.UUID
+	Time time.Time
 
 	TenantID  uuid.UUID
 	Source    string
@@ -35,11 +35,11 @@ type OutboxCE struct {
 
 func New(source string, eventType string, tenantID uuid.UUID, content proto.Message) OutboxCE {
 	o := OutboxCE{
-		TenantID:    tenantID,
-		Source:      source,
-		EventType:   eventType,
-		Content:     content,
-		CreatedTime: time.Now(),
+		TenantID:  tenantID,
+		Source:    source,
+		EventType: eventType,
+		Content:   content,
+		Time:      time.Now(),
 	}
 	o.ID, o.errID = uuid.NewV7()
 	return o
@@ -50,8 +50,8 @@ func (o OutboxCE) WithOverriddenID(id uuid.UUID) OutboxCE {
 	return o
 }
 
-func (o OutboxCE) WithOverriddenCreatedTime(t time.Time) OutboxCE {
-	o.CreatedTime = t
+func (o OutboxCE) WithOverriddenTime(t time.Time) OutboxCE {
+	o.Time = t
 	return o
 }
 
@@ -70,7 +70,7 @@ func (o *OutboxCE) Build() (ce event.Event, err error) {
 	ce.SetSource(o.Source)
 	ce.SetSubject(o.TenantID.String())
 	ce.SetType(o.EventType)
-	ce.SetTime(o.CreatedTime)
+	ce.SetTime(o.Time)
 
 	dct := ContentTypeProtobuf
 	data, err := proto.Marshal(o.Content)
@@ -103,7 +103,7 @@ func FromEvent(e event.Event, aeadFunc AEADFunc, Unmarshaller func([]byte) (prot
 	}
 	o.Source = e.Source()
 	o.EventType = e.Type()
-	o.CreatedTime = e.Time()
+	o.Time = e.Time()
 
 	d := e.Data()
 	if e.DataContentType() == ContentTypeProtobufEncrypted {

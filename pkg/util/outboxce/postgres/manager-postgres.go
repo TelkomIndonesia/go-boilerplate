@@ -108,13 +108,13 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 		($1, $2, $3, $4)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, cejson, ob.CreatedTime,
+		ob.ID, ob.TenantID, cejson, ob.Time,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.CreatedTime.UnixNano())
+	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.Time.UnixNano())
 	if err != nil {
 		p.logger.Warn("fail to send notify", log.Error("error", err), log.TraceContext("trace-id", ctx))
 	}
@@ -165,7 +165,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 				istr = event.Extra
 			}
 			i, _ := strconv.ParseInt(istr, 10, 64)
-			if i < last.CreatedTime.UnixNano() {
+			if i < last.Time.UnixNano() {
 				stopTimer()
 				continue
 			}
@@ -236,7 +236,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	for rows.Next() {
 		var o outboxce.OutboxCE
 		var data []byte
-		err = rows.Scan(&o.ID, &o.TenantID, &data, &o.CreatedTime)
+		err = rows.Scan(&o.ID, &o.TenantID, &data, &o.Time)
 		if err != nil {
 			return last, fmt.Errorf("fail to scan row: %w", err)
 		}

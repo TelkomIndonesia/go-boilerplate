@@ -13,11 +13,7 @@ func (n managerNOP) Store(ctx context.Context, tx *sql.Tx, ob OutboxCE) (err err
 	return
 }
 
-func (n managerNOP) StoreAsEncrypted(ctx context.Context, tx *sql.Tx, ob OutboxCE) (err error) {
-	return
-}
-
-func (n managerNOP) Observe(ctx context.Context, sender RelayFunc) (err error) {
+func (n managerNOP) Observe(ctx context.Context, relay RelayFunc) (err error) {
 	<-ctx.Done()
 	return ctx.Err()
 }

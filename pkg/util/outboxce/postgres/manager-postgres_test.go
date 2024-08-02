@@ -57,10 +57,7 @@ func tNewManagerPostgres(t *testing.T, opts ...OptFunc) *postgres {
 	db, err := sql.Open("postgres", url)
 	require.NoError(t, err)
 
-	p, err := New(append(opts,
-		WithDB(db, url),
-		WithTenantAEAD(tGetKeysetHandle(t)))...,
-	)
+	p, err := New(append(opts, WithDB(db, url))...)
 	require.NoError(t, err, "should create postgres")
 	return p.(*postgres)
 }
@@ -111,7 +108,6 @@ func TestPostgresOutbox(t *testing.T) {
 			outboxesWG := sync.WaitGroup{}
 			{
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-
 				i := -1
 				sender := func(ctx context.Context, obs []event.Event) error {
 					if i = i + 1; i%2 == 0 {
@@ -119,10 +115,10 @@ func TestPostgresOutbox(t *testing.T) {
 					}
 
 					sentEvents = append(sentEvents, obs...)
-
 					if len(sentEvents) >= len(contents) {
 						time.AfterFunc(time.Second, cancel)
 					}
+
 					return nil
 				}
 
@@ -154,14 +150,11 @@ func TestPostgresOutbox(t *testing.T) {
 						require.NoError(t, err)
 						defer tx.Commit()
 
-						outbox, err := outboxce.New(uuid.New(), eventSource, eventType, content)
-						require.NoError(t, err)
-
+						outbox := outboxce.New(eventSource, eventType, uuid.New(), content)
 						if isEncrypted {
-							err = manager.StoreAsEncrypted(ctx, tx, outbox)
-						} else {
-							err = manager.Store(ctx, tx, outbox)
+							outbox = outbox.WithEncryptor(outboxce.TenantAEAD(tGetKeysetHandle(t)))
 						}
+						err = manager.Store(ctx, tx, outbox)
 						require.NoError(t, err, "should store outbox")
 					}()
 				}
@@ -182,21 +175,11 @@ func TestPostgresOutbox(t *testing.T) {
 					}
 
 					var ob sample.Outbox
-					data := e.Data()
-					if isEncrypted {
-						ext, err := e.Context.GetExtension(outboxce.ExtensionTenantID)
-						require.NoError(t, err)
-						tid, err := uuid.Parse(ext.(string))
-						require.NoError(t, err)
-						aead, err := manager.aeadFunc(outboxce.Outbox{TenantID: tid})
-						require.NoError(t, err)
-						id, err := uuid.Parse(e.ID())
-						require.NoError(t, err)
-						data, err = aead.Decrypt(data, id[:])
-						require.NoError(t, err)
-					}
-					require.NoError(t, proto.Unmarshal(data, &ob))
-					require.NotNil(t, ob.GetProfile())
+					_, err := outboxce.FromEvent(e, outboxce.TenantAEAD(tGetKeysetHandle(t)), func(b []byte) (m proto.Message, err error) {
+						err = proto.Unmarshal(b, &ob)
+						return &ob, err
+					})
+					require.NoError(t, err)
 
 					c, ok := contents[ob.GetProfile().ID]
 					assert.True(t, ok, "should contains expected content")

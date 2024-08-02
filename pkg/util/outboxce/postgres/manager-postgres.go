@@ -11,10 +11,8 @@ import (
 
 	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/lib/pq"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
-	"github.com/tink-crypto/tink-go/v2/tink"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -28,22 +26,6 @@ func WithDB(db *sql.DB, url string) OptFunc {
 	return func(p *postgres) error {
 		p.db = db
 		p.dbUrl = url
-		return nil
-	}
-}
-
-func WithTenantAEAD(aead *crypt.DerivableKeyset[crypt.PrimitiveAEAD]) OptFunc {
-	return func(p *postgres) error {
-		p.aeadFunc = func(ob outboxce.Outbox) (tink.AEAD, error) {
-			return aead.GetPrimitive(ob.TenantID[:])
-		}
-		return nil
-	}
-}
-
-func WithAEADFunc(aeadFunc outboxce.AEADFunc) OptFunc {
-	return func(p *postgres) error {
-		p.aeadFunc = aeadFunc
 		return nil
 	}
 }
@@ -66,8 +48,6 @@ type postgres struct {
 	dbUrl string
 	db    *sql.DB
 
-	aeadFunc outboxce.AEADFunc
-
 	maxNotifyWait time.Duration
 	limit         int
 
@@ -85,9 +65,6 @@ func New(opts ...OptFunc) (outboxce.Manager, error) {
 		lockID:        keyNameAsHash64("outboxce"),
 		logger:        log.Global(),
 		tracer:        otel.Tracer("postgres-outboxce"),
-		aeadFunc: func(ob outboxce.Outbox) (tink.AEAD, error) {
-			return nil, fmt.Errorf("nil aead primitive")
-		},
 	}
 
 	for _, opt := range opts {
@@ -106,32 +83,17 @@ func New(opts ...OptFunc) (outboxce.Manager, error) {
 	return p, nil
 }
 
-func (p *postgres) StoreAsEncrypted(ctx context.Context, tx *sql.Tx, ob outboxce.Outbox) (err error) {
-	return p.storeOutbox(ctx, tx, ob, true)
-}
-
-func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.Outbox) (err error) {
-	return p.storeOutbox(ctx, tx, ob, false)
-}
-
-func (p *postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob outboxce.Outbox, encrypted bool) (err error) {
+func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) (err error) {
 	_, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
 		attribute.Stringer("tenantID", ob.TenantID),
 		attribute.Stringer("id", ob.ID),
-		attribute.String("eventName", ob.Type),
+		attribute.String("eventName", ob.EventType),
 	))
 	defer span.End()
 
-	ce := ob.CloudEvent()
-	if encrypted {
-		aead, err := p.aeadFunc(ob)
-		if err != nil {
-			return fmt.Errorf("fail to load encryption primitive: %w", err)
-		}
-		ce, err = ob.EncryptedCloudEvent(aead)
-		if err != nil {
-			return fmt.Errorf("fail to encryption cloud event: %w", err)
-		}
+	ce, err := ob.Build()
+	if err != nil {
+		return fmt.Errorf("fail to build cloudevent :%w", err)
 	}
 
 	cejson, err := json.Marshal(ce)
@@ -146,13 +108,13 @@ func (p *postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob outboxce.Outb
 		($1, $2, $3, $4)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, cejson, ob.CreatedAt,
+		ob.ID, ob.TenantID, cejson, ob.CreatedTime,
 	)
 	if err != nil {
 		return fmt.Errorf("fail to insert to outbox: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.CreatedAt.UnixNano())
+	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.CreatedTime.UnixNano())
 	if err != nil {
 		p.logger.Warn("fail to send notify", log.Error("error", err), log.TraceContext("trace-id", ctx))
 	}
@@ -162,7 +124,7 @@ func (p *postgres) storeOutbox(ctx context.Context, tx *sql.Tx, ob outboxce.Outb
 
 func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (err error) {
 	if relayFunc == nil {
-		p.logger.Info("not outbox sender, will do nothing.")
+		p.logger.Warn("No outbox sender, will do nothing.")
 		<-ctx.Done()
 		return
 	}
@@ -172,6 +134,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 		return fmt.Errorf("fail to obtain lock: %w", err)
 	}
 	defer unlocker()
+	p.logger.Warn("Got lock for observing outbox")
 
 	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
 	if err = l.Listen(p.channelName); err != nil {
@@ -179,7 +142,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 	}
 	defer l.Close()
 
-	var last outboxce.Outbox
+	var last outboxce.OutboxCE
 	for {
 		timer := time.NewTimer(p.maxNotifyWait)
 		stopTimer := func() {
@@ -202,7 +165,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 				istr = event.Extra
 			}
 			i, _ := strconv.ParseInt(istr, 10, 64)
-			if i < last.CreatedAt.UnixNano() {
+			if i < last.CreatedTime.UnixNano() {
 				stopTimer()
 				continue
 			}
@@ -243,7 +206,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 	}, nil
 }
 
-func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFunc, limit int) (last outboxce.Outbox, err error) {
+func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFunc, limit int) (last outboxce.OutboxCE, err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return last, fmt.Errorf("fail to open transaction: %w", err)
@@ -271,9 +234,9 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 
 	events := []event.Event{}
 	for rows.Next() {
-		var o outboxce.Outbox
+		var o outboxce.OutboxCE
 		var data []byte
-		err = rows.Scan(&o.ID, &o.TenantID, &data, &o.CreatedAt)
+		err = rows.Scan(&o.ID, &o.TenantID, &data, &o.CreatedTime)
 		if err != nil {
 			return last, fmt.Errorf("fail to scan row: %w", err)
 		}

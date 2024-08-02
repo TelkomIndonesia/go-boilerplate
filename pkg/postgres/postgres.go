@@ -106,7 +106,6 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	if p.outboxManager == nil {
 		p.outboxManager, err = postgres.New(
 			postgres.WithDB(p.db, p.dbUrl),
-			postgres.WithTenantAEAD(p.aead),
 			postgres.WithLogger(p.logger),
 		)
 		if err != nil {

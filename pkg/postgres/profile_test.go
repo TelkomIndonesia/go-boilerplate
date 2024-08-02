@@ -10,8 +10,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/outbox"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce/postgres"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestProfileBasic(t *testing.T) {
@@ -91,7 +94,6 @@ func TestProfileBasic(t *testing.T) {
 		defer cancel()
 		ob, err := postgres.New(
 			postgres.WithDB(p.db, p.dbUrl),
-			postgres.WithTenantAEAD(p.aead),
 			postgres.WithMaxNotifyWait(0))
 		require.NoError(t, err)
 
@@ -101,16 +103,29 @@ func TestProfileBasic(t *testing.T) {
 				if i++; i >= len(profiles) {
 					cancel()
 				}
-				t.Log(e)
+				var o outbox.Outbox
+				oce, err := outboxce.FromEvent(e, outboxce.TenantAEAD(p.aead), func(b []byte) (m proto.Message, err error) {
+					err = proto.Unmarshal(b, &o)
+					return &o, err
+				})
+				require.NoError(t, err)
 
-				// assert.Equal(t, outboxEventProfileStored, ob.EventName, "should store correct event name")
-				// assert.True(t, ob.IsEncrypted, "should store as encrypted ")
+				assert.Equal(t, eventProfileStored, oce.EventType)
+				assert.Equal(t, outboxSource, oce.Source)
 
-				// var p profile.Profile
-				// proto.Unmarshal(e.C)
-				// require.NoError(t, e.Content.Unmarshal(&p))
-				// require.NotNil(t, profiles[p.ID], "should store correct profile")
-				// assert.Equal(t, *profiles[p.ID], p, "should store correct profile")
+				opr := o.GetProfile()
+				require.NotNil(t, opr)
+				prid, err := uuid.Parse(opr.ID)
+				require.NoError(t, err)
+				pr := profiles[prid]
+				require.NotNil(t, pr)
+
+				assert.Equal(t, pr.ID.String(), opr.ID)
+				assert.Equal(t, pr.TenantID.String(), opr.TenantID)
+				assert.Equal(t, pr.NIN, opr.NIN)
+				assert.Equal(t, pr.Email, opr.Email)
+				assert.Equal(t, pr.Phone, opr.Phone)
+				assert.Equal(t, pr.DOB, opr.DOB.AsTime().In(pr.DOB.Location()))
 			}
 			return nil
 		})

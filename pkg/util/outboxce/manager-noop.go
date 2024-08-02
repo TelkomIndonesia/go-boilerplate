@@ -9,11 +9,11 @@ var _ Manager = managerNOP{}
 
 type managerNOP struct{}
 
-func (n managerNOP) Store(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
+func (n managerNOP) Store(ctx context.Context, tx *sql.Tx, ob OutboxCE) (err error) {
 	return
 }
 
-func (n managerNOP) StoreAsEncrypted(ctx context.Context, tx *sql.Tx, ob Outbox) (err error) {
+func (n managerNOP) StoreAsEncrypted(ctx context.Context, tx *sql.Tx, ob OutboxCE) (err error) {
 	return
 }
 

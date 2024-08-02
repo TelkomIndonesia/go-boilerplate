@@ -42,6 +42,7 @@ require (
 	connectrpc.com/otelconnect v0.7.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
+	github.com/IBM/sarama v1.40.1 // indirect
 	github.com/alecthomas/kong v0.9.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
@@ -52,6 +53,7 @@ require (
 	github.com/bufbuild/protoyaml-go v0.1.9 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/chigopher/pathlib v0.19.1 // indirect
+	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
@@ -64,6 +66,9 @@ require (
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
+	github.com/eapache/go-resiliency v1.4.0 // indirect
+	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
+	github.com/eapache/queue v1.1.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/fgprof v0.9.4 // indirect
 	github.com/go-chi/chi/v5 v5.0.14 // indirect
@@ -72,9 +77,11 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/gofrs/uuid/v5 v5.2.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/cel-go v0.20.1 // indirect
 	github.com/google/go-containerregistry v0.19.2 // indirect
 	github.com/google/pprof v0.0.0-20240622144329-c177fd99eaa9 // indirect
+	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
@@ -85,6 +92,11 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgx/v5 v5.5.5 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
+	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
+	github.com/jcmturner/gofork v1.7.6 // indirect
+	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
+	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/jdx/go-netrc v1.0.0 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -114,6 +126,7 @@ require (
 	github.com/pingcap/tidb/pkg/parser v0.0.0-20231103154709-4f00ece106b1 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/profile v1.7.0 // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/riza-io/grpc-go v0.2.0 // indirect
 	github.com/rs/cors v1.11.0 // indirect

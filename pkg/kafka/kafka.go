@@ -3,9 +3,10 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/IBM/sarama"
+	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
 type OptFunc func(k *Kafka) error
@@ -28,7 +29,8 @@ type Kafka struct {
 	brokers []string
 	topic   string
 
-	writer *kafka.Writer
+	sender *kafka_sarama.Sender
+	client cloudevents.Client
 }
 
 func New(opts ...OptFunc) (k *Kafka, err error) {
@@ -42,52 +44,20 @@ func New(opts ...OptFunc) (k *Kafka, err error) {
 		return nil, fmt.Errorf("missing brokers")
 	}
 
-	dialer := &kafka.Dialer{
-		Timeout: 10 * time.Second,
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Version = sarama.V2_0_0_0
+	sender, err := kafka_sarama.NewSender(k.brokers, saramaConfig, k.topic)
+	if err != nil {
+		return nil, fmt.Errorf("fail to instantiate cloudevents kafka sender")
 	}
-	k.writer = kafka.NewWriter(kafka.WriterConfig{
-		Brokers:  k.brokers,
-		Balancer: &kafka.Hash{},
-		Dialer:   dialer,
-	})
 
+	k.client, err = cloudevents.NewClient(sender, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	if err != nil {
+		return nil, fmt.Errorf("fail to instantiate cloudevents client")
+	}
 	return
 }
 
-func (k *Kafka) Write(ctx context.Context, topic string, msgs ...Message) (err error) {
-	if topic == "" {
-		topic = k.topic
-	}
-	kmsgs := make([]kafka.Message, 0, len(msgs))
-	for _, msg := range msgs {
-		kmsgs = append(kmsgs, msg.toKafkaMessage(topic))
-	}
-
-	err = k.writer.WriteMessages(ctx, kmsgs...)
-	if err != nil {
-		return fmt.Errorf("fail to write message: %w:", err)
-	}
-	return nil
-}
-
-type Message struct {
-	Topic string
-	Key   []byte
-	Value []byte
-}
-
-func (m Message) toKafkaMessage(topic string) kafka.Message {
-	kmsg := kafka.Message{
-		Topic: m.Topic,
-		Key:   m.Key,
-		Value: m.Value,
-	}
-	if kmsg.Topic == "" {
-		kmsg.Topic = topic
-	}
-	return kmsg
-}
-
 func (k *Kafka) Close(ctx context.Context) error {
-	return k.writer.Close()
+	return k.sender.Close(ctx)
 }

@@ -115,13 +115,13 @@ func TestProfileBasic(t *testing.T) {
 
 				opr := o.GetProfile()
 				require.NotNil(t, opr)
-				prid, err := uuid.Parse(opr.ID)
+				prid, err := uuid.FromBytes(opr.ID)
 				require.NoError(t, err)
 				pr := profiles[prid]
 				require.NotNil(t, pr)
 
-				assert.Equal(t, pr.ID.String(), opr.ID)
-				assert.Equal(t, pr.TenantID.String(), opr.TenantID)
+				assert.Equal(t, pr.ID[:], opr.ID)
+				assert.Equal(t, pr.TenantID[:], opr.TenantID)
 				assert.Equal(t, pr.NIN, opr.NIN)
 				assert.Equal(t, pr.Email, opr.Email)
 				assert.Equal(t, pr.Phone, opr.Phone)

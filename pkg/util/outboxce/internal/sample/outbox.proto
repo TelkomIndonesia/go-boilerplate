@@ -1,21 +1,9 @@
 syntax = "proto3";
-import "google/protobuf/timestamp.proto";
+
 package outbox;
 option go_package = "github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce/internal/sample";
 
 message Outbox {
-  oneof content {
-    Profile profile = 1;
-    string other = 2;
-  }
-}
-
-message Profile {
-  string ID = 1;
-  string TenantID = 2;
-  string NIN = 3;
-  string Name = 4;
-  string Email = 5;
-  string Phone = 6;
-  google.protobuf.Timestamp DOB = 7;
-}
+  string id = 1;
+  string messsage = 2;
+};

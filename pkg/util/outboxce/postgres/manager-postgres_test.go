@@ -91,15 +91,10 @@ func TestPostgresOutbox(t *testing.T) {
 
 			eventSource := "data/" + uuid.NewString()
 			eventType := "data.incoming"
-			contents := map[string]*sample.Outbox{}
+			outboxes := map[string]*sample.Outbox{}
 			for i := 0; i < 30+rand.Int()%10; i++ {
 				id := uuid.New().String()
-				contents[id] = &sample.Outbox{Content: &sample.Outbox_Profile{
-					Profile: &sample.Profile{
-						ID:   id,
-						Name: "name" + id,
-					},
-				}}
+				outboxes[id] = &sample.Outbox{Id: id, Messsage: "hello world"}
 			}
 
 			sentEvents := []event.Event{}
@@ -115,7 +110,7 @@ func TestPostgresOutbox(t *testing.T) {
 					}
 
 					sentEvents = append(sentEvents, obs...)
-					if len(sentEvents) >= len(contents) {
+					if len(sentEvents) >= len(outboxes) {
 						time.AfterFunc(time.Second, cancel)
 					}
 
@@ -141,8 +136,8 @@ func TestPostgresOutbox(t *testing.T) {
 			// store data
 			{
 				wg := sync.WaitGroup{}
-				wg.Add(len(contents))
-				for _, content := range contents {
+				wg.Add(len(outboxes))
+				for _, outbox := range outboxes {
 					go func() {
 						defer wg.Done()
 
@@ -150,7 +145,7 @@ func TestPostgresOutbox(t *testing.T) {
 						require.NoError(t, err)
 						defer tx.Commit()
 
-						outbox := outboxce.New(eventSource, eventType, uuid.New(), content)
+						outbox := outboxce.New(eventSource, eventType, uuid.New(), outbox)
 						if isEncrypted {
 							outbox = outbox.WithEncryptor(outboxce.TenantAEAD(tGetKeysetHandle(t)))
 						}
@@ -164,7 +159,7 @@ func TestPostgresOutbox(t *testing.T) {
 			// check sent outboxes
 			{
 				outboxesWG.Wait()
-				assert.Len(t, sentEvents, len(contents), "should send all new outbox")
+				assert.Len(t, sentEvents, len(outboxes), "should send all new outbox")
 				for _, e := range sentEvents {
 					assert.Equal(t, eventSource, e.Context.GetSource(), "should contain valid content type")
 					assert.Equal(t, eventType, e.Context.GetType(), "should contain valid event name")
@@ -174,35 +169,27 @@ func TestPostgresOutbox(t *testing.T) {
 						assert.Equal(t, protobufce.ContentTypeProtobuf, e.Context.GetDataContentType())
 					}
 
-					var ob sample.Outbox
+					var oSent sample.Outbox
 					_, err := outboxce.FromEvent(e, outboxce.TenantAEAD(tGetKeysetHandle(t)), func(b []byte) (m proto.Message, err error) {
-						err = proto.Unmarshal(b, &ob)
-						return &ob, err
+						err = proto.Unmarshal(b, &oSent)
+						return &oSent, err
 					})
 					require.NoError(t, err)
 
-					c, ok := contents[ob.GetProfile().ID]
+					o, ok := outboxes[oSent.Id]
 					assert.True(t, ok, "should contains expected content")
-					assert.Equal(t, sample.Profile{
-						ID:       c.GetProfile().ID,
-						TenantID: c.GetProfile().TenantID,
-						Name:     c.GetProfile().Name,
-						NIN:      c.GetProfile().NIN,
-						Email:    c.GetProfile().Email,
-						Phone:    c.GetProfile().Phone,
-						DOB:      c.GetProfile().DOB,
-					}, sample.Profile{
-						ID:       ob.GetProfile().ID,
-						TenantID: ob.GetProfile().TenantID,
-						Name:     ob.GetProfile().Name,
-						NIN:      ob.GetProfile().NIN,
-						Email:    ob.GetProfile().Email,
-						Phone:    ob.GetProfile().Phone,
-						DOB:      ob.GetProfile().DOB,
-					}, "should contains valid content")
+					assert.Equal(t,
+						sample.Outbox{
+							Id:       o.Id,
+							Messsage: o.Messsage,
+						},
+						sample.Outbox{
+							Id:       oSent.Id,
+							Messsage: oSent.Messsage,
+						},
+						"should contains valid content")
 				}
 			}
 		})
 	}
-
 }

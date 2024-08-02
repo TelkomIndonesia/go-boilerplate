@@ -10,8 +10,8 @@ message Outbox {
 }
 
 message Profile {
-  string ID = 1;
-  string TenantID = 2;
+  bytes ID = 1;
+  bytes TenantID = 2;
   string NIN = 3;
   string Name = 4;
   string Email = 5;

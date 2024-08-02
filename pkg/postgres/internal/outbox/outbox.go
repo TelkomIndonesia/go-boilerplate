@@ -10,8 +10,8 @@ func FromProfile(pr *profile.Profile) *Outbox {
 	return &Outbox{
 		Content: &Outbox_Profile{
 			Profile: &Profile{
-				ID:       pr.ID.String(),
-				TenantID: pr.TenantID.String(),
+				ID:       pr.ID[:],
+				TenantID: pr.TenantID[:],
 				NIN:      pr.NIN,
 				Email:    pr.Email,
 				Name:     pr.Name,

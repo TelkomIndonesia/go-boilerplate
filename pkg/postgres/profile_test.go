@@ -2,63 +2,25 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/outbox"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce/postgres"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestProfileBasic(t *testing.T) {
 	ctx := context.Background()
 
 	profiles := map[uuid.UUID]*profile.Profile{}
-	outboxes := make([]*profile.Profile, 0, 21)
-
-	outboxesWG := sync.WaitGroup{}
-	outboxesWG.Add(3)
-	{
-		ctx, cancel := context.WithCancel(ctx)
-		defer time.AfterFunc(30*time.Second, cancel).Stop()
-
-		obSender := func(ctx context.Context, obs []*Outbox) error {
-			for _, o := range obs {
-				o, err := o.AsUnEncrypted()
-				assert.NoError(t, err, "should return unencrypted outbox")
-				if !(o.ContentType == outboxTypeProfile && o.Event == outboxEventProfileStored) {
-					t.Logf("got unexpected event or content type: %s %s", o.Event, o.ContentType)
-					continue
-				}
-
-				pr := &profile.Profile{}
-				assert.NoError(t, json.Unmarshal(o.ContentByte(), &pr), "should return valid json")
-				if _, ok := profiles[pr.ID]; !ok {
-					t.Logf("got unexpected profile: %v", pr)
-					continue
-				}
-
-				outboxes = append(outboxes, pr)
-			}
-			if len(outboxes) == cap(outboxes) {
-				cancel()
-			}
-			return nil
-		}
-
-		for i := 0; i < 3; i++ {
-			p := tNewPostgres(t, WithOutboxSender(obSender))
-			go func() {
-				defer outboxesWG.Done()
-				defer p.Close(context.Background())
-				<-ctx.Done()
-			}()
-		}
-	}
 
 	p := tGetPostgresTruncated(t)
 	pr := &profile.Profile{
@@ -68,25 +30,24 @@ func TestProfileBasic(t *testing.T) {
 		Name:     "Dohn Joe",
 		Email:    "dohnjoe@email.com",
 		Phone:    "+1234567",
-		DOB:      time.Date(1991, 1, 1, 1, 1, 1, 1, time.UTC),
+		DOB:      time.Date(1991, 1, 1, 1, 1, 1, 1, time.Local),
 	}
-	t.Run("store", func(t *testing.T) {
-		profiles[pr.ID] = pr
-		require.NoError(t, p.StoreProfile(ctx, pr), "should successfully store profile")
-		for i := 1; i < cap(outboxes); i++ {
-			pr := &profile.Profile{
-				TenantID: pr.TenantID,
-				ID:       tRequireUUIDV7(t),
-				NIN:      fmt.Sprintf("%s-%d", pr.NIN, i),
-				Name:     fmt.Sprintf("%s-%d", pr.Name, i),
-				Email:    fmt.Sprintf("%s-%d", pr.Email, i),
-				Phone:    fmt.Sprintf("%s-%d", pr.Phone, i),
-				DOB:      pr.DOB,
-			}
-			profiles[pr.ID] = pr
-			require.NoErrorf(t, p.StoreProfile(ctx, pr), "should successfully store profile for index %d", i)
+
+	profiles[pr.ID] = pr
+	require.NoError(t, p.StoreProfile(ctx, pr), "should successfully store profile")
+	for i := 1; i < 20; i++ {
+		pr := &profile.Profile{
+			TenantID: pr.TenantID,
+			ID:       tRequireUUIDV7(t),
+			NIN:      fmt.Sprintf("%s-%d", pr.NIN, i),
+			Name:     fmt.Sprintf("%s-%d", pr.Name, i),
+			Email:    fmt.Sprintf("%s-%d", pr.Email, i),
+			Phone:    fmt.Sprintf("%s-%d", pr.Phone, i),
+			DOB:      pr.DOB,
 		}
-	})
+		profiles[pr.ID] = pr
+		require.NoErrorf(t, p.StoreProfile(ctx, pr), "should successfully store profile for index %d", i)
+	}
 
 	t.Run("fetch", func(t *testing.T) {
 		prf, err := p.FetchProfile(ctx, pr.TenantID, pr.ID)
@@ -128,17 +89,47 @@ func TestProfileBasic(t *testing.T) {
 		assert.Equal(t, pr.DOB, prf.DOB, "DOB should be equal")
 	})
 
-	t.Run("outboxSend", func(t *testing.T) {
-		outboxesWG.Wait()
-		for _, pr := range outboxes {
-			prf, ok := profiles[pr.ID]
-			require.True(t, ok, "should return stored outbox")
-			assert.Equal(t, pr.NIN, prf.NIN, "NIN should be equal")
-			assert.Equal(t, pr.Name, prf.Name, "Name should be equal")
-			assert.Equal(t, pr.Email, prf.Email, "Email should be equal")
-			assert.Equal(t, pr.Phone, prf.Phone, "Phone should be equal")
-			assert.Equal(t, pr.DOB, prf.DOB, "DOB should be equal")
-		}
-		assert.Len(t, outboxes, cap(outboxes), "should send all outbox")
+	t.Run("outbox", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		ob, err := postgres.New(
+			postgres.WithDB(p.db, p.dbUrl),
+			postgres.WithMaxNotifyWait(0))
+		require.NoError(t, err)
+
+		i := 0
+		ob.Observe(ctx, func(ctx context.Context, evs []event.Event) error {
+			for _, e := range evs {
+				if i++; i >= len(profiles) {
+					cancel()
+				}
+				var o outbox.Outbox
+				oce, err := outboxce.FromEvent(e, outboxce.TenantAEAD(p.aead), func(b []byte) (m proto.Message, err error) {
+					err = proto.Unmarshal(b, &o)
+					return &o, err
+				})
+				require.NoError(t, err)
+
+				assert.Equal(t, eventProfileStored, oce.EventType)
+				assert.Equal(t, outboxSource, oce.Source)
+				assert.NotNil(t, oce.AEADFunc, "should store as encrypted")
+
+				opr := o.GetProfile()
+				require.NotNil(t, opr)
+				prid, err := uuid.FromBytes(opr.ID)
+				require.NoError(t, err)
+				pr := profiles[prid]
+				require.NotNil(t, pr)
+
+				assert.Equal(t, pr.ID[:], opr.ID)
+				assert.Equal(t, pr.TenantID[:], opr.TenantID)
+				assert.Equal(t, pr.NIN, opr.NIN)
+				assert.Equal(t, pr.Email, opr.Email)
+				assert.Equal(t, pr.Phone, opr.Phone)
+				assert.Equal(t, pr.DOB, opr.DOB.AsTime().In(pr.DOB.Location()))
+			}
+			return nil
+		})
+		assert.Equal(t, len(profiles), i, "should store all profile")
 	})
 }

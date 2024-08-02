@@ -8,7 +8,7 @@ Features:
   - [x] Derivable encryption key.
   - [x] Rotatable encription key.
   - [x] Blind index as bloom filter for exact match.
-  - [x] Outbox pattern (kafka).
+  - [x] Outbox pattern (kafka + cloudevent + protobuf).
   - [x] Query-to-code generator (SQLC).
 - [x] HTTP API
   - [x] OpenAPI-to-code generator (oapi-codegen).

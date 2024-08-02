@@ -7,17 +7,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/outbox"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt/sqlval"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
 const (
-	outboxTypeProfile        = "profile"
-	outboxEventProfileStored = "profile_stored"
-	textHeapTypeProfileName  = "profile_name"
+	outboxSource            = "https://github.com/TelkomIndonesia/go-boilerplate/"
+	eventProfileStored      = "profile_stored"
+	textHeapTypeProfileName = "profile_name"
 )
 
 func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err error) {
@@ -62,11 +64,10 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	}
 
 	// outbox
-	ob, err := p.newOutboxEncrypted(pr.TenantID, outboxEventProfileStored, outboxTypeProfile, pr)
-	if err != nil {
-		return fmt.Errorf("fail to create outbox: %w", err)
-	}
-	if err = p.storeOutbox(ctx, tx, ob); err != nil {
+	ob := outboxce.
+		New(outboxSource, eventProfileStored, pr.TenantID, outbox.FromProfile(pr)).
+		WithEncryptor(outboxce.TenantAEAD(p.aead))
+	if err = p.outboxManager.Store(ctx, tx, ob); err != nil {
 		return fmt.Errorf("fail to store profile to outbox: %w", err)
 	}
 

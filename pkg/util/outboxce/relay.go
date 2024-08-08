@@ -16,6 +16,9 @@ type RelayErrors []*RelayError
 func (p *RelayErrors) Error() string {
 	errs := make([]error, 0, len(*p))
 	for _, e := range *p {
+		if e.Err == nil {
+			continue
+		}
 		errs = append(errs, e)
 	}
 	return errors.Join(errs...).Error()

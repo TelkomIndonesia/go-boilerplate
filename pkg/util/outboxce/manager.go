@@ -4,11 +4,7 @@ package outboxce
 import (
 	"context"
 	"database/sql"
-
-	"github.com/cloudevents/sdk-go/v2/event"
 )
-
-type RelayFunc func(ctx context.Context, ce []event.Event) error
 
 type Manager interface {
 	Store(ctx context.Context, tx *sql.Tx, ob OutboxCE) (err error)

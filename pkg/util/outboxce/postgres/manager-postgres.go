@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 
 	"fmt"
 	"strconv"
@@ -228,7 +229,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	`
 	rows, err := tx.QueryContext(ctx, q, limit)
 	if err != nil {
-		return last, fmt.Errorf("fail to query profile by name: %w", err)
+		return last, fmt.Errorf("fail to query outboxes: %w", err)
 	}
 	defer rows.Close()
 
@@ -254,12 +255,40 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 		return last, tx.Rollback()
 	}
 
-	if err = relayFunc(ctx, events); err != nil {
-		return last, fmt.Errorf("fail to relay outboxes: %w", err)
+	if err = p.relayWithRelayErrorsHandler(ctx, tx, relayFunc, events); err != nil {
+		return last, fmt.Errorf("fail to relay outboxes with handler: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
 		return last, fmt.Errorf("fail to commit: %w", err)
+	}
+
+	return
+}
+
+func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, relayFunc outboxce.RelayFunc, events []event.Event) (err error) {
+	err = relayFunc(ctx, events)
+
+	var errRelay = &outboxce.RelayErrors{}
+	if !errors.As(err, &errRelay) {
+		return err
+	}
+	if len(*errRelay) == 0 {
+		return nil
+	}
+
+	ids := []string{}
+	for _, e := range *errRelay {
+		ids = append(ids, e.Event.ID())
+	}
+	q := `
+		UPDATE outboxce
+		SET is_delivered = false 
+		WHERE id = ANY($1)
+	`
+	_, err = tx.ExecContext(ctx, q, pq.Array(ids))
+	if err != nil {
+		return fmt.Errorf("fail to unset delivery status: %w", err)
 	}
 
 	return

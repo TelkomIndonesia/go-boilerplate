@@ -104,9 +104,21 @@ func TestPostgresOutbox(t *testing.T) {
 			{
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				i := -1
-				sender := func(ctx context.Context, obs []event.Event) error {
+				sender := func(ctx context.Context, obs []event.Event) (err error) {
 					if i = i + 1; i%2 == 0 {
-						return fmt.Errorf("simulated intermittent error")
+						return fmt.Errorf("simulated full error")
+					}
+
+					if j := len(obs) / 2; j > 0 {
+						relayErrors := &outboxce.RelayErrors{}
+						for _, e := range obs[j:] {
+							*relayErrors = append(*relayErrors, &outboxce.RelayError{
+								Err:   fmt.Errorf("simulated (partial) relay errors"),
+								Event: e,
+							})
+						}
+						err = relayErrors
+						obs = obs[:j]
 					}
 
 					sentEvents = append(sentEvents, obs...)
@@ -114,7 +126,7 @@ func TestPostgresOutbox(t *testing.T) {
 						time.AfterFunc(time.Second, cancel)
 					}
 
-					return nil
+					return
 				}
 
 				replica := 10
@@ -124,7 +136,7 @@ func TestPostgresOutbox(t *testing.T) {
 						defer outboxesWG.Done()
 
 						p := tNewManagerPostgres(t)
-						p.maxNotifyWait = time.Second
+						p.maxNotifyWait = 0
 						p.limit = 10
 						defer p.db.Close()
 
@@ -176,8 +188,8 @@ func TestPostgresOutbox(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					o, ok := outboxes[oSent.Id]
-					assert.True(t, ok, "should contains expected content")
+					o := outboxes[oSent.Id]
+					require.NotNil(t, o)
 					assert.Equal(t,
 						sample.Outbox{
 							Id:       o.Id,

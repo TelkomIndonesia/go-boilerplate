@@ -159,7 +159,7 @@ func (c *CMD) initPostgres() (err error) {
 		postgres.WithLogger(c.logger),
 	}
 	if c.k != nil {
-		opts = append(opts, postgres.WithOutboxRelay(c.k.OutboxRelayer()))
+		opts = append(opts, postgres.WithOutboxRelay(c.k.OutboxceRelayFunc()))
 	}
 	c.p, err = postgres.New(opts...)
 	if err != nil {

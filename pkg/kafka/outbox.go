@@ -8,7 +8,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
 )
 
-func (k *Kafka) OutboxRelayer() outboxce.RelayFunc {
+func (k *Kafka) OutboxceRelayFunc() outboxce.RelayFunc {
 	return func(ctx context.Context, events []event.Event) (err error) {
 		idxErr := 0
 		for i, e := range events {

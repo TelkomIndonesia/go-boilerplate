@@ -100,7 +100,7 @@ func TestReadWrite(t *testing.T) {
 	for _, e := range events {
 		tosents = append(tosents, e)
 	}
-	err := k.OutboxRelayer()(ctx, tosents)
+	err := k.OutboxceRelayFunc()(ctx, tosents)
 	require.NoError(t, err)
 
 	<-ctx.Done()

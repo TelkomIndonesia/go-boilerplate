@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/event"
@@ -10,13 +9,25 @@ import (
 )
 
 func (k *Kafka) OutboxRelayer() outboxce.RelayFunc {
-	return func(ctx context.Context, o []event.Event) (err error) {
-		for _, o := range o {
-			result := k.client.Send(ctx, o)
+	return func(ctx context.Context, events []event.Event) (err error) {
+		idxErr := 0
+		for i, e := range events {
+			result := k.client.Send(ctx, e)
 			if !cloudevents.IsACK(result) {
-				return fmt.Errorf("fail to send event: %w", result)
+				err, idxErr = result, i
+				break
 			}
 		}
+
+		if err != nil {
+			relayErrs := make(outboxce.RelayErrors, 0, len(events)-idxErr)
+			for _, e := range events[idxErr:] {
+				relayErrs = append(relayErrs, &outboxce.RelayError{Event: e, Err: err})
+				err = nil
+			}
+			return &relayErrs
+		}
+
 		return
 	}
 }

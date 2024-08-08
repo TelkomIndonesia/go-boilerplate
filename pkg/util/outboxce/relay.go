@@ -27,6 +27,9 @@ type RelayError struct {
 }
 
 func (p *RelayError) Error() string {
+	if p.Err == nil {
+		return ""
+	}
 	return p.Err.Error()
 }
 

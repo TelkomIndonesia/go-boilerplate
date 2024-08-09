@@ -35,7 +35,7 @@ func tNewKafka(t *testing.T) *Kafka {
 	if !ok {
 		t.Skip("no kafka brokers was defined in env var")
 	}
-	k, err := New(WithBrokers([]string{v}), WithDefaultTopic(t.Name()+uuid.NewString()))
+	k, err := New(WithBrokers([]string{v}), WithTopic(t.Name()+uuid.NewString()))
 	require.NoError(t, err, "should instantiate kafka")
 
 	tCreateTopic(t, k)

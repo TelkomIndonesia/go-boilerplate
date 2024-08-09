@@ -18,7 +18,7 @@ func WithBrokers(b []string) OptFunc {
 	}
 }
 
-func WithDefaultTopic(t string) OptFunc {
+func WithTopic(t string) OptFunc {
 	return func(k *Kafka) (err error) {
 		k.topic = t
 		return

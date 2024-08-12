@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS outboxce (
     is_delivered BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS outbox_by_created_at ON outboxce(is_delivered, created_at);
+CREATE INDEX IF NOT EXISTS outboxce_by_created_at ON outboxce(is_delivered, created_at);
 
 -- +goose StatementEnd
 

@@ -1,5 +1,18 @@
 services:
-  genx509:
+  tink:
+    image: ghcr.io/telkomindonesia/tinkey:1.10.1
+    volumes:
+      - ${PWD:-.}:${PWD:-/src}
+    working_dir: ${PWD:-/src}/.local
+    entrypoint: [sh, -c]
+    command:
+      - |-
+        rm -rf tink-aead.json tink-mac.json tink-jwt-mac.json
+        tinkey create-keyset --key-template HKDF_SHA256_DERIVES_AES128_GCM --out tink-aead.json
+        tinkey create-keyset --key-template HKDF_SHA256_DERIVES_HMAC_SHA256_128BITTAG --out tink-mac.json
+        tinkey create-keyset --key-template JWT_HS256 --out tink-jwt-mac.json
+
+  x509:
     image: jitesoft/step-cli
     volumes:
       - ${PWD:-.}:${PWD:-/src}

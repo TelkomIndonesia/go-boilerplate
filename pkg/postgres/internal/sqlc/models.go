@@ -5,24 +5,11 @@
 package sqlc
 
 import (
-	"database/sql"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types"
 )
-
-type Outbox struct {
-	ID          uuid.UUID
-	TenantID    uuid.UUID
-	Type        string
-	Content     json.RawMessage
-	Event       string
-	IsEncrypted sql.NullBool
-	IsDelivered sql.NullBool
-	CreatedAt   time.Time
-}
 
 type Profile struct {
 	ID        uuid.UUID

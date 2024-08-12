@@ -13,15 +13,18 @@ import (
 var migration embed.FS
 
 func main() {
-	dest := "."
+	dests := []string{"."}
 	if len(os.Args) > 1 {
-		dest = os.Args[1]
+		dests = os.Args[1:]
+	}
+
+	for _, dest := range dests {
 		if err := os.MkdirAll(dest, os.ModePerm); err != nil {
 			log.Fatalln("fail to create target directory:", err)
 		}
-	}
-	if err := dist(migration, dest); err != nil {
-		log.Fatalln("fail to copy to target directory:", err)
+		if err := dist(migration, dest); err != nil {
+			log.Fatalln("fail to copy to target directory:", err)
+		}
 	}
 }
 

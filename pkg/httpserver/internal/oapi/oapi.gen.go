@@ -25,32 +25,32 @@ import (
 
 // CreateProfile defines model for CreateProfile.
 type CreateProfile struct {
-	Dob   ZeroableTime   `json:"dob,omitempty"`
-	Email ZeroableString `json:"email,omitempty"`
-	Name  ZeroableString `json:"name,omitempty"`
-	Nin   ZeroableString `json:"nin,omitempty"`
-	Phone ZeroableString `json:"phone,omitempty"`
+	Dob   Time   `json:"dob,omitempty"`
+	Email String `json:"email,omitempty"`
+	Name  String `json:"name,omitempty"`
+	Nin   String `json:"nin,omitempty"`
+	Phone String `json:"phone,omitempty"`
 }
 
 // Profile defines model for Profile.
 type Profile struct {
-	Dob      ZeroableTime   `json:"dob,omitempty"`
-	Email    ZeroableString `json:"email,omitempty"`
-	Id       UUID           `json:"id,omitempty"`
-	Name     ZeroableString `json:"name,omitempty"`
-	Nin      ZeroableString `json:"nin,omitempty"`
-	Phone    ZeroableString `json:"phone,omitempty"`
-	TenantId UUID           `json:"tenant_id,omitempty"`
+	Dob      Time   `json:"dob,omitempty"`
+	Email    String `json:"email,omitempty"`
+	Id       UUID   `json:"id,omitempty"`
+	Name     String `json:"name,omitempty"`
+	Nin      String `json:"nin,omitempty"`
+	Phone    String `json:"phone,omitempty"`
+	TenantId UUID   `json:"tenant_id,omitempty"`
 }
+
+// String defines model for String.
+type String = string
+
+// Time defines model for Time.
+type Time = time.Time
 
 // UUID defines model for UUID.
 type UUID = openapi_types.UUID
-
-// ZeroableString defines model for ZeroableString.
-type ZeroableString = string
-
-// ZeroableTime defines model for ZeroableTime.
-type ZeroableTime = time.Time
 
 // PostProfileParams defines parameters for PostProfile.
 type PostProfileParams struct {
@@ -293,16 +293,16 @@ func (sh *strictHandler) GetProfile(ctx echo.Context, tenantId UUID, profileId U
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9RUTW/bMAz9KwG3o1ynaw6DbvsAhtwKbL1sKAbFZhJtsqhKdLHA8H8fKDtNvQ5r2g77",
-	"OEWgyfdIvhd2UFETyKPnBLqDVG2xMfn5JqJhPI+0tg4lECIFjGwxf65pJT/PI65Bw7PygFOOIOVHjGRW",
-	"Dj/YBqFXgI2x7tii9xyt30iZNw0+osr6hxeFLfkHc/W9gn9gTba+r+biYvn2f1ioAkZvPH8+diRRIL90",
-	"B2uKjWHQ0La2BgW8Cwga0oCt4FuxoUKCRfpqQ0GBLXnjikDWM0bQHFvsFfzQlO6ejJT1vd1hbRgLluhj",
-	"25TBrV+TwDpboU+ZYRAYlpLpjQMFbXSgYcscdFk6qozbUuK8asvi272DZ6/Ol6DgGmOy5EHD6cn8ZC6J",
-	"FNCbYEHDWQ4pCIa32eTloFcqu+FR2LovwwCYE4KQ6U4wopFJlrVQUuL9H0fQommQMSbQnzoQt2UG2BsW",
-	"bsBBQcSr1kash0Wo8XAdaRc1wl+1GHcH/GvjrGgCt+FGYVZEDo2Hvr8cyDHxa6p3klKRZ/R5QBOCs1Ue",
-	"sfySyB9u6n2tTc9tVnY6Yw6kQD4NO30xP/1t5BPaGlMVbTacOLKtKkxJHLCYz/NJm3xfmXo27kM2Cwmr",
-	"NlreiYiyq9Q2jYk70FDlCWfhhkv92jhlN74kKsQb/ImJ3uHf9dAU/tDxU/Ev78g9/+NyL+7K7Ylna2p9",
-	"fY/YG+RbSufUeL3X5XCNki73euuXi8UZyF6nn2+u1Zhw2X8PAAD//3kfZ7S1CAAA",
+	"H4sIAAAAAAAC/8xUTY/TMBD9K9XA0dlk2R6Qb3xIqLeVYE9ohdxk2hoSj9eeVFRR/jsaJ/2IFtGyIJZT",
+	"rfHrG897L9NBSY0nh44j6A5iucHGpOO7gIbxNtDK1igFH8hjYIvpuqKl/LwMuAINL/IjTz6S5J9sg9Ar",
+	"wMbY+hz4Iwfr1gJ3psHfQFt3OdhvyF3M3fcKnmF8W53D3t0t3v9PQilgdMbxl0ufLsqOf9Yd8M4jaIhD",
+	"QcH3bE2ZFLP4zfqMPFtyps48WccYQHNosVeQ9NUdrCg0hkFDZRgzlqp6Mml64Clp29rqyXwyqHUrEsba",
+	"luhievFgHCwE6UwNCtpQg4YNs9d5XlNp6g1FTtJalvztkzh7c7sABVsM0ZIDDddXxVUhQPLojLeg4SaV",
+	"FHjDmxTWfPAn5t1wyGzV534gTAAvzXQnHMHIJItKWlLk/QcgbME0yBgi6M8dSJpSB9gHEQ7koCDgQ2sD",
+	"VoMQalwsF8ZDjfQPLYbdkX9raisewyndaMySqEbjoO/vh+YY+S1VO4GU5BhdGtB4X9syjZh/jeSOO+/c",
+	"06brMDk7nTEVoicXB01fFdd/rfmkbYWxDDYFThLZliXGKAmYF0VaTZP7palmox6iLEQs22B5JyaKVrFt",
+	"GhN2oKFME878oZf6dXDybjxJVRqv8Sch+oDPm6Ep/fHFf8p//8ju4p/bPX9styOerah11Rmz18gnTido",
+	"2O59OW6jqPO93/r1fH4Douv0+rCtRsB9/yMAAP//ownaSVUIAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -1,11 +1,14 @@
 components:
   schemas:
-    ZeroableString:
+    String:
       type: string
       x-go-type-skip-optional-pointer: true
-    ZeroableTime:
+    Time:
       type: string
       format: date-time
+      x-go-type-skip-optional-pointer: true
+    Boolean:
+      type: boolean
       x-go-type-skip-optional-pointer: true
     UUID:
       type: string
@@ -18,24 +21,24 @@ components:
         tenant_id:
           $ref: "#/components/schemas/UUID"
         nin:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         name:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         email:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         phone:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         dob:
-          $ref: "#/components/schemas/ZeroableTime"
+          $ref: "#/components/schemas/Time"
     CreateProfile:
       properties:
         nin:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         name:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         email:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         phone:
-          $ref: "#/components/schemas/ZeroableString"
+          $ref: "#/components/schemas/String"
         dob:
-          $ref: "#/components/schemas/ZeroableTime"
+          $ref: "#/components/schemas/Time"

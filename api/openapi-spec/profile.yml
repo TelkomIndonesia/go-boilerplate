@@ -73,25 +73,25 @@ components:
             type: string
             format: uuid
             x-go-type-skip-optional-pointer: true
-        ZeroableString:
+        String:
             type: string
             x-go-type-skip-optional-pointer: true
-        ZeroableTime:
+        Time:
             type: string
             format: date-time
             x-go-type-skip-optional-pointer: true
         CreateProfile:
             properties:
                 nin:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 name:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 email:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 phone:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 dob:
-                    $ref: '#/components/schemas/ZeroableTime'
+                    $ref: '#/components/schemas/Time'
         Profile:
             properties:
                 id:
@@ -99,12 +99,12 @@ components:
                 tenant_id:
                     $ref: '#/components/schemas/UUID'
                 nin:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 name:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 email:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 phone:
-                    $ref: '#/components/schemas/ZeroableString'
+                    $ref: '#/components/schemas/String'
                 dob:
-                    $ref: '#/components/schemas/ZeroableTime'
+                    $ref: '#/components/schemas/Time'

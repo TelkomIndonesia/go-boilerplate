@@ -5,9 +5,11 @@ go 1.22
 toolchain go1.22.4
 
 require (
+	github.com/IBM/sarama v1.40.1
 	github.com/bufbuild/buf v1.35.1
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.15.2
+	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
 	github.com/cloudevents/sdk-go/v2 v2.15.2
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/getkin/kin-openapi v0.125.0
@@ -17,7 +19,6 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/oapi-codegen/oapi-codegen/v2 v2.3.0
 	github.com/oapi-codegen/runtime v1.1.1
-	github.com/segmentio/kafka-go v0.4.47
 	github.com/sqlc-dev/sqlc v1.26.0
 	github.com/stretchr/testify v1.9.0
 	github.com/telkomindonesia/oapik v0.1.1
@@ -42,7 +43,6 @@ require (
 	connectrpc.com/otelconnect v0.7.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
-	github.com/IBM/sarama v1.40.1 // indirect
 	github.com/alecthomas/kong v0.9.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
@@ -53,7 +53,6 @@ require (
 	github.com/bufbuild/protoyaml-go v0.1.9 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/chigopher/pathlib v0.19.1 // indirect
-	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/cubicdaiya/gonp v1.0.4 // indirect

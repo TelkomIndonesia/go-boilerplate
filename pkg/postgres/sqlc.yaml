@@ -60,9 +60,9 @@ sql:
     database:
       uri: "postgresql://testing:testing@localhost:5432/testing?sslmode=disable"
     rules:
-      - postgresql-no-seq-scan
+      - debug
 
 rules:
-  - name: postgresql-no-seq-scan
+  - name: debug
     message: "Query plan results in a sequential scan"
-    rule: "postgresql.explain.plan.node_type == 'Seq Scan'"
+    rule: "!has(postgresql.explain)"

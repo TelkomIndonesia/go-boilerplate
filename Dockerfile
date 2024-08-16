@@ -5,7 +5,7 @@ ARG GOLANG=golang:1.22
 
 FROM ${GOLANG} AS base
 
-ENTRYPOINT [ "go", "run", ]
+ENTRYPOINT [ "go", "run" ]
 CMD [ "./cmd" ]
 
 

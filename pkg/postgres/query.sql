@@ -17,7 +17,7 @@ WHERE
 
 -- name: FindProfilesByName :many
 SELECT 
-    id, nin, name, phone, email, dob 
+    id, tenant_id, nin, name, phone, email, dob 
 FROM 
     profile 
 WHERE 

@@ -40,15 +40,15 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	err = query.StoreProfile(ctx, sqlc.StoreProfileParams{
 		ID:        pr.ID,
 		TenantID:  pr.TenantID,
-		Nin:       sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.NIN, pr.ID[:]),
-		NinBidx:   sqlval.BIDXString(p.bidxFullFunc(pr.TenantID), pr.NIN),
-		Name:      sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Name, pr.ID[:]),
-		NameBidx:  sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.Name),
-		Phone:     sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Phone, pr.ID[:]),
-		PhoneBidx: sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.Phone),
-		Email:     sqlval.AEADString(p.aeadFunc(pr.TenantID), pr.Email, pr.ID[:]),
-		EmailBidx: sqlval.BIDXString(p.bidxFunc(pr.TenantID), pr.Email),
-		Dob:       sqlval.AEADTime(p.aeadFunc(pr.TenantID), pr.DOB, pr.ID[:]),
+		Nin:       sqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.NIN, pr.ID[:]),
+		NinBidx:   sqlval.BIDXString(p.bidxFullFunc(&pr.TenantID), pr.NIN),
+		Name:      sqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.Name, pr.ID[:]),
+		NameBidx:  sqlval.BIDXString(p.bidxFunc(&pr.TenantID), pr.Name),
+		Phone:     sqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.Phone, pr.ID[:]),
+		PhoneBidx: sqlval.BIDXString(p.bidxFunc(&pr.TenantID), pr.Phone),
+		Email:     sqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.Email, pr.ID[:]),
+		EmailBidx: sqlval.BIDXString(p.bidxFunc(&pr.TenantID), pr.Email),
+		Dob:       sqlval.AEADTime(p.aeadFunc(&pr.TenantID), pr.DOB, pr.ID[:]),
 	})
 	if err != nil {
 		return fmt.Errorf("fail to insert to profile: %w", err)
@@ -89,11 +89,11 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 		sqlc.FetchProfileParams{TenantID: tenantID, ID: id},
 		func(fpr *sqlc.FetchProfileRow) {
 			// initiate so that we can decrypt
-			fpr.Nin = sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
-			fpr.Name = sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
-			fpr.Phone = sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
-			fpr.Email = sqlval.AEADString(p.aeadFunc(tenantID), "", id[:])
-			fpr.Dob = sqlval.AEADTime(p.aeadFunc(tenantID), time.Time{}, id[:])
+			fpr.Nin = sqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Name = sqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Phone = sqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Email = sqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Dob = sqlval.AEADTime(p.aeadFunc(&tenantID), time.Time{}, id[:])
 		},
 	)
 	if err == sql.ErrNoRows {
@@ -140,15 +140,15 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 	_, err = p.q.FindProfilesByName(ctx,
 		sqlc.FindProfilesByNameParams{
 			TenantID: tenantID,
-			NameBidx: sqlval.BIDXString(p.bidxFunc(tenantID), qname).ForRead(pqByteArray),
+			NameBidx: sqlval.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(pqByteArray),
 		},
 		func(fpbnr *sqlc.FindProfilesByNameRow) {
 			// initiate so that we can decrypt
-			fpbnr.Nin = sqlval.AEADString(p.aeadFunc(tenantID), "", fpbnr.ID[:])
-			fpbnr.Name = sqlval.AEADString(p.aeadFunc(tenantID), "", fpbnr.ID[:])
-			fpbnr.Phone = sqlval.AEADString(p.aeadFunc(tenantID), "", fpbnr.ID[:])
-			fpbnr.Email = sqlval.AEADString(p.aeadFunc(tenantID), "", fpbnr.ID[:])
-			fpbnr.Dob = sqlval.AEADTime(p.aeadFunc(tenantID), time.Time{}, fpbnr.ID[:])
+			fpbnr.Nin = sqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Name = sqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Phone = sqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Email = sqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Dob = sqlval.AEADTime(p.aeadFunc(&fpbnr.TenantID), time.Time{}, fpbnr.ID[:])
 		},
 		func(fpbnr sqlc.FindProfilesByNameRow) (bool, error) {
 			// due to bloom filter, we need to verify if the name match

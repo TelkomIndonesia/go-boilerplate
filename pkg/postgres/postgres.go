@@ -124,15 +124,27 @@ func (p *Postgres) observeOutboxes() {
 	outboxce.ObserveWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
 }
 
-func (p *Postgres) aeadFunc(tenantID uuid.UUID) func() (crypt.PrimitiveAEAD, error) {
+func (p *Postgres) aeadFunc(tenantID *uuid.UUID) func() (crypt.PrimitiveAEAD, error) {
+	if tenantID == nil {
+		return func() (crypt.PrimitiveAEAD, error) { return crypt.PrimitiveAEAD{}, fmt.Errorf("nil Tenant ID") }
+	}
+
 	return p.aead.GetPrimitiveFunc(tenantID[:])
 }
 
-func (p *Postgres) bidxFunc(tenantID uuid.UUID) func() (crypt.PrimitiveBIDX, error) {
+func (p *Postgres) bidxFunc(tenantID *uuid.UUID) func() (crypt.PrimitiveBIDX, error) {
+	if tenantID == nil {
+		return func() (crypt.PrimitiveBIDX, error) { return crypt.PrimitiveBIDX{}, fmt.Errorf("nil Tenant ID") }
+	}
+
 	return p.bidx.GetPrimitiveFunc(tenantID[:])
 }
 
-func (p *Postgres) bidxFullFunc(tenantID uuid.UUID) func() (crypt.PrimitiveBIDX, error) {
+func (p *Postgres) bidxFullFunc(tenantID *uuid.UUID) func() (crypt.PrimitiveBIDX, error) {
+	if tenantID == nil {
+		return func() (crypt.PrimitiveBIDX, error) { return crypt.PrimitiveBIDX{}, fmt.Errorf("nil Tenant ID") }
+	}
+
 	pb, err := p.bidx.GetPrimitive(tenantID[:])
 	if err != nil {
 		return func() (crypt.PrimitiveBIDX, error) { return crypt.PrimitiveBIDX{}, err }

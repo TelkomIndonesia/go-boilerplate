@@ -62,7 +62,7 @@ func (q *Queries) FetchProfile(ctx context.Context, arg FetchProfileParams, iOpt
 
 const findProfilesByName = `-- name: FindProfilesByName :many
 SELECT 
-    id, nin, name, phone, email, dob 
+    id, tenant_id, nin, name, phone, email, dob 
 FROM 
     profile 
 WHERE 
@@ -75,18 +75,19 @@ type FindProfilesByNameParams struct {
 }
 
 type FindProfilesByNameRow struct {
-	ID    uuid.UUID
-	Nin   types.AEADString
-	Name  types.AEADString
-	Phone types.AEADString
-	Email types.AEADString
-	Dob   types.AEADTime
+	ID       uuid.UUID
+	TenantID uuid.UUID
+	Nin      types.AEADString
+	Name     types.AEADString
+	Phone    types.AEADString
+	Email    types.AEADString
+	Dob      types.AEADTime
 }
 
 // FindProfilesByName
 //
 //	SELECT
-//	    id, nin, name, phone, email, dob
+//	    id, tenant_id, nin, name, phone, email, dob
 //	FROM
 //	    profile
 //	WHERE
@@ -106,6 +107,7 @@ func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByName
 
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
 			&i.Nin,
 			&i.Name,
 			&i.Phone,

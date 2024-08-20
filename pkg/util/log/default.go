@@ -30,7 +30,7 @@ func New(opts ...OptFunc) (l Logger, err error) {
 	for _, opt := range opts {
 		err = opt(dl)
 		if err != nil {
-			return nil, fmt.Errorf("fail to apply option: %w", err)
+			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
 	return dl, nil

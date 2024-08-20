@@ -67,7 +67,7 @@ func New(opts ...OptFunc) (ts *TenantService, err error) {
 	ts.base, _ = url.Parse("http://localhost")
 	for _, opt := range opts {
 		if err = opt(ts); err != nil {
-			return nil, fmt.Errorf("fail to instantiate tenant service")
+			return nil, fmt.Errorf("failed to instantiate tenant service")
 		}
 	}
 	if ts.hc == nil {
@@ -87,12 +87,12 @@ func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profi
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.base.JoinPath("tenants", id.String()).String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("fail to create http request: %w", err)
+		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
 
 	res, err := ts.hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fail to invoke http request: %w", err)
+		return nil, fmt.Errorf("failed to invoke http request: %w", err)
 	}
 	defer res.Body.Close()
 
@@ -105,7 +105,7 @@ func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profi
 
 	err = json.NewDecoder(res.Body).Decode(&t)
 	if err != nil {
-		return nil, fmt.Errorf("fail to deserialize tenant: %w", err)
+		return nil, fmt.Errorf("failed to deserialize tenant: %w", err)
 	}
 	return
 }

@@ -20,10 +20,10 @@ func main() {
 
 	for _, dest := range dests {
 		if err := os.MkdirAll(dest, os.ModePerm); err != nil {
-			log.Fatalln("fail to create target directory:", err)
+			log.Fatalln("failed to create target directory:", err)
 		}
 		if err := dist(migration, dest); err != nil {
-			log.Fatalln("fail to copy to target directory:", err)
+			log.Fatalln("failed to copy to target directory:", err)
 		}
 	}
 }

@@ -115,7 +115,7 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 func (c *CMD) initCMD() (err error) {
 	c.CMD, err = cmd.New(cmd.WithEnv(c.envPrefix, c.dotenv))
 	if err != nil {
-		return fmt.Errorf("fail to instantiate cmd: %w", err)
+		return fmt.Errorf("failed to instantiate cmd: %w", err)
 	}
 
 	if c.otelLoader == nil {
@@ -141,7 +141,7 @@ func (c *CMD) initKafka() (err error) {
 		kafka.WithBrokers(c.KafkaBrokers),
 	)
 	if err != nil {
-		return fmt.Errorf("fail to instantiate kafka: %w", err)
+		return fmt.Errorf("failed to instantiate kafka: %w", err)
 	}
 
 	if c.k != nil && c.KafkaTopicOutbox == "" {
@@ -163,7 +163,7 @@ func (c *CMD) initPostgres() (err error) {
 	}
 	c.p, err = postgres.New(opts...)
 	if err != nil {
-		return fmt.Errorf("fail to instantiate postges: %w", err)
+		return fmt.Errorf("failed to instantiate postges: %w", err)
 	}
 
 	c.closers = append(c.closers, c.p.Close)
@@ -177,7 +177,7 @@ func (c *CMD) initTenantService() (err error) {
 		tenantservice.WithLogger(c.logger),
 	)
 	if err != nil {
-		return fmt.Errorf("fail to instantiate tenant service: %w", err)
+		return fmt.Errorf("failed to instantiate tenant service: %w", err)
 	}
 	return
 }
@@ -185,7 +185,7 @@ func (c *CMD) initTenantService() (err error) {
 func (c *CMD) initHTTPServer() (err error) {
 	l, err := net.Listen("tcp", c.HTTPAddr)
 	if err != nil {
-		return fmt.Errorf("fail to start listener: %w", err)
+		return fmt.Errorf("failed to start listener: %w", err)
 	}
 
 	c.h, err = httpserver.New(
@@ -195,7 +195,7 @@ func (c *CMD) initHTTPServer() (err error) {
 		httpserver.WithLogger(c.logger),
 	)
 	if err != nil {
-		return fmt.Errorf("fail to instantiate http server: %w", err)
+		return fmt.Errorf("failed to instantiate http server: %w", err)
 	}
 
 	c.closers = append(c.closers, c.h.Close)

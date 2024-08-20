@@ -19,7 +19,7 @@ func LoadEnv(v interface{}, opt LoadEnvOptions) (err error) {
 
 	envopt := env.Options{Prefix: opt.Prefix}
 	if err = env.ParseWithOptions(v, envopt); err != nil {
-		return fmt.Errorf("fail to load env: %w", err)
+		return fmt.Errorf("failed to load env: %w", err)
 	}
 	return nil
 }

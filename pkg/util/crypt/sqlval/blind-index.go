@@ -26,11 +26,11 @@ type BIDX[T any, B crypt.BIDX] struct {
 func (s BIDX[T, M]) Value() (v driver.Value, err error) {
 	m, err := s.bidxFunc()
 	if err != nil {
-		return nil, fmt.Errorf("fail to obtain BlindIndex primitive: %w", err)
+		return nil, fmt.Errorf("failed to obtain BlindIndex primitive: %w", err)
 	}
 	b, err := s.converter(s.t)
 	if err != nil {
-		return nil, fmt.Errorf("fail to convert to byte: %w", err)
+		return nil, fmt.Errorf("failed to convert to byte: %w", err)
 	}
 
 	switch s.isWrite {
@@ -45,7 +45,7 @@ func (s BIDX[T, M]) Value() (v driver.Value, err error) {
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("fail to compute blind index(s): %w", err)
+		return nil, fmt.Errorf("failed to compute blind index(s): %w", err)
 	}
 	return v, err
 }

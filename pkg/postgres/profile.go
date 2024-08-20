@@ -26,7 +26,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
-		return fmt.Errorf("fail to open transaction: %w", err)
+		return fmt.Errorf("failed to open transaction: %w", err)
 	}
 	defer txRollbackDeferer(tx, &err)()
 
@@ -45,7 +45,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 		Dob:       sqlval.AEADTime(p.aeadFunc(&pr.TenantID), pr.DOB, pr.ID[:]),
 	})
 	if err != nil {
-		return fmt.Errorf("fail to insert to profile: %w", err)
+		return fmt.Errorf("failed to insert to profile: %w", err)
 	}
 
 	// text heap
@@ -54,7 +54,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 		Type:     textHeapTypeProfileName,
 		Content:  pr.Name,
 	}); err != nil {
-		return fmt.Errorf("fail to store profile name to text_heap: %w", err)
+		return fmt.Errorf("failed to store profile name to text_heap: %w", err)
 	}
 
 	// outbox
@@ -62,11 +62,11 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 		New(outboxSource, eventProfileStored, pr.TenantID, outbox.FromProfile(pr)).
 		WithEncryptor(outboxce.TenantAEAD(p.aead))
 	if err = p.outboxManager.Store(ctx, tx, ob); err != nil {
-		return fmt.Errorf("fail to store profile to outbox: %w", err)
+		return fmt.Errorf("failed to store profile to outbox: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("fail to commit: %w", err)
+		return fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return
@@ -94,7 +94,7 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("fail to select profile: %w", err)
+		return nil, fmt.Errorf("failed to select profile: %w", err)
 	}
 
 	pr = &profile.Profile{
@@ -164,7 +164,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("fail to query profile by name: %w", err)
+		return nil, fmt.Errorf("failed to query profile by name: %w", err)
 	}
 	return
 }

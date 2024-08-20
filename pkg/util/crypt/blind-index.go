@@ -31,7 +31,7 @@ type bidx struct {
 func NewBIDX(h *keyset.Handle, length int) (BIDX, error) {
 	m, err := mac.New(h)
 	if err != nil {
-		return nil, fmt.Errorf("fail to instantiate underlying mac primitive:%w", err)
+		return nil, fmt.Errorf("failed to instantiate underlying mac primitive:%w", err)
 	}
 	b := bidx{
 		h:   h,
@@ -50,13 +50,13 @@ func NewBIDX(h *keyset.Handle, length int) (BIDX, error) {
 
 		h, err := cloneHandle(h)
 		if err != nil {
-			return nil, fmt.Errorf("fail to clone handler :%w", err)
+			return nil, fmt.Errorf("failed to clone handler :%w", err)
 		}
 
 		keyset.NewManagerFromHandle(h).SetPrimary(k.GetKeyId())
 		m, err := mac.New(h)
 		if err != nil {
-			return nil, fmt.Errorf("fail to instantiate primitive from key id %d: %w", k.GetKeyId(), err)
+			return nil, fmt.Errorf("failed to instantiate primitive from key id %d: %w", k.GetKeyId(), err)
 		}
 
 		b.hs = append(b.hs, h)
@@ -84,7 +84,7 @@ func CopyBIDXWithLen(t BIDX, len int) (BIDX, error) {
 func (b bidx) ComputePrimary(data []byte) (idx []byte, err error) {
 	idx, err = b.m.ComputeMAC(data)
 	if err != nil {
-		return nil, fmt.Errorf("fail to compute blind index: %w", err)
+		return nil, fmt.Errorf("failed to compute blind index: %w", err)
 	}
 	if b.len != 0 && len(idx) > b.len {
 		idx = idx[:b.len]
@@ -97,7 +97,7 @@ func (b bidx) ComputeAll(data []byte) (idxs [][]byte, err error) {
 	for i, m := range b.ms {
 		idx, err := bidx{m: m, h: b.h, len: b.len}.ComputePrimary(data)
 		if err != nil {
-			return nil, fmt.Errorf("fail to compute mac from key id %d: %w", b.hs[i].KeysetInfo().GetPrimaryKeyId(), err)
+			return nil, fmt.Errorf("failed to compute mac from key id %d: %w", b.hs[i].KeysetInfo().GetPrimaryKeyId(), err)
 		}
 		idxs = append(idxs, idx)
 	}
@@ -115,13 +115,13 @@ func cloneHandle(h *keyset.Handle) (hc *keyset.Handle, err error) {
 	w := keyset.NewBinaryWriter(b)
 	err = insecurecleartextkeyset.Write(h, w)
 	if err != nil {
-		return nil, fmt.Errorf("fail to copy handle to memory: %w", err)
+		return nil, fmt.Errorf("failed to copy handle to memory: %w", err)
 	}
 
 	r := keyset.NewBinaryReader(b)
 	hc, err = insecurecleartextkeyset.Read(r)
 	if err != nil {
-		return nil, fmt.Errorf("fail to copy handle from memory: %w", err)
+		return nil, fmt.Errorf("failed to copy handle from memory: %w", err)
 	}
 
 	return hc, nil

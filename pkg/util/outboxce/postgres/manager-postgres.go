@@ -70,7 +70,7 @@ func New(opts ...OptFunc) (outboxce.Manager, error) {
 
 	for _, opt := range opts {
 		if err := opt(p); err != nil {
-			return nil, fmt.Errorf("fail to apply options: %w", err)
+			return nil, fmt.Errorf("failed to apply options: %w", err)
 		}
 	}
 
@@ -94,12 +94,12 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 
 	ce, err := ob.Build()
 	if err != nil {
-		return fmt.Errorf("fail to build cloudevent :%w", err)
+		return fmt.Errorf("failed to build cloudevent :%w", err)
 	}
 
 	cejson, err := json.Marshal(ce)
 	if err != nil {
-		return fmt.Errorf("fail to marshal cloudevent from outbox: %w", err)
+		return fmt.Errorf("failed to marshal cloudevent from outbox: %w", err)
 	}
 
 	outboxQ := `
@@ -112,12 +112,12 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 		ob.ID, ob.TenantID, cejson, ob.Time,
 	)
 	if err != nil {
-		return fmt.Errorf("fail to insert to outbox: %w", err)
+		return fmt.Errorf("failed to insert to outbox: %w", err)
 	}
 
 	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.Time.UnixNano())
 	if err != nil {
-		p.logger.Warn("fail to send notify", log.Error("error", err), log.TraceContext("trace-id", ctx))
+		p.logger.Warn("failed to send notify", log.Error("error", err), log.TraceContext("trace-id", ctx))
 	}
 
 	return
@@ -132,14 +132,14 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 
 	unlocker, err := p.lock(ctx)
 	if err != nil {
-		return fmt.Errorf("fail to obtain lock: %w", err)
+		return fmt.Errorf("failed to obtain lock: %w", err)
 	}
 	defer unlocker()
 	p.logger.Warn("Got lock for observing outbox")
 
 	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
 	if err = l.Listen(p.channelName); err != nil {
-		return fmt.Errorf("fail to listen for outbox notification :%w", err)
+		return fmt.Errorf("failed to listen for outbox notification :%w", err)
 	}
 	defer l.Close()
 
@@ -174,7 +174,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 
 		last, err = p.relayOutboxes(ctx, relayFunc, p.limit)
 		if err != nil {
-			p.logger.Error("fail to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
+			p.logger.Error("failed to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
 
 		stopTimer()
@@ -184,7 +184,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 	conn, err := p.db.Conn(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("fail to obtain connection for lock: %w", err)
+		return nil, fmt.Errorf("failed to obtain connection for lock: %w", err)
 	}
 	defer func() {
 		if conn != nil && err != nil {
@@ -195,7 +195,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 	obtain := false
 	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, p.lockID).Scan(&obtain)
 	if err != nil {
-		return nil, fmt.Errorf("fail to obtain lock: %w", err)
+		return nil, fmt.Errorf("failed to obtain lock: %w", err)
 	}
 	if !obtain {
 		return nil, fmt.Errorf("lock has been obtained by other process")
@@ -210,7 +210,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFunc, limit int) (last outboxce.OutboxCE, err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
-		return last, fmt.Errorf("fail to open transaction: %w", err)
+		return last, fmt.Errorf("failed to open transaction: %w", err)
 	}
 	defer txRollbackDeferer(tx, &err)()
 
@@ -229,7 +229,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	`
 	rows, err := tx.QueryContext(ctx, q, limit)
 	if err != nil {
-		return last, fmt.Errorf("fail to query outboxes: %w", err)
+		return last, fmt.Errorf("failed to query outboxes: %w", err)
 	}
 	defer rows.Close()
 
@@ -239,12 +239,12 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 		var data []byte
 		err = rows.Scan(&o.ID, &o.TenantID, &data, &o.Time)
 		if err != nil {
-			return last, fmt.Errorf("fail to scan row: %w", err)
+			return last, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		var e event.Event
 		if err = json.Unmarshal(data, &e); err != nil {
-			return last, fmt.Errorf("fail to unmarshal cloud event: %w", err)
+			return last, fmt.Errorf("failed to unmarshal cloud event: %w", err)
 		}
 
 		last = o
@@ -256,11 +256,11 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	}
 
 	if err = p.relayWithRelayErrorsHandler(ctx, tx, relayFunc, events); err != nil {
-		return last, fmt.Errorf("fail to relay outboxes with handler: %w", err)
+		return last, fmt.Errorf("failed to relay outboxes with handler: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return last, fmt.Errorf("fail to commit: %w", err)
+		return last, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return
@@ -288,7 +288,7 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 	`
 	_, err = tx.ExecContext(ctx, q, pq.Array(ids))
 	if err != nil {
-		return fmt.Errorf("fail to unset delivery status: %w", err)
+		return fmt.Errorf("failed to unset delivery status: %w", err)
 	}
 
 	return

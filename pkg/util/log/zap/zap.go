@@ -59,14 +59,14 @@ type zaplogger struct {
 func New(opts ...OptFunc) (l log.Logger, err error) {
 	z, err := zap.NewProduction(zap.AddCallerSkip(1))
 	if err != nil {
-		return nil, fmt.Errorf("fail to instantiate zap")
+		return nil, fmt.Errorf("failed to instantiate zap")
 	}
 
 	zl := &zaplogger{zap: z, lvl: LevelInfo}
 	for _, opt := range opts {
 		err = opt(zl)
 		if err != nil {
-			return nil, fmt.Errorf("fail to apply options: %w", err)
+			return nil, fmt.Errorf("failed to apply options: %w", err)
 		}
 	}
 	return zl, nil

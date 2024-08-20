@@ -12,7 +12,7 @@ func ParseURLWithDefaultScheme(u string, defaultScheme string) (*url.URL, error)
 	}
 	parsedURL, err := url.Parse(u)
 	if err != nil {
-		return nil, fmt.Errorf("fail to parse url: %w", err)
+		return nil, fmt.Errorf("failed to parse url: %w", err)
 	}
 	return parsedURL, nil
 }

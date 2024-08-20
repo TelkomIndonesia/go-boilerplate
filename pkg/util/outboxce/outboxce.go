@@ -30,7 +30,7 @@ type OutboxCE struct {
 
 	AEADFunc AEADFunc
 
-	errID error
+	err error
 }
 
 func New(source string, eventType string, tenantID uuid.UUID, content proto.Message) OutboxCE {
@@ -41,7 +41,12 @@ func New(source string, eventType string, tenantID uuid.UUID, content proto.Mess
 		Content:   content,
 		Time:      time.Now(),
 	}
-	o.ID, o.errID = uuid.NewV7()
+
+	var err error
+	o.ID, err = uuid.NewV7()
+	if err != nil {
+		o.err = fmt.Errorf("failed to generate ID: %w", err)
+	}
 	return o
 }
 
@@ -55,8 +60,8 @@ func (o OutboxCE) WithEncryptor(fn func(event.Event) (tink.AEAD, error)) OutboxC
 }
 
 func (o OutboxCE) Build() (ce event.Event, err error) {
-	if o.errID != nil {
-		return ce, fmt.Errorf("fail to generate id: %w", err)
+	if o.err != nil {
+		return ce, fmt.Errorf("failed to build: %w", err)
 	}
 
 	ce = cloudevents.NewEvent()
@@ -69,17 +74,17 @@ func (o OutboxCE) Build() (ce event.Event, err error) {
 	dct := ContentTypeProtobuf
 	data, err := proto.Marshal(o.Content)
 	if err != nil {
-		return ce, fmt.Errorf("fail to marshal content: %w", err)
+		return ce, fmt.Errorf("failed to marshal content: %w", err)
 	}
 	if o.AEADFunc != nil {
 		dct = ContentTypeProtobufEncrypted
 		aead, err := o.AEADFunc(ce)
 		if err != nil {
-			return ce, fmt.Errorf("faill to obtain aead primitive: %w", err)
+			return ce, fmt.Errorf("failed to obtain aead primitive: %w", err)
 		}
 		data, err = aead.Encrypt(data, []byte(ce.ID()))
 		if err != nil {
-			return ce, fmt.Errorf("faill to encrypt data: %w", err)
+			return ce, fmt.Errorf("failed to encrypt data: %w", err)
 		}
 	}
 	ce.SetData(dct, data)
@@ -89,11 +94,11 @@ func (o OutboxCE) Build() (ce event.Event, err error) {
 func FromEvent(e event.Event, aeadFunc AEADFunc, Unmarshaller func([]byte) (proto.Message, error)) (o OutboxCE, err error) {
 	o.ID, err = uuid.Parse(e.ID())
 	if err != nil {
-		return o, fmt.Errorf("fail to parse id : %w", err)
+		return o, fmt.Errorf("failed to parse id : %w", err)
 	}
 	o.TenantID, err = uuid.Parse(e.Subject())
 	if err != nil {
-		return o, fmt.Errorf("fail to parse tenant id : %w", err)
+		return o, fmt.Errorf("failed to parse tenant id : %w", err)
 	}
 	o.Source = e.Source()
 	o.EventType = e.Type()
@@ -103,11 +108,11 @@ func FromEvent(e event.Event, aeadFunc AEADFunc, Unmarshaller func([]byte) (prot
 	if e.DataContentType() == ContentTypeProtobufEncrypted {
 		aead, err := aeadFunc(e)
 		if err != nil {
-			return o, fmt.Errorf("fail to obtain aead primitive: %w", err)
+			return o, fmt.Errorf("failed to obtain aead primitive: %w", err)
 		}
 		d, err = aead.Decrypt(d, []byte(e.ID()))
 		if err != nil {
-			return o, fmt.Errorf("fail to decrypt: %w", err)
+			return o, fmt.Errorf("failed to decrypt: %w", err)
 		}
 		o.AEADFunc = aeadFunc
 	}

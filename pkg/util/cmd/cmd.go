@@ -61,7 +61,7 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 	}
 	for _, opt := range opts {
 		if err = opt(c); err != nil {
-			return nil, fmt.Errorf("fail to apply options: %w", err)
+			return nil, fmt.Errorf("failed to apply options: %w", err)
 		}
 	}
 

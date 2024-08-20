@@ -34,11 +34,11 @@ type AEAD[T any, A tink.AEAD] struct {
 func (s AEAD[T, A]) Value() (driver.Value, error) {
 	aead, err := s.aeadFunc()
 	if err != nil {
-		return nil, fmt.Errorf("fail to obtain AEAD primitive: %w", err)
+		return nil, fmt.Errorf("failed to obtain AEAD primitive: %w", err)
 	}
 	s.b, err = s.btov(s.v)
 	if err != nil {
-		return nil, fmt.Errorf("fail to convert to byte: %w", err)
+		return nil, fmt.Errorf("failed to convert to byte: %w", err)
 	}
 	return aead.Encrypt(s.b, s.ad)
 }
@@ -56,12 +56,12 @@ func (s *AEAD[T, A]) Scan(src any) (err error) {
 
 	aead, err := s.aeadFunc()
 	if err != nil {
-		return fmt.Errorf("fail to obtain AEAD primitive: %w", err)
+		return fmt.Errorf("failed to obtain AEAD primitive: %w", err)
 	}
 
 	s.b, err = aead.Decrypt(b, s.ad)
 	if err != nil {
-		return fmt.Errorf("fail to decrypt: %w", err)
+		return fmt.Errorf("failed to decrypt: %w", err)
 	}
 	s.v, err = s.vtob(s.b)
 	return

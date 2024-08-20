@@ -27,7 +27,7 @@ func main() {
 	}
 	dir, err = filepath.Abs(dir)
 	if err != nil {
-		log.Fatalf("fail to resolve absolute path of %s: %v", dir, err)
+		log.Fatalf("failed to resolve absolute path of %s: %v", dir, err)
 	}
 	src := client.Host().Directory(dir,
 		dagger.HostDirectoryOpts{Exclude: []string{".git", ".dagger"}},
@@ -42,7 +42,7 @@ func main() {
 		WithMountedFile("/docker-entrypoint-initdb.d/schema.sql", src.File("pkg/postgres/schema.sql"))
 	postgresService, err := postgres.AsService().Start(ctx)
 	if err != nil {
-		log.Fatalf("fail to start postgres service %v", err)
+		log.Fatalf("failed to start postgres service %v", err)
 	}
 
 	// start kafka container
@@ -58,7 +58,7 @@ func main() {
 		WithEnvVariable("KAFKA_CFG_CONTROLLER_LISTENER_NAMES", "CONTROLLER")
 	kafkaService, err := kafka.AsService().Start(ctx)
 	if err != nil {
-		log.Fatalf("fail to start redpanda service %v", err)
+		log.Fatalf("failed to start redpanda service %v", err)
 	}
 
 	waiter := client.Container().From("alpine").
@@ -93,6 +93,6 @@ func main() {
 		)
 	_, err = test.File("coverage.out").Export(ctx, filepath.Join(dir, "coverage.out"))
 	if err != nil {
-		log.Fatalf("fail to export coverage: %v", err)
+		log.Fatalf("failed to export coverage: %v", err)
 	}
 }

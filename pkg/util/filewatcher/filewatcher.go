@@ -47,12 +47,12 @@ func (fw FileWatcher) watchLoop() {
 func (fw FileWatcher) watch() (err error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("fail to instantiate fsnotify watcher: %w", err)
+		return fmt.Errorf("failed to instantiate fsnotify watcher: %w", err)
 	}
 	defer watcher.Close()
 
 	if err = watcher.Add(fw.path); err != nil {
-		return fmt.Errorf("fail to watch %s: %w", fw.path, err)
+		return fmt.Errorf("failed to watch %s: %w", fw.path, err)
 	}
 
 	for {
@@ -83,7 +83,7 @@ func (fw FileWatcher) watch() (err error) {
 		case event.Has(fsnotify.Remove) || event.Has(fsnotify.Chmod):
 			watcher.Remove(fw.path)
 			if err := watcher.Add(fw.path); err != nil {
-				return fmt.Errorf("fail to re-add watched file: %w", err)
+				return fmt.Errorf("failed to re-add watched file: %w", err)
 			}
 
 		default:

@@ -46,7 +46,7 @@ func New(opts ...OptFunc) (h HTTPClient, err error) {
 
 	for _, opt := range opts {
 		if err = opt(&h); err != nil {
-			return h, fmt.Errorf("fail to apply option: %w", err)
+			return h, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
 	h.Client.Transport = otelhttp.NewTransport(h.tr)

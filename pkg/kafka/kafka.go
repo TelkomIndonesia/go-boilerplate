@@ -37,7 +37,7 @@ func New(opts ...OptFunc) (k *Kafka, err error) {
 	k = &Kafka{}
 	for _, opt := range opts {
 		if err = opt(k); err != nil {
-			return nil, fmt.Errorf("fail to apply options: %w", err)
+			return nil, fmt.Errorf("failed to apply options: %w", err)
 		}
 	}
 	if len(k.brokers) == 0 {
@@ -48,12 +48,12 @@ func New(opts ...OptFunc) (k *Kafka, err error) {
 	saramaConfig.Version = sarama.V2_0_0_0
 	sender, err := kafka_sarama.NewSender(k.brokers, saramaConfig, k.topic)
 	if err != nil {
-		return nil, fmt.Errorf("fail to instantiate cloudevents kafka sender")
+		return nil, fmt.Errorf("failed to instantiate cloudevents kafka sender")
 	}
 
 	k.client, err = cloudevents.NewClient(sender, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
 	if err != nil {
-		return nil, fmt.Errorf("fail to instantiate cloudevents client")
+		return nil, fmt.Errorf("failed to instantiate cloudevents client")
 	}
 	return
 }

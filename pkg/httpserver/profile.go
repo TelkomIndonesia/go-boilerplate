@@ -35,7 +35,7 @@ func (s oapiServerImplementation) GetProfile(ctx context.Context, request oapi.G
 func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.PostProfileRequestObject) (oapi.PostProfileResponseObject, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return nil, fmt.Errorf("fail to create id: %w", err)
+		return nil, fmt.Errorf("failed to create id: %w", err)
 	}
 
 	pr := &profile.Profile{
@@ -51,7 +51,7 @@ func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.
 	if request.Params.Validate != nil && *request.Params.Validate {
 		err = s.h.profileMgr.ValidateProfile(ctx, pr)
 		if err != nil {
-			s.h.logger.Error("fail to validate repo", log.Error("error", err))
+			s.h.logger.Error("failed to validate repo", log.Error("error", err))
 			return nil, err
 		}
 	}

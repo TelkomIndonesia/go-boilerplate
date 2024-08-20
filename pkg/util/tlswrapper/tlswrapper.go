@@ -40,7 +40,7 @@ func WithLeafCert(key, cert string) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.keyPath, c.certPath = key, cert
 		if err = c.loadLeaf(); err != nil {
-			return fmt.Errorf("fail to load leaf cert: %w", err)
+			return fmt.Errorf("failed to load leaf cert: %w", err)
 		}
 
 		cw, err := filewatcher.New(cert, func(s string, err error) {
@@ -55,7 +55,7 @@ func WithLeafCert(key, cert string) OptFunc {
 			c.logger.Info("leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
 		})
 		if err != nil {
-			return fmt.Errorf("fail to instantiate leaf cert content watcher")
+			return fmt.Errorf("failed to instantiate leaf cert content watcher")
 		}
 
 		c.closers = append(c.closers, cw.Close)
@@ -67,7 +67,7 @@ func WithCA(path string) OptFunc {
 	return func(c *wrapper) (err error) {
 		c.caPath = path
 		if err = c.loadCA(); err != nil {
-			return fmt.Errorf("fail to load CA: %w", err)
+			return fmt.Errorf("failed to load CA: %w", err)
 		}
 
 		cw, err := filewatcher.New(path, func(s string, err error) {
@@ -82,7 +82,7 @@ func WithCA(path string) OptFunc {
 			c.logger.Info("ca-file-watcher", log.String("info", "ca file updated"))
 		})
 		if err != nil {
-			return fmt.Errorf("fail to instantiate ca content watcher")
+			return fmt.Errorf("failed to instantiate ca content watcher")
 		}
 
 		c.closers = append(c.closers, cw.Close)
@@ -129,7 +129,7 @@ func New(opts ...OptFunc) (c TLSWrapper, err error) {
 	}
 	for _, opt := range opts {
 		if err = opt(cr); err != nil {
-			return nil, fmt.Errorf("fail to instantiate connector: %w", err)
+			return nil, fmt.Errorf("failed to instantiate connector: %w", err)
 		}
 	}
 	if cr.logger == nil {
@@ -145,7 +145,7 @@ func (c *wrapper) loadLeaf() (err error) {
 
 	cert, err := tls.LoadX509KeyPair(c.certPath, c.keyPath)
 	if err != nil {
-		return fmt.Errorf("fail to load x509 key pair: %w", err)
+		return fmt.Errorf("failed to load x509 key pair: %w", err)
 	}
 
 	c.cert = &cert
@@ -162,18 +162,18 @@ func (c *wrapper) loadCA() (err error) {
 	clientCa := x509.NewCertPool()
 	rootCA, err := x509.SystemCertPool()
 	if err != nil {
-		return fmt.Errorf("fail to load system cert file: %w", err)
+		return fmt.Errorf("failed to load system cert file: %w", err)
 	}
 
 	certs, err := os.ReadFile(c.caPath)
 	if err != nil {
-		return fmt.Errorf("fail to open ca file: %w", err)
+		return fmt.Errorf("failed to open ca file: %w", err)
 	}
 	if ok := rootCA.AppendCertsFromPEM(certs); !ok {
-		return fmt.Errorf("fail to append x509 cert pool: %w", err)
+		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 	if ok := clientCa.AppendCertsFromPEM(certs); !ok {
-		return fmt.Errorf("fail to append x509 cert pool: %w", err)
+		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 
 	c.clientCa = clientCa

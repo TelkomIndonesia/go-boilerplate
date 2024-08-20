@@ -109,7 +109,7 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 			postgres.WithLogger(p.logger),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("fail to instantiate outbox manager: %w", err)
+			return nil, fmt.Errorf("failed to instantiate outbox manager: %w", err)
 		}
 	}
 

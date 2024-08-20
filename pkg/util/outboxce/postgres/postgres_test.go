@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log/tlogger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce/internal/sample"
 	"google.golang.org/protobuf/proto"
@@ -57,7 +58,7 @@ func tNewManagerPostgres(t *testing.T, opts ...OptFunc) *postgres {
 	db, err := sql.Open("postgres", url)
 	require.NoError(t, err)
 
-	p, err := New(append(opts, WithDB(db, url))...)
+	p, err := New(append(opts, WithDB(db, url), WithLogger(tlogger.New(t)))...)
 	require.NoError(t, err, "should create postgres")
 	return p.(*postgres)
 }
@@ -140,7 +141,7 @@ func TestPostgresOutbox(t *testing.T) {
 						p.limit = 10
 						defer p.db.Close()
 
-						outboxce.RelayLoopWithRetry(ctx, p, sender, nil)
+						outboxce.RelayLoopWithRetry(ctx, p, sender, tlogger.New(t))
 					}()
 				}
 			}

@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
+
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log/internal"
 )
 
 var _ Logger = deflogger{}
@@ -37,14 +38,14 @@ func New(opts ...OptFunc) (l Logger, err error) {
 }
 
 type defMessage struct {
-	Level   string     `json:"level"`
-	Message string     `json:"message"`
-	Fields  defContext `json:"fields"`
+	Level   string              `json:"level"`
+	Message string              `json:"message"`
+	Fields  internal.MapContext `json:"fields"`
 }
 
 func (d deflogger) println(level string, message string, fn ...LogContextFunc) {
-	ctx := defContext{}
-	for _, fn := range fn {
+	ctx := internal.MapContext{}
+	for _, fn := range append(d.ctxFunc, fn...) {
 		fn(ctx)
 	}
 	json.NewEncoder(d.w).Encode(defMessage{
@@ -75,54 +76,4 @@ func (d deflogger) WithCtx(f LogContextFunc) Logger {
 	return d
 }
 
-var _ LogContext = defContext{}
-
-type defContext map[string]any
-
-func (d defContext) Any(key string, value any) {
-	if s, ok := value.(fmt.Stringer); ok {
-		d.String(key, s.String())
-		return
-	}
-	if s, ok := value.(error); ok {
-		d.String(key, s.Error())
-		return
-	}
-	d[key] = value
-}
-
-func (d defContext) Bool(key string, value bool) {
-	d[key] = value
-}
-
-func (d defContext) ByteString(key string, value []byte) {
-	d[key] = value
-}
-
-func (d defContext) String(key string, value string) {
-	d[key] = value
-}
-
-func (d defContext) Float64(key string, value float64) {
-	d[key] = value
-}
-
-func (d defContext) Int64(key string, value int64) {
-	d[key] = value
-}
-
-func (d defContext) Uint64(key string, value uint64) {
-	d[key] = value
-}
-
-func (d defContext) Time(key string, value time.Time) {
-	d[key] = value
-}
-
-func (d defContext) Duration(key string, value time.Duration) {
-	d[key] = value
-}
-
-func (d defContext) Error(key string, value error) {
-	d[key] = value.Error()
-}
+var _ LogContext = internal.MapContext{}

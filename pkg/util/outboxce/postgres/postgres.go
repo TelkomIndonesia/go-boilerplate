@@ -284,6 +284,8 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 		return nil
 	}
 
+	p.logger.Warn("got partial relay error", log.Error("error", err))
+
 	ids := []string{}
 	for _, e := range *errRelay {
 		ids = append(ids, e.Event.ID())

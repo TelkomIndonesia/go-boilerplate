@@ -113,15 +113,15 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		}
 	}
 
-	go p.observeOutboxes()
+	go p.relayOutboxes()
 
 	return p, nil
 }
 
-func (p *Postgres) observeOutboxes() {
+func (p *Postgres) relayOutboxes() {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
-	outboxce.ObserveWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
+	outboxce.RelayLoopWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
 }
 
 func (p *Postgres) aeadFunc(tenantID *uuid.UUID) func() (crypt.PrimitiveAEAD, error) {

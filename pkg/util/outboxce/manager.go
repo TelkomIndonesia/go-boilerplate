@@ -9,5 +9,5 @@ import (
 type Manager interface {
 	Store(ctx context.Context, tx *sql.Tx, ob OutboxCE) (err error)
 
-	Observe(ctx context.Context, relayFunc RelayFunc) (err error)
+	RelayLoop(ctx context.Context, relayFunc RelayFunc) (err error)
 }

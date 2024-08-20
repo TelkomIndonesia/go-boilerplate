@@ -38,6 +38,13 @@ func WithMaxWaitNotif(d time.Duration) OptFunc {
 	}
 }
 
+func WithMaxRelayBulk(d int) OptFunc {
+	return func(p *postgres) error {
+		p.limit = d
+		return nil
+	}
+}
+
 func WithLogger(l log.Logger) OptFunc {
 	return func(p *postgres) error {
 		p.logger = l
@@ -123,7 +130,7 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 	return
 }
 
-func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (err error) {
+func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) (err error) {
 	if relayFunc == nil {
 		p.logger.Warn("No outbox sender, will do nothing.")
 		<-ctx.Done()

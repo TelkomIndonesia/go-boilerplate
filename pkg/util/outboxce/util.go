@@ -11,7 +11,7 @@ import (
 	"github.com/tink-crypto/tink-go/v2/tink"
 )
 
-func ObserveWithRetry(ctx context.Context, m Manager, s RelayFunc, l log.Logger) {
+func RelayLoopWithRetry(ctx context.Context, m Manager, s RelayFunc, l log.Logger) {
 	if m == nil {
 		m = ManagerNOP()
 	}
@@ -19,7 +19,7 @@ func ObserveWithRetry(ctx context.Context, m Manager, s RelayFunc, l log.Logger)
 		l = log.Global()
 	}
 	for {
-		if err := m.Observe(ctx, s); err != nil {
+		if err := m.RelayLoop(ctx, s); err != nil {
 			l.Warn("got outbox observer error", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
 

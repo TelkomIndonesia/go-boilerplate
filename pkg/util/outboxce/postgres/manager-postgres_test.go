@@ -140,7 +140,7 @@ func TestPostgresOutbox(t *testing.T) {
 						p.limit = 10
 						defer p.db.Close()
 
-						outboxce.ObserveWithRetry(ctx, p, sender, nil)
+						outboxce.RelayLoopWithRetry(ctx, p, sender, nil)
 					}()
 				}
 			}

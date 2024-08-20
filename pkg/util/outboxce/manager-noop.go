@@ -13,7 +13,7 @@ func (n managerNOP) Store(ctx context.Context, tx *sql.Tx, ob OutboxCE) (err err
 	return
 }
 
-func (n managerNOP) Observe(ctx context.Context, relay RelayFunc) (err error) {
+func (n managerNOP) RelayLoop(ctx context.Context, relay RelayFunc) (err error) {
 	<-ctx.Done()
 	return ctx.Err()
 }

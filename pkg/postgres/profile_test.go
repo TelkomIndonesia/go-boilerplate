@@ -98,7 +98,7 @@ func TestProfileBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		i := 0
-		ob.Observe(ctx, func(ctx context.Context, evs []event.Event) error {
+		ob.RelayLoop(ctx, func(ctx context.Context, evs []event.Event) error {
 			for _, e := range evs {
 				if i++; i >= len(profiles) {
 					cancel()

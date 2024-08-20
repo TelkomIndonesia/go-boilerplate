@@ -85,8 +85,8 @@ func TestNewManagerPostgres(t *testing.T) {
 func TestPostgresOutbox(t *testing.T) {
 	manager := tGetManagerPostgresTruncated(t)
 
-	for _, isEncrypted := range []bool{false, true, false, true} {
-		t.Run(fmt.Sprintf("encrypted:%v", isEncrypted), func(t *testing.T) {
+	for i, isEncrypted := range []bool{false, true, false, true} {
+		t.Run(fmt.Sprintf("idx%dEncrypted%v", i, isEncrypted), func(t *testing.T) {
 			ctx := context.Background()
 
 			eventSource := "data/" + uuid.NewString()

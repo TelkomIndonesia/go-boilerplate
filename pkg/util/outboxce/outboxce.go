@@ -107,7 +107,7 @@ func FromEvent(e event.Event, aeadFunc AEADFunc, Unmarshaller func([]byte) (prot
 		}
 		d, err = aead.Decrypt(d, []byte(e.ID()))
 		if err != nil {
-			return o, fmt.Errorf("fail to obtain aead primitive: %w", err)
+			return o, fmt.Errorf("fail to decrypt: %w", err)
 		}
 		o.AEADFunc = aeadFunc
 	}

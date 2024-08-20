@@ -16,12 +16,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const (
-	outboxSource            = "https://github.com/TelkomIndonesia/go-boilerplate/"
-	eventProfileStored      = "profile_stored"
-	textHeapTypeProfileName = "profile_name"
-)
-
 func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err error) {
 	_, span := p.tracer.Start(ctx, "storeProfile", trace.WithAttributes(
 		attribute.Stringer("tenantID", pr.TenantID),

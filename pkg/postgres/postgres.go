@@ -19,8 +19,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ profile.ProfileRepository = &Postgres{}
-
 func WithTracer(name string) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.tracer = otel.Tracer(name)
@@ -65,6 +63,8 @@ func WithOutboxManager(m outboxce.Manager) OptFunc {
 }
 
 type OptFunc func(*Postgres) error
+
+var _ profile.ProfileRepository = &Postgres{}
 
 type Postgres struct {
 	dbUrl string

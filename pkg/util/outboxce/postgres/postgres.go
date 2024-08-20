@@ -38,9 +38,9 @@ func WithMaxWaitNotif(d time.Duration) OptFunc {
 	}
 }
 
-func WithMaxRelayBulk(d int) OptFunc {
+func WithMaxRelaySize(d int) OptFunc {
 	return func(p *postgres) error {
-		p.limit = d
+		p.maxRelaySize = d
 		return nil
 	}
 }
@@ -57,7 +57,7 @@ type postgres struct {
 	db    *sql.DB
 
 	maxWaitNotif time.Duration
-	limit        int
+	maxRelaySize int
 
 	channelName string
 	lockID      int64
@@ -68,7 +68,7 @@ type postgres struct {
 func New(opts ...OptFunc) (outboxce.Manager, error) {
 	p := &postgres{
 		maxWaitNotif: time.Minute,
-		limit:        100,
+		maxRelaySize: 100,
 		channelName:  "outboxce",
 		lockID:       keyNameAsHash64("outboxce"),
 		logger:       log.Global(),
@@ -154,11 +154,12 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 	for {
 		timer := time.NewTimer(p.maxWaitNotif)
 		stopTimer := func() {
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
+			if timer.Stop() {
+				return
+			}
+			select {
+			case <-timer.C:
+			default:
 			}
 		}
 
@@ -179,7 +180,7 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 			}
 		}
 
-		last, err = p.relayOutboxes(ctx, relayFunc, p.limit)
+		last, err = p.relayOutboxes(ctx, relayFunc)
 		if err != nil {
 			p.logger.Error("failed to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
 		}
@@ -214,7 +215,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 	}, nil
 }
 
-func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFunc, limit int) (last outboxce.OutboxCE, err error) {
+func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFunc) (last outboxce.OutboxCE, err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return last, fmt.Errorf("failed to open transaction: %w", err)
@@ -234,7 +235,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 		WHERE o.id = cte.id
 		RETURNING o.id, o.tenant_id, o.cloud_event, o.created_at
 	`
-	rows, err := tx.QueryContext(ctx, q, limit)
+	rows, err := tx.QueryContext(ctx, q, p.maxRelaySize)
 	if err != nil {
 		return last, fmt.Errorf("failed to query outboxes: %w", err)
 	}

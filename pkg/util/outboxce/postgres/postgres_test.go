@@ -138,7 +138,7 @@ func TestPostgresOutbox(t *testing.T) {
 
 						p := tNewManagerPostgres(t)
 						p.maxWaitNotif = 0
-						p.limit = 10
+						p.maxRelaySize = 10
 						defer p.db.Close()
 
 						outboxce.RelayLoopWithRetry(ctx, p, sender, tlogger.New(t))

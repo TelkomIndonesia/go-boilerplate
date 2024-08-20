@@ -65,12 +65,12 @@ services:
       - |
         set -e
 
-        kafka-topics.sh --bootstrap-server kafka:9092 --topic outbox --create || true
+        kafka-topics.sh --bootstrap-server kafka:9092 --topic outboxce --create || true
 
         echo "-----------------------------------"
-        echo "start consuming from 'outbox' topic"
+        echo "start consuming from 'outboxce' topic"
         echo "-----------------------------------"
-        kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic outbox
+        kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic outboxce
 
   tenant:
     image: caddy:2.7.6

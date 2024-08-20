@@ -136,7 +136,7 @@ func TestPostgresOutbox(t *testing.T) {
 						defer outboxesWG.Done()
 
 						p := tNewManagerPostgres(t)
-						p.maxNotifyWait = 0
+						p.maxWaitNotif = 0
 						p.limit = 10
 						defer p.db.Close()
 

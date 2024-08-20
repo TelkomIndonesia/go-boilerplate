@@ -31,9 +31,9 @@ func WithDB(db *sql.DB, url string) OptFunc {
 	}
 }
 
-func WithMaxNotifyWait(d time.Duration) OptFunc {
+func WithMaxWaitNotif(d time.Duration) OptFunc {
 	return func(p *postgres) error {
-		p.maxNotifyWait = d
+		p.maxWaitNotif = d
 		return nil
 	}
 }
@@ -49,8 +49,8 @@ type postgres struct {
 	dbUrl string
 	db    *sql.DB
 
-	maxNotifyWait time.Duration
-	limit         int
+	maxWaitNotif time.Duration
+	limit        int
 
 	channelName string
 	lockID      int64
@@ -60,12 +60,12 @@ type postgres struct {
 
 func New(opts ...OptFunc) (outboxce.Manager, error) {
 	p := &postgres{
-		maxNotifyWait: time.Minute,
-		limit:         100,
-		channelName:   "outboxce",
-		lockID:        keyNameAsHash64("outboxce"),
-		logger:        log.Global(),
-		tracer:        otel.Tracer("postgres-outboxce"),
+		maxWaitNotif: time.Minute,
+		limit:        100,
+		channelName:  "outboxce",
+		lockID:       keyNameAsHash64("outboxce"),
+		logger:       log.Global(),
+		tracer:       otel.Tracer("postgres-outboxce"),
 	}
 
 	for _, opt := range opts {
@@ -145,7 +145,7 @@ func (p *postgres) Observe(ctx context.Context, relayFunc outboxce.RelayFunc) (e
 
 	var last outboxce.OutboxCE
 	for {
-		timer := time.NewTimer(p.maxNotifyWait)
+		timer := time.NewTimer(p.maxWaitNotif)
 		stopTimer := func() {
 			if !timer.Stop() {
 				select {

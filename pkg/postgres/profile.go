@@ -59,7 +59,7 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 
 	// outbox
 	ob := outboxce.
-		New(outboxSource, eventProfileStored, pr.TenantID, outbox.FromProfile(pr)).
+		New(outboxceSource, outboxceEventProfileStored, pr.TenantID, outbox.FromProfile(pr)).
 		WithEncryptor(outboxce.TenantAEAD(p.aead))
 	if err = p.outboxManager.Store(ctx, tx, ob); err != nil {
 		return fmt.Errorf("failed to store profile to outbox: %w", err)

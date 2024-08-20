@@ -112,8 +112,8 @@ func TestProfileBasic(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				assert.Equal(t, eventProfileStored, oce.EventType)
-				assert.Equal(t, outboxSource, oce.Source)
+				assert.Equal(t, outboxceEventProfileStored, oce.EventType)
+				assert.Equal(t, outboxceSource, oce.Source)
 				assert.NotNil(t, oce.AEADFunc, "should store as encrypted")
 
 				opr := o.GetProfile()

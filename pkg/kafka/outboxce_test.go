@@ -93,7 +93,7 @@ func TestOutboxcePartialErrors(t *testing.T) {
 
 			k := Kafka{client: client}
 			relayErrs := &outboxce.RelayErrors{}
-			err := k.OutboxceRelayFunc()(context.Background(), events)
+			err := k.OutboxCERelayFunc()(context.Background(), events)
 			switch d.total == d.sent {
 			case false:
 				require.Error(t, err)

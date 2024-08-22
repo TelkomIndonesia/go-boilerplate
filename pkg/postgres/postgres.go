@@ -48,16 +48,16 @@ func WithConnString(connStr string) OptFunc {
 	}
 }
 
-func WithOutboxRelay(r outboxce.RelayFunc) OptFunc {
+func WithOutboxCERelayFunc(r outboxce.RelayFunc) OptFunc {
 	return func(p *Postgres) (err error) {
-		p.outboxRelay = r
+		p.obceRelay = r
 		return
 	}
 }
 
-func WithOutboxManager(m outboxce.Manager) OptFunc {
+func WithOutboxCEManager(m outboxce.Manager) OptFunc {
 	return func(p *Postgres) (err error) {
-		p.outboxManager = m
+		p.obceManager = m
 		return
 	}
 }
@@ -73,8 +73,8 @@ type Postgres struct {
 	aead  *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
 	bidx  *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
 
-	outboxManager outboxce.Manager
-	outboxRelay   outboxce.RelayFunc
+	obceManager outboxce.Manager
+	obceRelay   outboxce.RelayFunc
 
 	tracer trace.Tracer
 	logger log.Logger
@@ -103,8 +103,8 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 	if p.logger == nil {
 		return nil, fmt.Errorf("missing logger")
 	}
-	if p.outboxManager == nil {
-		p.outboxManager, err = postgres.New(
+	if p.obceManager == nil {
+		p.obceManager, err = postgres.New(
 			postgres.WithDB(p.db, p.dbUrl),
 			postgres.WithLogger(p.logger),
 		)
@@ -121,7 +121,7 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 func (p *Postgres) relayOutboxes() {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.closers = append(p.closers, func(ctx context.Context) error { cancel(); return nil })
-	outboxce.RelayLoopWithRetry(ctx, p.outboxManager, p.outboxRelay, p.logger)
+	outboxce.RelayLoopWithRetry(ctx, p.obceManager, p.obceRelay, p.logger)
 }
 
 func (p *Postgres) aeadFunc(tenantID *uuid.UUID) func() (crypt.PrimitiveAEAD, error) {

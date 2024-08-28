@@ -18,7 +18,7 @@ test:
 ci:
 	docker run --rm -i \
 		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v "$$(pwd):$$(pwd)" -w $$(pwd) $$( \
+		-v "$$(pwd):$$(pwd)" -w "$$(pwd)" $$( \
 			DOCKER_BUILDKIT=1 docker build -f .dagger/Dockerfile --label test -q .dagger \
 		)
 	docker rmi -f $$(docker images -q --filter=label=test) || true

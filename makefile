@@ -16,11 +16,10 @@ test:
 	cd .dagger && go run . ..
 
 ci:
-	IMAGE=$$(DOCKER_BUILDKIT=1 docker build -f .dagger/Dockerfile --label test -q .dagger)
 	docker run --rm -i \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-v "$$(pwd):$$(pwd)" -w "$$(pwd)" \
-		$${IMAGE}
+		$$(DOCKER_BUILDKIT=1 docker build -f .dagger/Dockerfile --label test -q .dagger)
 	docker rmi -f $$(docker images -q --filter=label=test) || true
 
 start:

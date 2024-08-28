@@ -1,4 +1,4 @@
-.PHONY: build test start stop certs
+.PHONY:
 
 keys:
 	go run ./tools/gentinkey .local/tink-aead.json .local/tink-mac.json .local/tink-jwt-mac.json
@@ -14,6 +14,14 @@ build:
 
 test: 
 	cd .dagger && go run . ..
+
+ci:
+	docker run --rm -i \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v "$$(pwd):$$(pwd)" -w $$(pwd) $$( \
+			DOCKER_BUILDKIT=1 docker build -f .dagger/Dockerfile --label test -q .dagger \
+		)
+	docker rmi -f $$(docker images -q --filter=label=test) || true
 
 start:
 	docker compose up --build profile

@@ -92,7 +92,7 @@ func New(opts ...OptFunc) (outboxce.Manager, error) {
 }
 
 func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) (err error) {
-	_, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
+	ctx, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
 		attribute.Stringer("tenantID", ob.TenantID),
 		attribute.Stringer("id", ob.ID),
 		attribute.String("eventName", ob.EventType),

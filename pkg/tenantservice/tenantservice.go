@@ -80,7 +80,7 @@ func New(opts ...OptFunc) (ts *TenantService, err error) {
 }
 
 func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profile.Tenant, err error) {
-	_, span := ts.tracer.Start(ctx, "fetchTenant", trace.WithAttributes(
+	ctx, span := ts.tracer.Start(ctx, "fetchTenant", trace.WithAttributes(
 		attribute.Stringer("id", id),
 	))
 	defer span.End()

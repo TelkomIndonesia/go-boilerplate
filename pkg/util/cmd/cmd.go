@@ -14,6 +14,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log/zap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/otel"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/tlswrapper"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/version"
 )
 
 type OptFunc func(*CMD) error
@@ -44,6 +45,7 @@ type CMD struct {
 	TLSMutualAuth           bool    `env:"TLS_MUTUAL_AUTH,expand" json:"tls_mutual_auth"`
 	OtelTraceProvider       *string `env:"OTEL_TRACE_PROVIDER" json:"otel_trace_provider" `
 	LogLevel                *string `env:"LOG_LEVEL" json:"log_level"`
+	Version                 string  `json:"version"`
 
 	tlscfg *tls.Config
 
@@ -57,7 +59,8 @@ type CMD struct {
 
 func New(opts ...OptFunc) (c *CMD, err error) {
 	c = &CMD{
-		tlscfg: &tls.Config{},
+		Version: version.Version(),
+		tlscfg:  &tls.Config{},
 	}
 	for _, opt := range opts {
 		if err = opt(c); err != nil {

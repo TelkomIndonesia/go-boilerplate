@@ -1,7 +1,6 @@
 package version
 
 import (
-	"fmt"
 	"runtime/debug"
 )
 
@@ -13,7 +12,6 @@ func Version() string {
 	v := ""
 	for _, s := range info.Settings {
 		if s.Key != "vcs.revision" {
-			fmt.Println(s.Key, s.Value)
 			continue
 		}
 		v = s.Value

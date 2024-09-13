@@ -15,6 +15,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util/log/types"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/tlswrapper"
 )
 
@@ -48,15 +49,17 @@ func WithOtelLoader(f func(ctx context.Context) func()) OptFunc {
 	}
 }
 
+var _ log.Loggable = CMD{}
+
 type CMD struct {
 	envPrefix string
 	dotenv    bool
 
-	HTTPAddr             string   `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
-	PostgresUrl          string   `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
-	KafkaBrokers         []string `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
-	KafkaTopicOutbox     string   `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
-	TenantServiceBaseUrl string   `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
+	HTTPAddr             string              `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
+	PostgresUrl          types.MaskedUserURL `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
+	KafkaBrokers         []string            `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
+	KafkaTopicOutbox     string              `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
+	TenantServiceBaseUrl types.MaskedUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`
 	logger     log.Logger
@@ -154,7 +157,7 @@ func (c *CMD) initKafka() (err error) {
 
 func (c *CMD) initPostgres() (err error) {
 	opts := []postgres.OptFunc{
-		postgres.WithConnString(c.PostgresUrl),
+		postgres.WithConnString(c.PostgresUrl.String()),
 		postgres.WithDerivableKeysets(c.aead, c.bidx),
 		postgres.WithLogger(c.logger),
 	}
@@ -172,7 +175,7 @@ func (c *CMD) initPostgres() (err error) {
 
 func (c *CMD) initTenantService() (err error) {
 	c.ts, err = tenantservice.New(
-		tenantservice.WithBaseUrl(c.TenantServiceBaseUrl),
+		tenantservice.WithBaseUrl(c.TenantServiceBaseUrl.String()),
 		tenantservice.WithHTTPClient(c.hc.Client),
 		tenantservice.WithLogger(c.logger),
 	)
@@ -216,4 +219,8 @@ func (c *CMD) close(ctx context.Context, err error) error {
 		err = errors.Join(err, fn(ctx))
 	}
 	return err
+}
+
+func (c CMD) AsLog() any {
+	return types.AsLog(c)
 }

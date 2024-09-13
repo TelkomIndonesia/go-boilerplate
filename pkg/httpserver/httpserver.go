@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
@@ -94,6 +95,7 @@ func New(opts ...OptFunc) (h *HTTPServer, err error) {
 
 func (h *HTTPServer) buildServer() (err error) {
 	h.handler.Use(otelecho.Middleware(h.tracerName))
+	h.handler.Use(middleware.Recover())
 	h.registerHealthCheck().
 		registerOpenAPISpec().
 		registerOpenAPIImpl()

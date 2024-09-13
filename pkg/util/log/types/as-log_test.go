@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAsLog(t *testing.T) {
+func TestAsLogStruct(t *testing.T) {
 	in := struct {
 		A MaskedString
 		S []MaskedString
@@ -41,6 +41,19 @@ func TestAsLog(t *testing.T) {
 		out["M"].(map[interface{}]interface{})[k] = v.AsLog()
 	}
 
+	assert.Equal(t, out, AsLog(in))
+	assert.Equal(t, out, AsLog(&in))
+}
+
+func TestAsLogSlice(t *testing.T) {
+	in := []interface{}{
+		MaskedString("ajshopijnmlksda"),
+		"a",
+	}
+	out := []interface{}{
+		"ajs***",
+		"a",
+	}
 	assert.Equal(t, out, AsLog(in))
 	assert.Equal(t, out, AsLog(&in))
 }

@@ -7,87 +7,55 @@ import (
 )
 
 func AsLog(v any) any {
-	m := structToMap(v)
-	if m != nil {
-		return m
-	}
-
-	if v, ok := v.(log.Loggable); ok {
-		return v
-	}
-
-	return v
-
+	return asLogRecurse(v, true)
 }
 
-func structToMap(v interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	val := reflect.ValueOf(v)
+func asLogRecurse(v any, root bool) any {
+	loggable := reflect.TypeOf((*log.Loggable)(nil)).Elem()
+	value := reflect.ValueOf(v)
 	t := reflect.TypeOf(v)
-
 	if t.Kind() == reflect.Ptr {
-		val = val.Elem()
+		value = value.Elem()
 		t = t.Elem()
 	}
 
-	if t.Kind() != reflect.Struct {
-		return nil
+	if !value.IsValid() {
+		return value
 	}
 
-	loggable := reflect.TypeOf((*log.Loggable)(nil)).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		if field.PkgPath != "" {
-			continue
-		}
+	switch {
+	case !root && value.Type().Implements(loggable):
+		return value.Interface().(log.Loggable).AsLog()
 
-		fieldValue := val.Field(i)
-
-		switch {
-		// logable
-		case fieldValue.Type().Implements(loggable):
-			result[field.Name] = fieldValue.Interface().(log.Loggable).AsLog()
-
-		// struct
-		case fieldValue.Kind() == reflect.Struct:
-			result[field.Name] = structToMap(fieldValue.Interface())
-
-		// slice
-		case fieldValue.Kind() == reflect.Slice || fieldValue.Kind() == reflect.Array:
-			var sliceResult []interface{}
-			for j := 0; j < fieldValue.Len(); j++ {
-				item := fieldValue.Index(j)
-				if item.Type().Implements(loggable) {
-					sliceResult = append(sliceResult, item.Interface().(log.Loggable).AsLog())
-				} else if item.Kind() == reflect.Struct {
-					sliceResult = append(sliceResult, structToMap(item.Interface()))
-				} else {
-					sliceResult = append(sliceResult, item.Interface())
-				}
+	case value.Kind() == reflect.Struct:
+		result := make(map[string]interface{})
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			if field.PkgPath != "" {
+				continue
 			}
-			result[field.Name] = sliceResult
 
-		// map
-		case fieldValue.Kind() == reflect.Map:
-			mapResult := make(map[interface{}]interface{})
-			for _, key := range fieldValue.MapKeys() {
-				mapValue := fieldValue.MapIndex(key)
-				if mapValue.Type().Implements(loggable) {
-					mapResult[key.Interface()] = mapValue.Interface().(log.Loggable).AsLog()
-				} else if mapValue.Kind() == reflect.Struct {
-					mapResult[key.Interface()] = structToMap(mapValue.Interface())
-				} else {
-					mapResult[key.Interface()] = mapValue.Interface()
-				}
-			}
-			result[field.Name] = mapResult
-
-		// all others
-		default:
-			result[field.Name] = nil
+			result[field.Name] = asLogRecurse(value.Field(i).Interface(), false)
 		}
+		return result
+
+	case value.Kind() == reflect.Slice || value.Kind() == reflect.Array:
+		var result = make([]interface{}, 0, value.Len())
+		for j := 0; j < value.Len(); j++ {
+			item := value.Index(j)
+			result = append(result, asLogRecurse(item.Interface(), false))
+		}
+		return result
+
+	case value.Kind() == reflect.Map:
+		result := make(map[interface{}]interface{})
+		for _, key := range value.MapKeys() {
+			mapValue := value.MapIndex(key)
+			result[key.Interface()] = asLogRecurse(mapValue.Interface(), false)
+		}
+		return result
+
+	default:
+		return v
 	}
-
-	return result
 }

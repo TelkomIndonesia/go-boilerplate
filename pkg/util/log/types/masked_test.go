@@ -54,15 +54,15 @@ func TestMasked(t *testing.T) {
 		},
 		{
 			in:  MaskedStringUserURL("http://username:password@host:1000/path"),
-			out: "http://use---:pas---@host:1000/path",
+			out: "http://use~~~:pas~~~@host:1000/path",
 		},
 		{
 			in:  MaskedStringUserURL("http://name:word@host/path"),
-			out: "http://nam---:wor---@host/path",
+			out: "http://nam~~~:wor~~~@host/path",
 		},
 		{
 			in:  MaskedStringUserURL("http://tes:tes@host/path"),
-			out: "http://---:---@host/path",
+			out: "http://~~~:~~~@host/path",
 		},
 		{
 			in:  MaskedStringUserURL("http://host/path"),
@@ -70,7 +70,7 @@ func TestMasked(t *testing.T) {
 		},
 		{
 			in:  MaskedStringUserURL("postgres://testing:testing@postgres:5432/testing?sslmode=disable"),
-			out: "postgres://tes---:tes---@postgres:5432/testing?sslmode=disable",
+			out: "postgres://tes~~~:tes~~~@postgres:5432/testing?sslmode=disable",
 		},
 	}
 

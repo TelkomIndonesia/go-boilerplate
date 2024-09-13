@@ -63,8 +63,8 @@ func (m MaskedStringUserURL) AsLog() any {
 
 	p, _ := u.User.Password()
 	u.User = url.UserPassword(
-		MaskedString(u.User.Username()).mask("---"),
-		MaskedString(p).mask("---"),
+		MaskedString(u.User.Username()).mask("~~~"),
+		MaskedString(p).mask("~~~"),
 	)
 	return u.String()
 }

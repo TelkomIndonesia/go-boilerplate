@@ -33,43 +33,43 @@ func TestMasked(t *testing.T) {
 			out: "123***",
 		},
 		{
-			in:  MaskedPrefixString(""),
+			in:  MaskedStringPrefix(""),
 			out: "***",
 		},
 		{
-			in:  MaskedPrefixString("1"),
+			in:  MaskedStringPrefix("1"),
 			out: "***",
 		},
 		{
-			in:  MaskedPrefixString("12"),
+			in:  MaskedStringPrefix("12"),
 			out: "***",
 		},
 		{
-			in:  MaskedPrefixString("123"),
+			in:  MaskedStringPrefix("123"),
 			out: "***",
 		},
 		{
-			in:  MaskedPrefixString("1234567890"),
+			in:  MaskedStringPrefix("1234567890"),
 			out: "***890",
 		},
 		{
-			in:  MaskedUserURL("http://username:password@host:1000/path"),
+			in:  MaskedStringUserURL("http://username:password@host:1000/path"),
 			out: "http://use---:pas---@host:1000/path",
 		},
 		{
-			in:  MaskedUserURL("http://name:word@host/path"),
+			in:  MaskedStringUserURL("http://name:word@host/path"),
 			out: "http://nam---:wor---@host/path",
 		},
 		{
-			in:  MaskedUserURL("http://tes:tes@host/path"),
+			in:  MaskedStringUserURL("http://tes:tes@host/path"),
 			out: "http://---:---@host/path",
 		},
 		{
-			in:  MaskedUserURL("http://host/path"),
+			in:  MaskedStringUserURL("http://host/path"),
 			out: "http://host/path",
 		},
 		{
-			in:  MaskedUserURL("postgres://testing:testing@postgres:5432/testing?sslmode=disable"),
+			in:  MaskedStringUserURL("postgres://testing:testing@postgres:5432/testing?sslmode=disable"),
 			out: "postgres://tes---:tes---@postgres:5432/testing?sslmode=disable",
 		},
 	}
@@ -91,10 +91,10 @@ func TestString(t *testing.T) {
 		m := MaskedString(d)
 		assert.Equal(t, d, m.String())
 
-		p := MaskedPrefixString(d)
+		p := MaskedStringPrefix(d)
 		assert.Equal(t, d, p.String())
 
-		u := MaskedUserURL(d)
+		u := MaskedStringUserURL(d)
 		assert.Equal(t, d, u.String())
 	}
 }

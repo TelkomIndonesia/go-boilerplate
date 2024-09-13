@@ -8,7 +8,7 @@ import (
 
 var (
 	_ log.Loggable = MaskedString("")
-	_ log.Loggable = MaskedUserURL("")
+	_ log.Loggable = MaskedStringUserURL("")
 )
 
 type MaskedString string
@@ -28,30 +28,30 @@ func (m MaskedString) mask(replacer string) string {
 	return string(m)[:3] + replacer
 }
 
-type MaskedPrefixString string
+type MaskedStringPrefix string
 
-func (m MaskedPrefixString) String() string {
+func (m MaskedStringPrefix) String() string {
 	return string(m)
 }
 
-func (m MaskedPrefixString) AsLog() any {
+func (m MaskedStringPrefix) AsLog() any {
 	return m.mask("***")
 }
 
-func (m MaskedPrefixString) mask(replacer string) string {
+func (m MaskedStringPrefix) mask(replacer string) string {
 	if l := len(m); l <= 3 {
 		return replacer
 	}
 	return replacer + string(m)[len(m)-3:]
 }
 
-type MaskedUserURL string
+type MaskedStringUserURL string
 
-func (m MaskedUserURL) String() string {
+func (m MaskedStringUserURL) String() string {
 	return string(m)
 }
 
-func (m MaskedUserURL) AsLog() any {
+func (m MaskedStringUserURL) AsLog() any {
 	u, err := url.Parse(string(m))
 	if err != nil {
 		return string(m)

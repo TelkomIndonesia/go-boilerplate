@@ -55,11 +55,11 @@ type CMD struct {
 	envPrefix string
 	dotenv    bool
 
-	HTTPAddr             string              `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
-	PostgresUrl          types.MaskedUserURL `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
-	KafkaBrokers         []string            `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
-	KafkaTopicOutbox     string              `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
-	TenantServiceBaseUrl types.MaskedUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
+	HTTPAddr             string                    `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
+	PostgresUrl          types.MaskedStringUserURL `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
+	KafkaBrokers         []string                  `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
+	KafkaTopicOutbox     string                    `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
+	TenantServiceBaseUrl types.MaskedStringUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`
 	logger     log.Logger

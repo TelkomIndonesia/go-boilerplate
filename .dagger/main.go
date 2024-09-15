@@ -39,7 +39,8 @@ func main() {
 		WithEnvVariable("POSTGRES_PASSWORD", "testing").
 		WithEnvVariable("POSTGRES_USER", "testing").
 		WithEnvVariable("POSTGRES_DB", "testing").
-		WithMountedFile("/docker-entrypoint-initdb.d/schema.sql", src.File("pkg/postgres/schema.sql"))
+		WithMountedFile("/docker-entrypoint-initdb.d/schema.sql", src.File("pkg/postgres/schema.sql")).
+		WithMountedFile("/docker-entrypoint-initdb.d/outboxce.sql", src.File("pkg/util/outboxce/postgres/schema.sql")) // outboxce
 	postgresService, err := postgres.AsService().Start(ctx)
 	if err != nil {
 		log.Fatalf("failed to start postgres service %v", err)
@@ -72,25 +73,6 @@ func main() {
 			until nc kafka 9092; do echo "wait kafka"; sleep 1; done
 		`})
 
-	// migrate outboxce
-	goose := client.Container().From("golang").
-		WithMountedCache("/go/pkg/mod", client.CacheVolume("golang-mod")).
-		WithMountedCache("/root/.cache/go-build", client.CacheVolume("golang-build")).
-		WithServiceBinding("postgres", postgresService).
-		WithWorkdir(dir).
-		WithMountedDirectory(".", src).
-		WithMountedDirectory("/tmp/waiter", waiter.Directory("/")).
-		WithExec([]string{
-			"go",
-			"run",
-			"-mod=mod",
-			"github.com/pressly/goose/v3/cmd/goose",
-			"-dir=./pkg/util/outboxce/postgres/migration/",
-			"postgres",
-			"postgres://testing:testing@postgres:5432/testing?sslmode=disable",
-			"up",
-		}, dagger.ContainerWithExecOpts{SkipEntrypoint: true})
-
 	// build docker image for running test and run the test
 	image := src.DockerBuild(dagger.DirectoryDockerBuildOpts{
 		Target: "base",
@@ -103,7 +85,6 @@ func main() {
 		WithServiceBinding("kafka", kafkaService).
 		WithEnvVariable("TEST_KAFKA_BROKERS", "kafka:9092").
 		WithMountedDirectory("/tmp/waiter", waiter.Directory("/")).
-		WithMountedDirectory("/tmp/waiter", goose.Directory("/")).
 		WithWorkdir(dir).
 		WithMountedDirectory(".", src).
 		WithExec(

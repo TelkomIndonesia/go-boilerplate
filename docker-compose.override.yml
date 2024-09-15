@@ -3,10 +3,23 @@ volumes:
   go-build:
 
 services:
-  goose:
-    volumes:
-      - go-mod:/go/pkg/mod
-      - go-build:/root/.cache/go-build
+  kafka_topic:
+    image: bitnami/kafka
+    restart: on-failure
+    depends_on:
+      kafka: 
+        condition: service_started
+    entrypoint: [bash, -c]
+    command:
+      - |
+        set -e
+
+        kafka-topics.sh --bootstrap-server kafka:9092 --topic outboxce --create || true
+
+        echo "-----------------------------------"
+        echo "start consuming from 'outboxce' topic"
+        echo "-----------------------------------"
+        kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic outboxce
 
   tenant:
     environment:
@@ -15,8 +28,7 @@ services:
       TLS_CERT_PATH: /src/pkg/httpserver/testdata/tenant.crt
     volumes:
       - .:/src
-      
-    
+
   profile:
     build:
       target: ${PROFILE_DOCKERFILE_TARGET:-base}

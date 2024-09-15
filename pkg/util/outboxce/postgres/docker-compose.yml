@@ -1,0 +1,57 @@
+volumes:
+  goose:
+  goose-build:
+  
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: goose
+  goose:
+    image: golang:1.22
+    depends_on:
+      postgres:
+        condition: service_started
+    volumes:
+      - goose:/go/pkg/mod
+      - goose-build:/root/.cache/go-build
+      - ${PWD:-.}:${PWD:-/src}
+    working_dir: ${PWD:-/src}
+    entrypoint: 
+      - go
+      - run
+      - -mod=mod
+      - github.com/pressly/goose/v3/cmd/goose 
+      - -dir=./migration/
+      - postgres
+      - postgres://postgres:postgres@postgres:5432/goose?sslmode=disable
+    command: 
+      - up
+  pg_dump:
+    image: postgres:16
+    depends_on:
+      goose:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: postgres
+    volumes:
+      - ${PWD:-.}:${PWD:-/src}
+    working_dir: ${PWD:-/src}
+    entrypoint: [pg_dump]
+    command:
+      - "-h"
+      - "postgres"
+      - "-U"
+      - "postgres"
+      - "--schema-only"
+      - "--no-owner"
+      - "--no-privileges"
+      - "--no-acl"
+      - "-T"
+      - "goose_db_*"
+      - "-f"
+      - "schema.sql"
+      - goose

@@ -10,9 +10,9 @@ services:
 
   tenant:
     environment:
-      CA_PATH: /src/pkg/httpserver/testdata/set1/ca.crt
-      TLS_KEY_PATH: /src/pkg/httpserver/testdata/set1/tenant.key
-      TLS_CERT_PATH: /src/pkg/httpserver/testdata/set1/tenant.crt
+      CA_PATH: /src/pkg/httpserver/testdata/ca.crt
+      TLS_KEY_PATH: /src/pkg/httpserver/testdata/tenant.key
+      TLS_CERT_PATH: /src/pkg/httpserver/testdata/tenant.crt
     volumes:
       - .:/src
       
@@ -25,9 +25,9 @@ services:
       PROFILE_AEAD_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-aead.json
       PROFILE_MAC_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-mac.json
       PROFILE_BIDX_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-mac.json
-      PROFILE_TLS_KEY_PATH: $$PWD/pkg/httpserver/testdata/set1/profile.key
-      PROFILE_TLS_CERT_PATH: $$PWD/pkg/httpserver/testdata/set1/profile.crt
-      PROFILE_TLS_CA_PATH: $$PWD/pkg/httpserver/testdata/set1/ca.crt
+      PROFILE_TLS_KEY_PATH: $$PWD/pkg/httpserver/testdata/profile.key
+      PROFILE_TLS_CERT_PATH: $$PWD/pkg/httpserver/testdata/profile.crt
+      PROFILE_TLS_CA_PATH: $$PWD/pkg/httpserver/testdata/ca.crt
     volumes:
       - go-mod:/go/pkg/mod
       - go-build:/root/.cache/go-build

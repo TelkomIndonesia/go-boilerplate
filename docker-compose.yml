@@ -83,7 +83,8 @@ services:
       PROFILE_BIDX_DERIVABLE_KEYSET_PATH: /local/tink-mac.json
       PROFILE_TLS_KEY_PATH: /local/profile.key
       PROFILE_TLS_CERT_PATH: /local/profile.crt
-      PROFILE_TLS_CA_PATH: /local/ca.crt
+      PROFILE_TLS_CLIENT_CA_PATH: /local/ca.crt
+      PROFILE_TLS_ROOT_CA_PATH: /local/ca.crt
       PROFILE_TLS_MUTUAL_AUTH: "false"
       PROFILE_OTEL_TRACE_PROVIDER:
       PROFILE_LOG_LEVEL:

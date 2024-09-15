@@ -42,50 +42,41 @@ func WithLeafCert(key, cert string) OptFunc {
 		if err = c.loadLeaf(); err != nil {
 			return fmt.Errorf("failed to load leaf cert: %w", err)
 		}
-
-		cw, err := filewatcher.New(cert, func(s string, err error) {
-			if err != nil {
-				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
-				return
-			}
-			if err = c.loadLeaf(); err != nil {
-				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
-				return
-			}
-			c.logger.Info("leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
-		})
-		if err != nil {
-			return fmt.Errorf("failed to instantiate leaf cert content watcher")
-		}
-
-		c.closers = append(c.closers, cw.Close)
 		return
 	}
 }
 
 func WithCA(path string) OptFunc {
 	return func(c *wrapper) (err error) {
-		c.caPath = path
-		if err = c.loadCA(); err != nil {
+		c.clientCAPath = path
+		if err = c.loadClientCA(); err != nil {
 			return fmt.Errorf("failed to load CA: %w", err)
 		}
 
-		cw, err := filewatcher.New(path, func(s string, err error) {
-			if err != nil {
-				c.logger.Error("ca-file-watcher", log.Error("error", err))
-				return
-			}
-			if err = c.loadCA(); err != nil {
-				c.logger.Error("ca-file-watcher", log.Error("error", err))
-				return
-			}
-			c.logger.Info("ca-file-watcher", log.String("info", "ca file updated"))
-		})
-		if err != nil {
-			return fmt.Errorf("failed to instantiate ca content watcher")
+		c.rootCAPath = path
+		if err = c.loadRootCA(); err != nil {
+			return fmt.Errorf("failed to load CA: %w", err)
 		}
+		return
+	}
+}
 
-		c.closers = append(c.closers, cw.Close)
+func WithClientCA(path string) OptFunc {
+	return func(c *wrapper) (err error) {
+		c.clientCAPath = path
+		if err = c.loadClientCA(); err != nil {
+			return fmt.Errorf("failed to load CA: %w", err)
+		}
+		return
+	}
+}
+
+func WithRootCA(path string) OptFunc {
+	return func(c *wrapper) (err error) {
+		c.rootCAPath = path
+		if err = c.loadRootCA(); err != nil {
+			return fmt.Errorf("failed to load CA: %w", err)
+		}
 		return
 	}
 }
@@ -107,7 +98,8 @@ func WithLogger(l log.Logger) OptFunc {
 type wrapper struct {
 	keyPath      string
 	certPath     string
-	caPath       string
+	clientCAPath string
+	rootCAPath   string
 	logger       log.Logger
 	cfg          *tls.Config
 	mux          sync.Mutex
@@ -132,11 +124,75 @@ func New(opts ...OptFunc) (c TLSWrapper, err error) {
 			return nil, fmt.Errorf("failed to instantiate connector: %w", err)
 		}
 	}
+	if err := cr.initWatcher(); err != nil {
+		return nil, err
+	}
 	if cr.logger == nil {
 		return nil, fmt.Errorf("missing logger")
 	}
 
 	return cr, err
+}
+
+func (c *wrapper) initWatcher() (err error) {
+	if c.certPath != "" {
+		cw, err := filewatcher.New(c.certPath, func(s string, err error) {
+			if err != nil {
+				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
+				return
+			}
+			if err = c.loadLeaf(); err != nil {
+				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
+				return
+			}
+			c.logger.Info("leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
+		})
+		if err != nil {
+			return fmt.Errorf("failed to instantiate leaf cert content watcher")
+		}
+
+		c.closers = append(c.closers, cw.Close)
+	}
+
+	if c.clientCAPath != "" {
+		cw, err := filewatcher.New(c.clientCAPath, func(s string, err error) {
+			if err != nil {
+				c.logger.Error("client-ca-file-watcher", log.Error("error", err))
+				return
+			}
+			if err = c.loadClientCA(); err != nil {
+				c.logger.Error("client-ca-file-watcher", log.Error("error", err))
+				return
+			}
+			c.logger.Info("client-ca-file-watcher", log.String("info", "ca file updated"))
+		})
+		if err != nil {
+			return fmt.Errorf("failed to instantiate ca content watcher")
+		}
+
+		c.closers = append(c.closers, cw.Close)
+	}
+
+	if c.rootCAPath != "" {
+		cw, err := filewatcher.New(c.rootCAPath, func(s string, err error) {
+			if err != nil {
+				c.logger.Error("root-ca-file-watcher", log.Error("error", err))
+				return
+			}
+			if err = c.loadRootCA(); err != nil {
+				c.logger.Error("root-ca-file-watcher", log.Error("error", err))
+				return
+			}
+			c.logger.Info("root-ca-file-watcher", log.String("info", "ca file updated"))
+		})
+		if err != nil {
+			return fmt.Errorf("failed to instantiate root ca content watcher")
+		}
+
+		c.closers = append(c.closers, cw.Close)
+	}
+
+	return
 }
 
 func (c *wrapper) loadLeaf() (err error) {
@@ -155,30 +211,44 @@ func (c *wrapper) loadLeaf() (err error) {
 	return
 }
 
-func (c *wrapper) loadCA() (err error) {
+func (c *wrapper) loadClientCA() (err error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
 	clientCa := x509.NewCertPool()
-	rootCA, err := x509.SystemCertPool()
-	if err != nil {
-		return fmt.Errorf("failed to load system cert file: %w", err)
-	}
 
-	certs, err := os.ReadFile(c.caPath)
+	certs, err := os.ReadFile(c.clientCAPath)
 	if err != nil {
 		return fmt.Errorf("failed to open ca file: %w", err)
-	}
-	if ok := rootCA.AppendCertsFromPEM(certs); !ok {
-		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 	if ok := clientCa.AppendCertsFromPEM(certs); !ok {
 		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 
 	c.clientCa = clientCa
-	c.rootCA = rootCA
 	c.cfgs = c.serverConfig()
+	c.listenerFunc(c.cfgs, c.cfgc)
+	return
+}
+
+func (c *wrapper) loadRootCA() (err error) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	rootCA, err := x509.SystemCertPool()
+	if err != nil {
+		return fmt.Errorf("failed to load system cert file: %w", err)
+	}
+
+	certs, err := os.ReadFile(c.rootCAPath)
+	if err != nil {
+		return fmt.Errorf("failed to open ca file: %w", err)
+	}
+	if ok := rootCA.AppendCertsFromPEM(certs); !ok {
+		return fmt.Errorf("failed to append x509 cert pool: %w", err)
+	}
+
+	c.rootCA = rootCA
 	c.cfgc = c.clientConfig()
 	c.listenerFunc(c.cfgs, c.cfgc)
 	return

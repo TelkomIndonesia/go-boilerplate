@@ -42,6 +42,8 @@ type CMD struct {
 	TLSKeyPath              *string `env:"TLS_KEY_PATH,expand" json:"tls_key_path"`
 	TLSCertPath             *string `env:"TLS_CERT_PATH,expand" json:"tls_cert_path"`
 	TLSCAPath               *string `env:"TLS_CA_PATH,expand" json:"tls_ca_path"`
+	TLSClientCAPath         *string `env:"TLS_CLIENT_CA_PATH,expand" json:"tls_client_ca_path"`
+	TLSRootCAPath           *string `env:"TLS_ROOT_CA_PATH,expand" json:"tls_root_ca_path"`
 	TLSMutualAuth           bool    `env:"TLS_MUTUAL_AUTH,expand" json:"tls_mutual_auth"`
 	OtelTraceProvider       *string `env:"OTEL_TRACE_PROVIDER" json:"otel_trace_provider" `
 	LogLevel                *string `env:"LOG_LEVEL" json:"log_level"`
@@ -102,6 +104,12 @@ func (c *CMD) initTLSWrapper() {
 	}
 	if c.TLSCAPath != nil {
 		opts = append(opts, tlswrapper.WithCA(*c.TLSCAPath))
+	}
+	if c.TLSClientCAPath != nil {
+		opts = append(opts, tlswrapper.WithClientCA(*c.TLSClientCAPath))
+	}
+	if c.TLSRootCAPath != nil {
+		opts = append(opts, tlswrapper.WithRootCA(*c.TLSRootCAPath))
 	}
 	if c.TLSCertPath != nil && c.TLSKeyPath != nil {
 		opts = append(opts, tlswrapper.WithLeafCert(*c.TLSKeyPath, *c.TLSCertPath))

@@ -32,7 +32,8 @@ func TestReload(t *testing.T) {
 	eventR := make(chan struct{}, 10)
 	twR, err := New(
 		WithTLSConfig(cfg),
-		WithCA(filepath.Join(testdirR, "ca.crt")),
+		WithClientCA(filepath.Join(testdirR, "ca.crt")),
+		WithRootCA(filepath.Join(testdirR, "ca.crt")),
 		WithLeafCert(filepath.Join(testdirR, "profile.key"), filepath.Join(testdirR, "profile.crt")),
 		WithConfigReloadListener(func(s, c *tls.Config) { t.Log("event"); eventR <- struct{}{} }),
 		WithLogger(log.Global().WithCtx(log.Any("test", "test"))),
@@ -41,14 +42,16 @@ func TestReload(t *testing.T) {
 	t.Cleanup(func() { twR.Close(context.Background()) })
 	tw1, err := New(
 		WithTLSConfig(cfg),
-		WithCA("./testdata/set1/ca.crt"),
+		WithClientCA("./testdata/set1/ca.crt"),
+		WithRootCA("./testdata/set1/ca.crt"),
 		WithLeafCert("./testdata/set1/profile.key", "./testdata/set1/profile.crt"),
 	)
 	require.NoError(t, err, "should load certificates in set 1")
 	t.Cleanup(func() { tw1.Close(context.Background()) })
 	tw2, err := New(
 		WithTLSConfig(cfg),
-		WithCA("./testdata/set2/ca.crt"),
+		WithClientCA("./testdata/set2/ca.crt"),
+		WithRootCA("./testdata/set2/ca.crt"),
 		WithLeafCert("./testdata/set2/profile.key", "./testdata/set2/profile.crt"),
 	)
 	require.NoError(t, err, "should load certificates in set 2")

@@ -39,7 +39,8 @@ services:
       PROFILE_BIDX_DERIVABLE_KEYSET_PATH: $$PWD/pkg/postgres/testdata/tink-mac.json
       PROFILE_TLS_KEY_PATH: $$PWD/pkg/httpserver/testdata/profile.key
       PROFILE_TLS_CERT_PATH: $$PWD/pkg/httpserver/testdata/profile.crt
-      PROFILE_TLS_CA_PATH: $$PWD/pkg/httpserver/testdata/ca.crt
+      PROFILE_TLS_CLIENT_CA_PATH: $$PWD/pkg/httpserver/testdata/ca.crt
+      PROFILE_TLS_ROOT_CA_PATH: $$PWD/pkg/httpserver/testdata/ca.crt
     volumes:
       - go-mod:/go/pkg/mod
       - go-build:/root/.cache/go-build

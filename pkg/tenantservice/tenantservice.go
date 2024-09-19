@@ -2,13 +2,13 @@ package tenantservice
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tenantservice/internal/oapi/tenant"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"go.opentelemetry.io/otel"
@@ -56,6 +56,8 @@ type TenantService struct {
 	hc     *http.Client
 	tracer trace.Tracer
 	logger log.Logger
+
+	tc tenant.ClientWithResponsesInterface
 }
 
 func New(opts ...OptFunc) (ts *TenantService, err error) {
@@ -73,6 +75,7 @@ func New(opts ...OptFunc) (ts *TenantService, err error) {
 	if ts.hc == nil {
 		return nil, fmt.Errorf("missing http client")
 	}
+	ts.tc, err = tenant.NewClientWithResponses(ts.base.String(), tenant.WithHTTPClient(ts.hc))
 	if ts.logger == nil {
 		return nil, fmt.Errorf("missing logger")
 	}
@@ -85,27 +88,18 @@ func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profi
 	))
 	defer span.End()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.base.JoinPath("tenants", id.String()).String(), nil)
+	res, err := ts.tc.GetTenantWithResponse(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create http request: %w", err)
+		return nil, fmt.Errorf("failed to fetch tenant: %w", err)
+	}
+	if res.JSONDefault == nil {
+		return nil, fmt.Errorf("upstream tenant data was returned")
 	}
 
-	res, err := ts.hc.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to invoke http request: %w", err)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusNotFound {
-		return nil, nil
-	}
-	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("unexpected status code")
-	}
-
-	err = json.NewDecoder(res.Body).Decode(&t)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize tenant: %w", err)
+	t = &profile.Tenant{
+		ID:     res.JSONDefault.Id,
+		Name:   res.JSONDefault.Name,
+		Expire: res.JSONDefault.Expire,
 	}
 	return
 }

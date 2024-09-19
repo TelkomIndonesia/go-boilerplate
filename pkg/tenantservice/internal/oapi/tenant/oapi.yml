@@ -1,0 +1,46 @@
+openapi: "3.0.0"
+info:
+  title: "Tenant API"
+  version: "1.0.0"
+  license:
+    name: "Internal"
+    url: "http://localhost"
+servers:
+  - url: "https://tenant:8443"
+  - url: "https://localhost:8443"
+security:
+  - {}
+paths:
+  /tenants/{tenant-id}:
+    parameters:
+      - name: tenant-id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: GetTenant
+      summary: get tenant
+      responses:
+        default:
+          description: success
+          content:
+            application/json:
+              schema:
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                    x-go-type-skip-optional-pointer: true
+                  name:
+                    type: string
+                    x-go-type-skip-optional-pointer: true
+                  expire:
+                    type: string
+                    format: date-time
+                    x-go-type-skip-optional-pointer: true
+        404:
+          description: not found
+        500:
+          description: internal server error

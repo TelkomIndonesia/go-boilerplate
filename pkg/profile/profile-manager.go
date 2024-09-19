@@ -19,7 +19,7 @@ func (pm ProfileManager) ValidateProfile(ctx context.Context, p *Profile) (err e
 	if t == nil {
 		return fmt.Errorf("tenant not found: %w", err)
 	}
-	if t.Expire.After(time.Now()) {
+	if t.Expire.Before(time.Now()) {
 		return fmt.Errorf("tenant expired")
 	}
 	return

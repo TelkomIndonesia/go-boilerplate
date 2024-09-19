@@ -35,7 +35,8 @@ purge:
 	docker compose -f docker-compose.yml down --volumes
 
 explain: 
-	@go mod edit -replace github.com/sqlc-dev/sqlc=github.com/telkomindonesia/sqlc@v0.0.0-20240919025041-31c51c47bdfd
+	@docker compose up -d postgres
+	@go mod edit -replace github.com/sqlc-dev/sqlc=github.com/telkomindonesia/sqlc@v0.0.0-20240919043553-64214ea9cd12
 	@go mod tidy
 	@go run github.com/sqlc-dev/sqlc/cmd/sqlc explain -f ./pkg/postgres/sqlc.yaml
 	@go mod edit -dropreplace github.com/sqlc-dev/sqlc

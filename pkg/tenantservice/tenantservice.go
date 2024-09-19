@@ -93,7 +93,7 @@ func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profi
 		return nil, fmt.Errorf("failed to fetch tenant: %w", err)
 	}
 	if res.JSONDefault == nil {
-		return nil, fmt.Errorf("upstream tenant data was returned")
+		return nil, nil
 	}
 
 	t = &profile.Tenant{

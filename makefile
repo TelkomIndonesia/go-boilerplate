@@ -34,5 +34,9 @@ stop:
 purge:
 	docker compose -f docker-compose.yml down --volumes
 
-sqlc-vet: 
-	 SQLCDEBUG=dumpexplain=1 go run github.com/sqlc-dev/sqlc/cmd/sqlc vet -f ./pkg/postgres/sqlc.yaml
+explain: 
+	@go mod edit -replace github.com/sqlc-dev/sqlc=github.com/telkomindonesia/sqlc@v0.0.0-20240919025041-31c51c47bdfd
+	@go mod tidy
+	@go run github.com/sqlc-dev/sqlc/cmd/sqlc explain -f ./pkg/postgres/sqlc.yaml
+	@go mod edit -dropreplace github.com/sqlc-dev/sqlc
+	@go mod tidy

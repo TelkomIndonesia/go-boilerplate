@@ -27,8 +27,8 @@ type HttpRequestDoer interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// TenantClient which conforms to the OpenAPI3 specification for this service.
-type TenantClient struct {
+// Client which conforms to the OpenAPI3 specification for this service.
+type Client struct {
 	// The endpoint of the server conforming to this interface, with scheme,
 	// https://api.deepmap.com for example. This can contain a path relative
 	// to the server, such as https://api.deepmap.com/dev-test, and all the
@@ -45,12 +45,12 @@ type TenantClient struct {
 }
 
 // ClientOption allows setting custom parameters during construction
-type ClientOption func(*TenantClient) error
+type ClientOption func(*Client) error
 
-// Creates a new TenantClient, with reasonable defaults
-func NewClient(server string, opts ...ClientOption) (*TenantClient, error) {
+// Creates a new Client, with reasonable defaults
+func NewClient(server string, opts ...ClientOption) (*Client, error) {
 	// create a client with sane default values
-	client := TenantClient{
+	client := Client{
 		Server: server,
 	}
 	// mutate client and add all optional params
@@ -73,7 +73,7 @@ func NewClient(server string, opts ...ClientOption) (*TenantClient, error) {
 // WithHTTPClient allows overriding the default Doer, which is
 // automatically created using http.Client. This is useful for tests.
 func WithHTTPClient(doer HttpRequestDoer) ClientOption {
-	return func(c *TenantClient) error {
+	return func(c *Client) error {
 		c.Client = doer
 		return nil
 	}
@@ -82,7 +82,7 @@ func WithHTTPClient(doer HttpRequestDoer) ClientOption {
 // WithRequestEditorFn allows setting up a callback function, which will be
 // called right before sending the request. This can be used to mutate the request.
 func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
-	return func(c *TenantClient) error {
+	return func(c *Client) error {
 		c.RequestEditors = append(c.RequestEditors, fn)
 		return nil
 	}
@@ -94,7 +94,7 @@ type ClientInterface interface {
 	GetTenant(ctx context.Context, tenantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *TenantClient) GetTenant(ctx context.Context, tenantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetTenant(ctx context.Context, tenantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTenantRequest(c.Server, tenantId)
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func NewGetTenantRequest(server string, tenantId openapi_types.UUID) (*http.Requ
 	return req, nil
 }
 
-func (c *TenantClient) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
+func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
 			return err
@@ -171,7 +171,7 @@ func NewClientWithResponses(server string, opts ...ClientOption) (*ClientWithRes
 
 // WithBaseURL overrides the baseURL.
 func WithBaseURL(baseURL string) ClientOption {
-	return func(c *TenantClient) error {
+	return func(c *Client) error {
 		newBaseURL, err := url.Parse(baseURL)
 		if err != nil {
 			return err

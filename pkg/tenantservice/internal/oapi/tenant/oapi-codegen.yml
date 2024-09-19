@@ -6,4 +6,3 @@ output: oapi.gen.go
 output-options:
   include-operation-ids:
     - GetTenant
-  client-type-name: TenantClient

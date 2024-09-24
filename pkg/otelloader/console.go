@@ -1,16 +1,18 @@
-package otel
+package otelloader
 
 import (
 	"context"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
-func withTraceOTLPGRPCExporter(ctx context.Context, opts ...otlptracegrpc.Option) func() {
-	traceExporter, _ := otlptracegrpc.New(ctx, opts...)
+func withTraceConsoleExporter(ctx context.Context, opts ...stdouttrace.Option) func() {
+	traceExporter, _ := stdouttrace.New(
+		append(opts,
+			stdouttrace.WithPrettyPrint(),
+		)...)
 
 	traceProvider := trace.NewTracerProvider(
 		trace.WithBatcher(traceExporter),

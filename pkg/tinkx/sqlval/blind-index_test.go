@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/tink-crypto/tink-go/v2/keyderivation"
 	"github.com/tink-crypto/tink-go/v2/keyset"
 	"github.com/tink-crypto/tink-go/v2/mac"
@@ -41,7 +41,7 @@ func TestBlindIndex(t *testing.T) {
 	}
 	h, err := mgr.Handle()
 	require.NoError(t, err)
-	m, err := crypto.NewDerivableKeyset(h, crypto.NewPrimitiveBIDXWithLen(16))
+	m, err := tinkx.NewDerivableKeyset(h, tinkx.NewPrimitiveBIDXWithLen(16))
 	require.NoError(t, err)
 
 	rwrap := func(b [][]byte) driver.Valuer { return tByteArrayValuer(b) }

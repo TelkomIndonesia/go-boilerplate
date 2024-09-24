@@ -1,4 +1,4 @@
-package filewatcher
+package filewatch
 
 import (
 	"context"
@@ -8,14 +8,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-type FileWatcher struct {
+type FileWatch struct {
 	path   string
 	done   chan struct{}
 	notify func(path string, err error)
 }
 
-func New(path string, notify func(string, error)) (fw FileWatcher, err error) {
-	fw = FileWatcher{
+func New(path string, notify func(string, error)) (fw FileWatch, err error) {
+	fw = FileWatch{
 		path: path,
 
 		notify: notify,
@@ -25,7 +25,7 @@ func New(path string, notify func(string, error)) (fw FileWatcher, err error) {
 	return
 }
 
-func (fw FileWatcher) watchLoop() {
+func (fw FileWatch) watchLoop() {
 	var delay = time.Minute
 	var last = time.Now().Add(-time.Minute)
 	for {
@@ -44,7 +44,7 @@ func (fw FileWatcher) watchLoop() {
 	}
 }
 
-func (fw FileWatcher) watch() (err error) {
+func (fw FileWatch) watch() (err error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to instantiate fsnotify watcher: %w", err)
@@ -94,7 +94,7 @@ func (fw FileWatcher) watch() (err error) {
 	}
 }
 
-func (fw FileWatcher) Close(ctx context.Context) (err error) {
+func (fw FileWatch) Close(ctx context.Context) (err error) {
 	close(fw.done)
 	return
 }

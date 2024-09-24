@@ -10,8 +10,8 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/outbox"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto/sqlval"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx/sqlval"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )

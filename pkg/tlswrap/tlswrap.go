@@ -1,4 +1,4 @@
-package tlswrapper
+package tlswrap
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/filewatcher"
+	"github.com/telkomindonesia/go-boilerplate/pkg/filewatch"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
 
@@ -19,13 +19,14 @@ type Dialer interface {
 	DialContext(ctx context.Context, net string, addr string) (net.Conn, error)
 }
 
-type TLSWrapper interface {
-	WrapListener(net.Listener) net.Listener
-	WrapDialer(*net.Dialer) Dialer
+type TLSWrap interface {
+	Listener(net.Listener) net.Listener
+	Dialer(*net.Dialer) Dialer
+
 	Close(context.Context) error
 }
 
-var _ TLSWrapper = &wrapper{}
+var _ TLSWrap = &wrapper{}
 
 type OptFunc func(*wrapper) error
 
@@ -113,7 +114,7 @@ type wrapper struct {
 	cfgc     *tls.Config
 }
 
-func New(opts ...OptFunc) (c TLSWrapper, err error) {
+func New(opts ...OptFunc) (c TLSWrap, err error) {
 	cr := &wrapper{
 		logger:       log.Global(),
 		cfg:          &tls.Config{},
@@ -136,7 +137,7 @@ func New(opts ...OptFunc) (c TLSWrapper, err error) {
 
 func (c *wrapper) initWatcher() (err error) {
 	if c.certPath != "" {
-		cw, err := filewatcher.New(c.certPath, func(s string, err error) {
+		cw, err := filewatch.New(c.certPath, func(s string, err error) {
 			if err != nil {
 				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
 				return
@@ -155,7 +156,7 @@ func (c *wrapper) initWatcher() (err error) {
 	}
 
 	if c.clientCAPath != "" {
-		cw, err := filewatcher.New(c.clientCAPath, func(s string, err error) {
+		cw, err := filewatch.New(c.clientCAPath, func(s string, err error) {
 			if err != nil {
 				c.logger.Error("client-ca-file-watcher", log.Error("error", err))
 				return
@@ -174,7 +175,7 @@ func (c *wrapper) initWatcher() (err error) {
 	}
 
 	if c.rootCAPath != "" {
-		cw, err := filewatcher.New(c.rootCAPath, func(s string, err error) {
+		cw, err := filewatch.New(c.rootCAPath, func(s string, err error) {
 			if err != nil {
 				c.logger.Error("root-ca-file-watcher", log.Error("error", err))
 				return
@@ -287,11 +288,11 @@ func (c *wrapper) getCertificate() (*tls.Certificate, error) {
 	return c.cert, nil
 }
 
-func (c *wrapper) WrapDialer(d *net.Dialer) Dialer {
+func (c *wrapper) Dialer(d *net.Dialer) Dialer {
 	return dialer{c: c, d: d}
 }
 
-func (c *wrapper) WrapListener(l net.Listener) net.Listener {
+func (c *wrapper) Listener(l net.Listener) net.Listener {
 	return listener{c: c, l: l}
 }
 

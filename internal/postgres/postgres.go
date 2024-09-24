@@ -10,10 +10,10 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce/postgres"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -32,7 +32,7 @@ func WithLogger(l log.Logger) OptFunc {
 	}
 }
 
-func WithDerivableKeysets(aead *crypto.DerivableKeyset[crypto.PrimitiveAEAD], bidx *crypto.DerivableKeyset[crypto.PrimitiveBIDX]) OptFunc {
+func WithDerivableKeysets(aead *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], bidx *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.aead = aead
 		p.bidx = bidx
@@ -70,8 +70,8 @@ type Postgres struct {
 	dbUrl string
 	db    *sql.DB
 	q     *sqlc.Queries
-	aead  *crypto.DerivableKeyset[crypto.PrimitiveAEAD]
-	bidx  *crypto.DerivableKeyset[crypto.PrimitiveBIDX]
+	aead  *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD]
+	bidx  *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]
 
 	obceManager outboxce.Manager
 	obceRelay   outboxce.RelayFunc
@@ -124,33 +124,33 @@ func (p *Postgres) relayOutboxes() {
 	outboxce.RelayLoopWithRetry(ctx, p.obceManager, p.obceRelay, p.logger)
 }
 
-func (p *Postgres) aeadFunc(tenantID *uuid.UUID) func() (crypto.PrimitiveAEAD, error) {
+func (p *Postgres) aeadFunc(tenantID *uuid.UUID) func() (tinkx.PrimitiveAEAD, error) {
 	if tenantID == nil {
-		return func() (crypto.PrimitiveAEAD, error) { return crypto.PrimitiveAEAD{}, fmt.Errorf("nil Tenant ID") }
+		return func() (tinkx.PrimitiveAEAD, error) { return tinkx.PrimitiveAEAD{}, fmt.Errorf("nil Tenant ID") }
 	}
 
 	return p.aead.GetPrimitiveFunc(tenantID[:])
 }
 
-func (p *Postgres) bidxFunc(tenantID *uuid.UUID) func() (crypto.PrimitiveBIDX, error) {
+func (p *Postgres) bidxFunc(tenantID *uuid.UUID) func() (tinkx.PrimitiveBIDX, error) {
 	if tenantID == nil {
-		return func() (crypto.PrimitiveBIDX, error) { return crypto.PrimitiveBIDX{}, fmt.Errorf("nil Tenant ID") }
+		return func() (tinkx.PrimitiveBIDX, error) { return tinkx.PrimitiveBIDX{}, fmt.Errorf("nil Tenant ID") }
 	}
 
 	return p.bidx.GetPrimitiveFunc(tenantID[:])
 }
 
-func (p *Postgres) bidxFullFunc(tenantID *uuid.UUID) func() (crypto.PrimitiveBIDX, error) {
+func (p *Postgres) bidxFullFunc(tenantID *uuid.UUID) func() (tinkx.PrimitiveBIDX, error) {
 	if tenantID == nil {
-		return func() (crypto.PrimitiveBIDX, error) { return crypto.PrimitiveBIDX{}, fmt.Errorf("nil Tenant ID") }
+		return func() (tinkx.PrimitiveBIDX, error) { return tinkx.PrimitiveBIDX{}, fmt.Errorf("nil Tenant ID") }
 	}
 
 	pb, err := p.bidx.GetPrimitive(tenantID[:])
 	if err != nil {
-		return func() (crypto.PrimitiveBIDX, error) { return crypto.PrimitiveBIDX{}, err }
+		return func() (tinkx.PrimitiveBIDX, error) { return tinkx.PrimitiveBIDX{}, err }
 	}
-	b, err := crypto.CopyBIDXWithLen(pb, 0)
-	return func() (crypto.PrimitiveBIDX, error) { return crypto.PrimitiveBIDX{BIDX: b}, nil }
+	b, err := tinkx.CopyBIDXWithLen(pb, 0)
+	return func() (tinkx.PrimitiveBIDX, error) { return tinkx.PrimitiveBIDX{BIDX: b}, nil }
 }
 
 func (p *Postgres) Close(ctx context.Context) (err error) {

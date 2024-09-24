@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cloudevents/sdk-go/v2/event"
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/tink-crypto/tink-go/v2/tink"
 )
 
@@ -32,7 +32,7 @@ func RelayLoopWithRetry(ctx context.Context, m Manager, s RelayFunc, l log.Logge
 	}
 }
 
-func TenantAEAD(dk *crypto.DerivableKeyset[crypto.PrimitiveAEAD]) func(event.Event) (tink.AEAD, error) {
+func TenantAEAD(dk *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD]) func(event.Event) (tink.AEAD, error) {
 	return func(e event.Event) (tink.AEAD, error) {
 		aead, err := dk.GetPrimitive([]byte(e.Subject()))
 		return aead, err

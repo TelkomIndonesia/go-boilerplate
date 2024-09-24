@@ -8,7 +8,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/tink-crypto/tink-go/v2/tink"
 )
 
@@ -16,7 +16,7 @@ var _ interface {
 	sql.Scanner
 	driver.Value
 } = &AEAD[any, tink.AEAD]{}
-var _ AEADFunc[crypto.PrimitiveAEAD] = (*crypto.DerivableKeyset[crypto.PrimitiveAEAD])(nil).GetPrimitiveFunc(nil)
+var _ AEADFunc[tinkx.PrimitiveAEAD] = (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD])(nil).GetPrimitiveFunc(nil)
 
 type AEADFunc[A tink.AEAD] func() (A, error)
 

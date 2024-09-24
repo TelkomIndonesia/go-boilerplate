@@ -1,4 +1,4 @@
-package otel
+package otelloader
 
 import (
 	"github.com/go-logr/logr"

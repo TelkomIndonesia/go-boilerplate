@@ -7,13 +7,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/tlogger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 )
 
 var testPostgres *Postgres
-var testAEAD *crypto.DerivableKeyset[crypto.PrimitiveAEAD]
-var testBIDX *crypto.DerivableKeyset[crypto.PrimitiveBIDX]
+var testAEAD *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD]
+var testBIDX *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]
 var testPostgresSync, testKeysetHandleSync sync.Mutex
 
 func tGetPostgresTruncated(t *testing.T) *Postgres {
@@ -71,7 +71,7 @@ func tNewPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 	return p
 }
 
-func tGetKeysetHandle(t *testing.T) (aeadh *crypto.DerivableKeyset[crypto.PrimitiveAEAD], mach *crypto.DerivableKeyset[crypto.PrimitiveBIDX]) {
+func tGetKeysetHandle(t *testing.T) (aeadh *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], mach *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]) {
 	if testAEAD == nil || testBIDX == nil {
 		testKeysetHandleSync.Lock()
 		defer testKeysetHandleSync.Unlock()
@@ -79,12 +79,12 @@ func tGetKeysetHandle(t *testing.T) (aeadh *crypto.DerivableKeyset[crypto.Primit
 
 	var err error
 	if testAEAD == nil {
-		testAEAD, err = crypto.NewInsecureCleartextDerivableKeyset("./testdata/tink-aead.json", crypto.NewPrimitiveAEAD)
+		testAEAD, err = tinkx.NewInsecureCleartextDerivableKeyset("./testdata/tink-aead.json", tinkx.NewPrimitiveAEAD)
 		require.NoError(t, err, "should create aead derivable keyset")
 	}
 
 	if testBIDX == nil {
-		testBIDX, err = crypto.NewInsecureCleartextDerivableKeyset("./testdata/tink-mac.json", crypto.NewPrimitiveBIDXWithLen(16))
+		testBIDX, err = tinkx.NewInsecureCleartextDerivableKeyset("./testdata/tink-mac.json", tinkx.NewPrimitiveBIDXWithLen(16))
 		require.NoError(t, err, "should create mac derivable keyset")
 	}
 

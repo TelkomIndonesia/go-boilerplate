@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/otel"
+	"github.com/telkomindonesia/go-boilerplate/pkg/otelloader"
 	opentelemetry "go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -19,7 +19,7 @@ import (
 
 func TestOtel(t *testing.T) {
 	ctx := context.Background()
-	otel.WithTraceProvider(ctx, "datadog", log.Global())
+	otelloader.WithTraceProvider(ctx, "datadog", log.Global())
 
 	_, span := opentelemetry.Tracer("test").
 		Start(ctx, "test", trace.WithAttributes(

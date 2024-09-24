@@ -7,15 +7,15 @@ import (
 	"math"
 	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 )
 
-var _ driver.Value = BIDX[any, crypto.BIDX]{}
-var _ BIDXFunc[crypto.PrimitiveBIDX] = (*crypto.DerivableKeyset[crypto.PrimitiveBIDX])(nil).GetPrimitiveFunc(nil)
+var _ driver.Value = BIDX[any, tinkx.BIDX]{}
+var _ BIDXFunc[tinkx.PrimitiveBIDX] = (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX])(nil).GetPrimitiveFunc(nil)
 
-type BIDXFunc[B crypto.BIDX] func() (B, error)
+type BIDXFunc[B tinkx.BIDX] func() (B, error)
 type BIDXReadWrapper func([][]byte) driver.Valuer
-type BIDX[T any, B crypto.BIDX] struct {
+type BIDX[T any, B tinkx.BIDX] struct {
 	bidxFunc  BIDXFunc[B]
 	converter func(T) ([]byte, error)
 	wrapper   BIDXReadWrapper
@@ -61,7 +61,7 @@ func (s BIDX[T, M]) ForRead(w BIDXReadWrapper) BIDX[T, M] {
 	return s
 }
 
-func BIDXByteArray[B crypto.BIDX](f BIDXFunc[B], s []byte) BIDX[[]byte, B] {
+func BIDXByteArray[B tinkx.BIDX](f BIDXFunc[B], s []byte) BIDX[[]byte, B] {
 	return BIDX[[]byte, B]{
 		bidxFunc: f,
 		converter: func(s []byte) ([]byte, error) {
@@ -71,7 +71,7 @@ func BIDXByteArray[B crypto.BIDX](f BIDXFunc[B], s []byte) BIDX[[]byte, B] {
 		t:       s,
 	}
 }
-func BIDXString[B crypto.BIDX](f BIDXFunc[B], s string) BIDX[string, B] {
+func BIDXString[B tinkx.BIDX](f BIDXFunc[B], s string) BIDX[string, B] {
 	return BIDX[string, B]{
 		bidxFunc: f,
 		converter: func(s string) ([]byte, error) {
@@ -82,7 +82,7 @@ func BIDXString[B crypto.BIDX](f BIDXFunc[B], s string) BIDX[string, B] {
 	}
 }
 
-func BIDXTime[B crypto.BIDX](f BIDXFunc[B], t time.Time) BIDX[time.Time, B] {
+func BIDXTime[B tinkx.BIDX](f BIDXFunc[B], t time.Time) BIDX[time.Time, B] {
 	return BIDX[time.Time, B]{
 		bidxFunc: f,
 		converter: func(t time.Time) ([]byte, error) {
@@ -93,7 +93,7 @@ func BIDXTime[B crypto.BIDX](f BIDXFunc[B], t time.Time) BIDX[time.Time, B] {
 	}
 }
 
-func BIDXBool[B crypto.BIDX](f BIDXFunc[B], t bool) BIDX[bool, B] {
+func BIDXBool[B tinkx.BIDX](f BIDXFunc[B], t bool) BIDX[bool, B] {
 	return BIDX[bool, B]{
 		bidxFunc: f,
 		converter: func(t bool) ([]byte, error) {
@@ -107,7 +107,7 @@ func BIDXBool[B crypto.BIDX](f BIDXFunc[B], t bool) BIDX[bool, B] {
 	}
 }
 
-func BIDXInt64[B crypto.BIDX](f BIDXFunc[B], t int64) BIDX[int64, B] {
+func BIDXInt64[B tinkx.BIDX](f BIDXFunc[B], t int64) BIDX[int64, B] {
 	return BIDX[int64, B]{
 		bidxFunc: f,
 		converter: func(t int64) ([]byte, error) {
@@ -119,7 +119,7 @@ func BIDXInt64[B crypto.BIDX](f BIDXFunc[B], t int64) BIDX[int64, B] {
 		t:       t,
 	}
 }
-func BIDXFloat64[B crypto.BIDX](f BIDXFunc[B], t float64) BIDX[float64, B] {
+func BIDXFloat64[B tinkx.BIDX](f BIDXFunc[B], t float64) BIDX[float64, B] {
 	return BIDX[float64, B]{
 		bidxFunc: f,
 		converter: func(t float64) ([]byte, error) {

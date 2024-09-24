@@ -35,7 +35,7 @@ title: |md
   # Package Dependency
 |
 
-l1: "Implementation Reference" {
+l1: "" {
   class: Layer
 
   l2: "" {
@@ -88,19 +88,19 @@ l1 -> reusable.log: {
 l1.l2.cmd -> reusable.cmd: {
   class: DependencyLine
 }
-l1.l2.cmd -> reusable.otel: {
+l1.l2.cmd -> reusable.otelloader: {
   class: DependencyLine
 }
 l1.l2.cmd -> reusable.util: {
   class: DependencyLine
 }
-l1.l2.cmd -> reusable.tlswrapper: {
+l1.l2.cmd -> reusable.tlswrap: {
   class: DependencyLine
 }
 l1.l2.cmd -> reusable.httpclient: {
   class: DependencyLine
 }
-l1.l2.l3.postgres -> reusable.crypt: {
+l1.l2.l3.postgres -> reusable.tinkx: {
   class: DependencyLine
 }
 l1.l2.l3.postgres -> reusable.sqlval: {
@@ -123,25 +123,25 @@ reusable: Reusable Library {
   cmd: pkg/cmd {
     class: Package
   }
-  crypt: pkg/crypto {
+  tinkx: pkg/tinkx {
     class: Package
   }
-  sqlval: pkg/crypto/sqlval {
+  sqlval: pkg/tinkx/sqlval {
     class: Package
   }
   log: pkg/log {
     class: Package
   }
-  otel: pkg/otel {
+  otelloader: pkg/otelloader {
     class: Package
   }
   outboxce: pkg/outboxce {
     class: Package
   }
-  filewatcher: pkg/filewatcher {
+  filewatch: pkg/filewatch {
     class: Package
   }
-  tlswrapper: pkg/tlswrapper {
+  tlswrap: pkg/tlswrap {
     class: Package
   }
   httpclient: pkg/httpclient {
@@ -149,12 +149,12 @@ reusable: Reusable Library {
   }
 
   cmd -> util: {class: DependencyLine}
-  cmd -> crypt: {class: DependencyLine}
+  cmd -> tinkx: {class: DependencyLine}
   cmd -> log: {class: DependencyLine}
-  cmd -> otel: {class: DependencyLine}
-  cmd -> tlswrapper: {class: DependencyLine}
+  cmd -> otelloader: {class: DependencyLine}
+  cmd -> tlswrap: {class: DependencyLine}
   cmd -> httpclient: {class: DependencyLine}
-  sqlval -> crypt: {class: DependencyLine}
-  tlswrapper -> filewatcher: {class: DependencyLine}
-  tlswrapper -> log: {class: DependencyLine}
+  sqlval -> tinkx: {class: DependencyLine}
+  tlswrap -> filewatch: {class: DependencyLine}
+  tlswrap -> log: {class: DependencyLine}
 }

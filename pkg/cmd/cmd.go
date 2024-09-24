@@ -7,12 +7,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/zap"
-	"github.com/telkomindonesia/go-boilerplate/pkg/otel"
-	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrapper"
+	"github.com/telkomindonesia/go-boilerplate/pkg/otelloader"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
@@ -50,12 +50,12 @@ type CMD struct {
 
 	tlscfg *tls.Config
 
-	getLogger     func() (log.Logger, error)
-	getTLSWrapper func() (tlswrapper.TLSWrapper, error)
-	getAEAD       func() (*crypto.DerivableKeyset[crypto.PrimitiveAEAD], error)
-	getMAC        func() (*crypto.DerivableKeyset[crypto.PrimitiveMAC], error)
-	getBIDX       func() (*crypto.DerivableKeyset[crypto.PrimitiveBIDX], error)
-	getHTTPClient func() (httpclient.HTTPClient, error)
+	logger     func() (log.Logger, error)
+	tlsWrap    func() (tlswrap.TLSWrap, error)
+	aead       func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error)
+	mac        func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error)
+	bidx       func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error)
+	httpClient func() (httpclient.HTTPClient, error)
 }
 
 func New(opts ...OptFunc) (c *CMD, err error) {
@@ -70,11 +70,11 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 	}
 
 	c.initLogger()
-	c.initTLSWrapper()
+	c.initTLSWrap()
 	c.initAEADDerivableKeySet()
 	c.initMACDerivableKeySet()
 	c.initBIDXDerivableKeyset()
-	c.initHTTPClient()
+	c.initHTTPC()
 	return
 }
 
@@ -85,124 +85,124 @@ func (c *CMD) initLogger() {
 	}
 	l, err := zap.New(opts...)
 
-	c.getLogger = func() (log.Logger, error) { return l, err }
+	c.logger = func() (log.Logger, error) { return l, err }
 }
 
 func (c CMD) Logger() (log.Logger, error) {
-	return c.getLogger()
+	return c.logger()
 }
 
-func (c *CMD) initTLSWrapper() {
+func (c *CMD) initTLSWrap() {
 	cfg := c.tlscfg
 	if c.TLSMutualAuth {
 		cfg = cfg.Clone()
 		cfg.ClientAuth = tls.RequireAndVerifyClientCert
 	}
-	opts := []tlswrapper.OptFunc{
-		tlswrapper.WithTLSConfig(cfg),
+	opts := []tlswrap.OptFunc{
+		tlswrap.WithTLSConfig(cfg),
 	}
 	if c.TLSCAPath != nil {
-		opts = append(opts, tlswrapper.WithCA(*c.TLSCAPath))
+		opts = append(opts, tlswrap.WithCA(*c.TLSCAPath))
 	}
 	if c.TLSClientCAPath != nil {
-		opts = append(opts, tlswrapper.WithClientCA(*c.TLSClientCAPath))
+		opts = append(opts, tlswrap.WithClientCA(*c.TLSClientCAPath))
 	}
 	if c.TLSRootCAPath != nil {
-		opts = append(opts, tlswrapper.WithRootCA(*c.TLSRootCAPath))
+		opts = append(opts, tlswrap.WithRootCA(*c.TLSRootCAPath))
 	}
 	if c.TLSCertPath != nil && c.TLSKeyPath != nil {
-		opts = append(opts, tlswrapper.WithLeafCert(*c.TLSKeyPath, *c.TLSCertPath))
+		opts = append(opts, tlswrap.WithLeafCert(*c.TLSKeyPath, *c.TLSCertPath))
 	}
 	if l, err := c.Logger(); err == nil && l != nil {
-		opts = append(opts, tlswrapper.WithLogger(l))
+		opts = append(opts, tlswrap.WithLogger(l))
 	}
 
-	t, err := tlswrapper.New(opts...)
-	c.getTLSWrapper = func() (tlswrapper.TLSWrapper, error) { return t, err }
+	t, err := tlswrap.New(opts...)
+	c.tlsWrap = func() (tlswrap.TLSWrap, error) { return t, err }
 }
 
-func (c CMD) TLSWrapper() (tlswrapper.TLSWrapper, error) {
-	return c.getTLSWrapper()
+func (c CMD) TLSWrap() (tlswrap.TLSWrap, error) {
+	return c.tlsWrap()
 }
 
 func (c *CMD) initAEADDerivableKeySet() {
 	if c.AEADDerivableKeysetPath == nil {
-		c.getAEAD = func() (*crypto.DerivableKeyset[crypto.PrimitiveAEAD], error) { return nil, nil }
+		c.aead = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) { return nil, nil }
 		return
 	}
 
-	a, err := crypto.NewInsecureCleartextDerivableKeyset(*c.AEADDerivableKeysetPath, crypto.NewPrimitiveAEAD)
-	c.getAEAD = func() (*crypto.DerivableKeyset[crypto.PrimitiveAEAD], error) { return a, err }
+	a, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.AEADDerivableKeysetPath, tinkx.NewPrimitiveAEAD)
+	c.aead = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) { return a, err }
 }
 
-func (c CMD) AEADDerivableKeyset() (*crypto.DerivableKeyset[crypto.PrimitiveAEAD], error) {
-	return c.getAEAD()
+func (c CMD) AEADDerivableKeyset() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) {
+	return c.aead()
 }
 
 func (c *CMD) initMACDerivableKeySet() {
 	if c.MACDerivableKeysetPath == nil {
-		c.getMAC = func() (*crypto.DerivableKeyset[crypto.PrimitiveMAC], error) { return nil, nil }
+		c.mac = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) { return nil, nil }
 		return
 	}
 
-	m, err := crypto.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, crypto.NewPrimitiveMAC)
-	c.getMAC = func() (*crypto.DerivableKeyset[crypto.PrimitiveMAC], error) { return m, err }
+	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, tinkx.NewPrimitiveMAC)
+	c.mac = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) { return m, err }
 }
 
-func (c CMD) MacDerivableKeyset() (*crypto.DerivableKeyset[crypto.PrimitiveMAC], error) {
-	return c.getMAC()
+func (c CMD) MacDerivableKeyset() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) {
+	return c.mac()
 }
 
 func (c *CMD) initBIDXDerivableKeyset() {
 	if c.MACDerivableKeysetPath == nil {
-		c.getBIDX = func() (*crypto.DerivableKeyset[crypto.PrimitiveBIDX], error) { return nil, nil }
+		c.bidx = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return nil, nil }
 		return
 	}
 
-	m, err := crypto.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, crypto.NewPrimitiveBIDXWithLen(*c.BIDXLength))
-	c.getBIDX = func() (*crypto.DerivableKeyset[crypto.PrimitiveBIDX], error) { return m, err }
+	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, tinkx.NewPrimitiveBIDXWithLen(*c.BIDXLength))
+	c.bidx = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return m, err }
 }
 
-func (c CMD) BIDXDerivableKeyset() (*crypto.DerivableKeyset[crypto.PrimitiveBIDX], error) {
-	return c.getBIDX()
+func (c CMD) BIDXDerivableKeyset() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) {
+	return c.bidx()
 }
 
-func (c CMD) BIDXDerivableKeysetWithLen(len int) func() (*crypto.DerivableKeyset[crypto.PrimitiveBIDX], error) {
+func (c CMD) BIDXDerivableKeysetWithLen(len int) func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) {
 	if c.MACDerivableKeysetPath == nil {
-		return func() (*crypto.DerivableKeyset[crypto.PrimitiveBIDX], error) { return nil, nil }
+		return func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return nil, nil }
 	}
 
-	p := crypto.NewPrimitiveBIDX
+	p := tinkx.NewPrimitiveBIDX
 	if len > 0 {
-		p = crypto.NewPrimitiveBIDXWithLen(len)
+		p = tinkx.NewPrimitiveBIDXWithLen(len)
 	}
-	m, err := crypto.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, p)
-	return func() (*crypto.DerivableKeyset[crypto.PrimitiveBIDX], error) { return m, err }
+	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, p)
+	return func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return m, err }
 }
 
-func (c *CMD) initHTTPClient() {
+func (c *CMD) initHTTPC() {
 	opts := []httpclient.OptFunc{}
-	if tlswrapper, err := c.getTLSWrapper(); err == nil && tlswrapper != nil {
-		d := tlswrapper.WrapDialer(&net.Dialer{Timeout: 10 * time.Second})
+	if tlswrapper, err := c.tlsWrap(); err == nil && tlswrapper != nil {
+		d := tlswrapper.Dialer(&net.Dialer{Timeout: 10 * time.Second})
 		opts = append(opts, httpclient.WithDialTLS(d.DialContext))
 	}
 	h, err := httpclient.New(opts...)
-	c.getHTTPClient = func() (httpclient.HTTPClient, error) { return h, err }
+	c.httpClient = func() (httpclient.HTTPClient, error) { return h, err }
 }
 
 func (c CMD) HTTPClient() (httpclient.HTTPClient, error) {
-	return c.getHTTPClient()
+	return c.httpClient()
 }
 
-func (c CMD) LoadOtelTraceProvider(ctx context.Context) (deferer func()) {
+func (c CMD) LoadOtel(ctx context.Context) (deferer func()) {
 	n := ""
 	if c.OtelTraceProvider != nil {
 		n = *c.OtelTraceProvider
 	}
 	l, _ := c.Logger()
-	return otel.WithTraceProvider(ctx, n, l)
+	return otelloader.WithTraceProvider(ctx, n, l)
 }
 
-func (c CMD) CancelOnExitSignal(ctx context.Context) context.Context {
+func (c CMD) CancelOnExit(ctx context.Context) context.Context {
 	return util.CancelOnExitSignal(ctx)
 }

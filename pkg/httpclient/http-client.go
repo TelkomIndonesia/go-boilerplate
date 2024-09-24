@@ -54,5 +54,6 @@ func New(opts ...OptFunc) (h HTTPClient, err error) {
 }
 
 func (h HTTPClient) Close(ctx context.Context) error {
+	h.Client.CloseIdleConnections()
 	return nil
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/tink-crypto/tink-go/v2/aead"
 	"github.com/tink-crypto/tink-go/v2/keyderivation"
 	"github.com/tink-crypto/tink-go/v2/keyset"
@@ -30,7 +30,7 @@ func TestAEAD(t *testing.T) {
 	require.NoError(t, err)
 	h, err := keyset.NewHandle(template)
 	require.NoError(t, err)
-	m, err := crypto.NewDerivableKeyset(h, crypto.NewPrimitiveAEAD)
+	m, err := tinkx.NewDerivableKeyset(h, tinkx.NewPrimitiveAEAD)
 	require.NoError(t, err)
 	ad := []byte(t.Name())
 
@@ -83,7 +83,7 @@ func TestAEADNilable(t *testing.T) {
 	require.NoError(t, err)
 	h, err := keyset.NewHandle(template)
 	require.NoError(t, err)
-	m, err := crypto.NewDerivableKeyset(h, crypto.NewPrimitiveAEAD)
+	m, err := tinkx.NewDerivableKeyset(h, tinkx.NewPrimitiveAEAD)
 	require.NoError(t, err)
 	ad := []byte(t.Name())
 

@@ -1,4 +1,4 @@
-package tlswrapper
+package tlswrap
 
 import (
 	"context"
@@ -58,15 +58,15 @@ func TestReload(t *testing.T) {
 	t.Cleanup(func() { tw2.Close(context.Background()) })
 
 	helloworld := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(nil) })
-	newsc := func(tw TLSWrapper) (s *httptest.Server, c *http.Client) {
+	newsc := func(tw TLSWrap) (s *httptest.Server, c *http.Client) {
 		s = httptest.NewUnstartedServer(helloworld)
 		t.Cleanup(s.Close)
-		s.Listener = tw.WrapListener(s.Listener)
+		s.Listener = tw.Listener(s.Listener)
 		s.StartTLS()
 
 		c = &http.Client{
 			Transport: &http.Transport{
-				DialTLSContext: tw.WrapDialer(&net.Dialer{Timeout: time.Second}).DialContext,
+				DialTLSContext: tw.Dialer(&net.Dialer{Timeout: time.Second}).DialContext,
 			},
 		}
 		return

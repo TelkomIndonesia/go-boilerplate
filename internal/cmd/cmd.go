@@ -11,12 +11,12 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres"
 	"github.com/telkomindonesia/go-boilerplate/internal/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
-	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/types"
-	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrapper"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
 type OptFunc func(*CMD) error
@@ -63,10 +63,10 @@ type CMD struct {
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`
 	logger     log.Logger
-	aead       *crypto.DerivableKeyset[crypto.PrimitiveAEAD]
-	bidx       *crypto.DerivableKeyset[crypto.PrimitiveBIDX]
+	aead       *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD]
+	bidx       *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]
 	hc         httpclient.HTTPClient
-	tls        tlswrapper.TLSWrapper
+	tls        tlswrap.TLSWrap
 	canceler   func(ctx context.Context) context.Context
 	otelLoader func(ctx context.Context) func()
 
@@ -122,15 +122,15 @@ func (c *CMD) initCMD() (err error) {
 	}
 
 	if c.otelLoader == nil {
-		c.otelLoader = c.CMD.LoadOtelTraceProvider
+		c.otelLoader = c.CMD.LoadOtel
 	}
 	if c.canceler == nil {
-		c.canceler = c.CMD.CancelOnExitSignal
+		c.canceler = c.CMD.CancelOnExit
 	}
 	c.logger = util.Require(c.CMD.Logger, log.Global().WithCtx(log.String("name", "logger")))
 	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithCtx(log.String("name", "aead")))
 	c.bidx = util.Require(c.CMD.BIDXDerivableKeyset, c.logger.WithCtx(log.String("name", "blind-idx")))
-	c.tls = util.Require(c.CMD.TLSWrapper, c.logger.WithCtx(log.String("name", "tlswrapper")))
+	c.tls = util.Require(c.CMD.TLSWrap, c.logger.WithCtx(log.String("name", "tlswrapper")))
 	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithCtx(log.String("name", "httpclient")))
 	return
 }
@@ -192,7 +192,7 @@ func (c *CMD) initHTTPServer() (err error) {
 	}
 
 	c.h, err = httpserver.New(
-		httpserver.WithListener(c.tls.WrapListener(l)),
+		httpserver.WithListener(c.tls.Listener(l)),
 		httpserver.WithProfileRepository(c.p),
 		httpserver.WithTenantRepository(c.ts),
 		httpserver.WithLogger(c.logger),

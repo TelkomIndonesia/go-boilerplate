@@ -1,19 +1,19 @@
 # syntax = docker/dockerfile:1
-ARG GOLANG=golang:1.22
+ARG GOLANG=golang:1.23
 
 
 
 FROM ${GOLANG} AS base
 
 ENTRYPOINT [ "go", "run" ]
-CMD [ "./cmd" ]
+CMD [ "./cmd/profile" ]
 
 
 
 FROM base AS debugger
 
 ENTRYPOINT [ "go", "run", "-mod=mod", "github.com/go-delve/delve/cmd/dlv@latest"]
-CMD [ "debug", "./cmd", "--headless", "--listen=:2345", "--accept-multiclient", "--continue", "--build-flags='-buildvcs=false'" , "--api-version=2"]
+CMD [ "debug", "./cmd/profile", "--headless", "--listen=:2345", "--accept-multiclient", "--continue", "--build-flags='-buildvcs=false'" , "--api-version=2"]
 
 
 
@@ -24,7 +24,7 @@ COPY ./ ./
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build -o profile ./cmd 
+    CGO_ENABLED=0 GOOS=linux go build -o profile ./cmd/profile
 
 
 

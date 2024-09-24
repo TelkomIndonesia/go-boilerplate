@@ -12,13 +12,7 @@ services:
     entrypoint: [bash, -c]
     command:
       - |
-        set -e
-
-        kafka-topics.sh --bootstrap-server kafka:9092 --topic outboxce --create || true
-
-        echo "-----------------------------------"
-        echo "start consuming from 'outboxce' topic"
-        echo "-----------------------------------"
+        kafka-topics.sh --bootstrap-server kafka:9092 --topic outboxce --create
         kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic outboxce
 
   tenant:

@@ -11,7 +11,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	profilemock "github.com/telkomindonesia/go-boilerplate/internal/profile/mock"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/"
+	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
 func TestGetProfile(t *testing.T) {

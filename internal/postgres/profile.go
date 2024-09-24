@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/outbox"
-	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc"
-	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/outbox"
+	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc"
+	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt/sqlval"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
 	"go.opentelemetry.io/otel/attribute"

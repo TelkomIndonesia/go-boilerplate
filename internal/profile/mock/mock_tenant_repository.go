@@ -6,7 +6,7 @@ import (
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"
-	profile "github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	profile "github.com/telkomindonesia/go-boilerplate/internal/profile"
 
 	uuid "github.com/google/uuid"
 )

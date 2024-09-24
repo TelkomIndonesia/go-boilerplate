@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
+	"github.com/telkomindonesia/go-boilerplate/internal/cmd"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 )
 

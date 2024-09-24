@@ -38,29 +38,29 @@ l1: "" {
       l4: "" {
         class: Layer
 
-        profile: pkg/profile {
+        profile: internal/profile {
           class: Package
         }
       }
 
-      httpserver: pkg/util/httpserver {
+      httpserver: internal/httpserver {
         class: Package
       }
 
-      postgres: pkg/postgres {
+      postgres: internal/postgres {
         class: Package
       }
 
-      kafka: pkg/kafka {
+      kafka: internal/kafka {
         class: Package
       }
 
-      tenantservice: pkg/tenantservice {
+      tenantservice: internal/tenantservice {
         class: Package
       }
     }
 
-    cmd: pkg/cmd {
+    cmd: internal/cmd {
       class: Package
     }
   }

@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
-	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc"
-	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc"
+	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"

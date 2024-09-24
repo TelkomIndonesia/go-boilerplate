@@ -10,4 +10,4 @@ managed:
   enabled: true
   override:
     - file_option: go_package
-      value: github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/outbox
+      value: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/outbox

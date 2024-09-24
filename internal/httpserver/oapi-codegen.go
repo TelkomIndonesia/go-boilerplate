@@ -3,7 +3,7 @@
 package httpserver
 
 import (
-	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
+	"github.com/telkomindonesia/go-boilerplate/internal/httpserver/internal/oapi"
 )
 
 var _ oapi.StrictServerInterface = oapiServerImplementation{}

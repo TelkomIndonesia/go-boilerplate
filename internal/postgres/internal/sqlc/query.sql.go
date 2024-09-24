@@ -10,7 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
-	"github.com/telkomindonesia/go-boilerplate/pkg/postgres/internal/sqlc/types"
+	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types"
 )
 
 const fetchProfile = `-- name: FetchProfile :one

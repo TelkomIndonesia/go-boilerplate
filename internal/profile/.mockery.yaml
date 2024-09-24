@@ -3,7 +3,7 @@ dir: mock
 outpkg: "{{.PackageName}}mock"
 filename: "mock_{{.InterfaceName | snakecase}}.go"
 packages:
-  github.com/telkomindonesia/go-boilerplate/pkg/profile:
+  github.com/telkomindonesia/go-boilerplate/internal/profile:
     interfaces:
       ProfileRepository:
       TenantRepository:

@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/telkomindonesia/go-boilerplate/pkg/httpserver/internal/oapi"
-	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
-	profilemock "github.com/telkomindonesia/go-boilerplate/pkg/profile/mock"
+	"github.com/telkomindonesia/go-boilerplate/internal/httpserver/internal/oapi"
+	"github.com/telkomindonesia/go-boilerplate/internal/profile"
+	profilemock "github.com/telkomindonesia/go-boilerplate/internal/profile/mock"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util/test"
 )
 

@@ -2,7 +2,7 @@
 package outbox
 
 import (
-	"github.com/telkomindonesia/go-boilerplate/pkg/profile"
+	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

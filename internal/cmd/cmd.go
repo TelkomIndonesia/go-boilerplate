@@ -10,13 +10,13 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/kafka"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres"
 	"github.com/telkomindonesia/go-boilerplate/internal/tenantservice"
+	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
+	"github.com/telkomindonesia/go-boilerplate/pkg/crypto"
+	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/cmd"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/crypt"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/httpclient"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/log/types"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/tlswrapper"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/types"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrapper"
 )
 
 type OptFunc func(*CMD) error
@@ -63,8 +63,8 @@ type CMD struct {
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`
 	logger     log.Logger
-	aead       *crypt.DerivableKeyset[crypt.PrimitiveAEAD]
-	bidx       *crypt.DerivableKeyset[crypt.PrimitiveBIDX]
+	aead       *crypto.DerivableKeyset[crypto.PrimitiveAEAD]
+	bidx       *crypto.DerivableKeyset[crypto.PrimitiveBIDX]
 	hc         httpclient.HTTPClient
 	tls        tlswrapper.TLSWrapper
 	canceler   func(ctx context.Context) context.Context

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
 
 var _ log.Loggable = Profile{}

@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/telkomindonesia/go-boilerplate/internal/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"

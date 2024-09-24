@@ -1,0 +1,13 @@
+version: v2
+inputs:
+  - directory: .
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.31.0
+    out: .
+    opt:
+      - paths=source_relative
+managed:
+  enabled: true
+  override:
+    - file_option: go_package
+      value: github.com/telkomindonesia/go-boilerplate/pkg/outboxce/internal/sample

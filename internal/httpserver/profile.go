@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/internal/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/log"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
 
 // GetProfile implements oapi.StrictServerInterface.

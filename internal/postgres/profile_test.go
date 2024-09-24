@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/outbox"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/log/tlogger"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
-	obpostgres "github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce/postgres"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/tlogger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
+	obpostgres "github.com/telkomindonesia/go-boilerplate/pkg/outboxce/postgres"
 	"google.golang.org/protobuf/proto"
 )
 

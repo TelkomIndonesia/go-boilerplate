@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package outbox;
+option go_package = "github.com/telkomindonesia/go-boilerplate/pkg/outboxce/internal/sample";
+
+message Outbox {
+  string id = 1;
+  string messsage = 2;
+};

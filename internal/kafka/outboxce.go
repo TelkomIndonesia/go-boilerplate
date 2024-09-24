@@ -7,7 +7,7 @@ import (
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/event"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util/outboxce"
+	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 )
 
 func (k *Kafka) OutboxCERelayFunc() outboxce.RelayFunc {

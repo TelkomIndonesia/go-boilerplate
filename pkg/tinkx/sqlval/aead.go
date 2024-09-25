@@ -10,6 +10,7 @@ import (
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/tink-crypto/tink-go/v2/tink"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ interface {
@@ -168,6 +169,22 @@ func AEADFloat64[A tink.AEAD](aead AEADFunc[A], t float64, ad []byte) AEAD[float
 			b := make([]byte, 8)
 			binary.LittleEndian.PutUint64(b, math.Float64bits(i))
 			return b, nil
+		},
+		v: t,
+	}
+}
+
+func AEADAny[A tink.AEAD, T any](aead AEADFunc[A], t T, ad []byte) AEAD[T, A] {
+	return AEAD[T, A]{
+		aeadFunc: aead,
+		ad:       ad,
+		vtob: func(b []byte) (T, error) {
+			pt := new(T)
+			err := msgpack.Unmarshal(b, pt)
+			return *pt, err
+		},
+		btov: func(i T) ([]byte, error) {
+			return msgpack.Marshal(i)
 		},
 		v: t,
 	}

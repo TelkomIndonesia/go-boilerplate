@@ -93,3 +93,54 @@ func TestAEADNilable(t *testing.T) {
 	assert.Empty(t, s.To(), "should return nil pointer")
 	assert.Nil(t, s.ToP(), "should return empty value")
 }
+
+type tAEADAny struct {
+	Field string
+}
+
+func TestAEADAny(t *testing.T) {
+	template, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
+	require.NoError(t, err)
+	h, err := keyset.NewHandle(template)
+	require.NoError(t, err)
+	m, err := tinkx.NewDerivableKeyset(h, tinkx.NewPrimitiveAEAD)
+	require.NoError(t, err)
+	ad := []byte(t.Name())
+
+	t.Run("struct", func(t *testing.T) {
+		data := tAEADAny{Field: "a"}
+		sv := AEADAny(m.GetPrimitiveFunc(nil), data, ad)
+		v, err := sv.Value()
+		require.NoError(t, err, "should not return error")
+
+		sv = AEADAny(m.GetPrimitiveFunc(nil), tAEADAny{}, ad)
+		err = sv.Scan(v)
+		require.NoError(t, err, "should not return error")
+		assert.Equal(t, data, sv.To())
+	})
+
+	t.Run("slice", func(t *testing.T) {
+		data := []tAEADAny{{Field: "a"}}
+		sv := AEADAny(m.GetPrimitiveFunc(nil), data, ad)
+		v, err := sv.Value()
+		require.NoError(t, err, "should not return error")
+
+		sv = AEADAny(m.GetPrimitiveFunc(nil), []tAEADAny{}, ad)
+		err = sv.Scan(v)
+		require.NoError(t, err, "should not return error")
+		assert.Equal(t, data, sv.To())
+	})
+
+	t.Run("pointerOfStruct", func(t *testing.T) {
+		data := &tAEADAny{Field: "a"}
+		sv := AEADAny(m.GetPrimitiveFunc(nil), data, ad)
+		v, err := sv.Value()
+		require.NoError(t, err, "should not return error")
+
+		sv = AEADAny(m.GetPrimitiveFunc(nil), &tAEADAny{}, ad)
+		err = sv.Scan(v)
+		require.NoError(t, err, "should not return error")
+		assert.Equal(t, data, sv.To())
+	})
+
+}

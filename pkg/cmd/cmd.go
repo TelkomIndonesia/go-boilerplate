@@ -51,7 +51,7 @@ type CMD struct {
 	tlscfg *tls.Config
 
 	logger     func() (log.Logger, error)
-	tlsWrap    func() (tlswrap.TLSWrap, error)
+	tlsWrap    func() (*tlswrap.TLSWrap, error)
 	aead       func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error)
 	mac        func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error)
 	bidx       func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error)
@@ -118,10 +118,10 @@ func (c *CMD) initTLSWrap() {
 	}
 
 	t, err := tlswrap.New(opts...)
-	c.tlsWrap = func() (tlswrap.TLSWrap, error) { return t, err }
+	c.tlsWrap = func() (*tlswrap.TLSWrap, error) { return t, err }
 }
 
-func (c CMD) TLSWrap() (tlswrap.TLSWrap, error) {
+func (c CMD) TLSWrap() (*tlswrap.TLSWrap, error) {
 	return c.tlsWrap()
 }
 

@@ -58,7 +58,7 @@ func TestReload(t *testing.T) {
 	t.Cleanup(func() { tw2.Close(context.Background()) })
 
 	helloworld := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(nil) })
-	newsc := func(tw TLSWrap) (s *httptest.Server, c *http.Client) {
+	newsc := func(tw *TLSWrap) (s *httptest.Server, c *http.Client) {
 		s = httptest.NewUnstartedServer(helloworld)
 		t.Cleanup(s.Close)
 		s.Listener = tw.Listener(s.Listener)

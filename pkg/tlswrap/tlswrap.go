@@ -19,26 +19,17 @@ type Dialer interface {
 	DialContext(ctx context.Context, net string, addr string) (net.Conn, error)
 }
 
-type TLSWrap interface {
-	Listener(net.Listener) net.Listener
-	Dialer(*net.Dialer) Dialer
-
-	Close(context.Context) error
-}
-
-var _ TLSWrap = &wrapper{}
-
-type OptFunc func(*wrapper) error
+type OptFunc func(*TLSWrap) error
 
 func WithTLSConfig(cfg *tls.Config) OptFunc {
-	return func(c *wrapper) (err error) {
+	return func(c *TLSWrap) (err error) {
 		c.cfg = cfg
 		return
 	}
 }
 
 func WithLeafCert(key, cert string) OptFunc {
-	return func(c *wrapper) (err error) {
+	return func(c *TLSWrap) (err error) {
 		c.keyPath, c.certPath = key, cert
 		if err = c.loadLeaf(); err != nil {
 			return fmt.Errorf("failed to load leaf cert: %w", err)
@@ -48,7 +39,7 @@ func WithLeafCert(key, cert string) OptFunc {
 }
 
 func WithCA(path string) OptFunc {
-	return func(c *wrapper) (err error) {
+	return func(c *TLSWrap) (err error) {
 		c.clientCAPath = path
 		if err = c.loadClientCA(); err != nil {
 			return fmt.Errorf("failed to load CA: %w", err)
@@ -63,7 +54,7 @@ func WithCA(path string) OptFunc {
 }
 
 func WithClientCA(path string) OptFunc {
-	return func(c *wrapper) (err error) {
+	return func(c *TLSWrap) (err error) {
 		c.clientCAPath = path
 		if err = c.loadClientCA(); err != nil {
 			return fmt.Errorf("failed to load CA: %w", err)
@@ -73,7 +64,7 @@ func WithClientCA(path string) OptFunc {
 }
 
 func WithRootCA(path string) OptFunc {
-	return func(c *wrapper) (err error) {
+	return func(c *TLSWrap) (err error) {
 		c.rootCAPath = path
 		if err = c.loadRootCA(); err != nil {
 			return fmt.Errorf("failed to load CA: %w", err)
@@ -83,20 +74,20 @@ func WithRootCA(path string) OptFunc {
 }
 
 func WithConfigReloadListener(f func(s, c *tls.Config)) OptFunc {
-	return func(w *wrapper) (err error) {
+	return func(w *TLSWrap) (err error) {
 		w.listenerFunc = f
 		return
 	}
 }
 
 func WithLogger(l log.Logger) OptFunc {
-	return func(c *wrapper) (err error) {
+	return func(c *TLSWrap) (err error) {
 		c.logger = l
 		return
 	}
 }
 
-type wrapper struct {
+type TLSWrap struct {
 	keyPath      string
 	certPath     string
 	clientCAPath string
@@ -114,8 +105,8 @@ type wrapper struct {
 	cfgc     *tls.Config
 }
 
-func New(opts ...OptFunc) (c TLSWrap, err error) {
-	cr := &wrapper{
+func New(opts ...OptFunc) (c *TLSWrap, err error) {
+	cr := &TLSWrap{
 		logger:       log.Global(),
 		cfg:          &tls.Config{},
 		listenerFunc: func(c, s *tls.Config) {},
@@ -135,7 +126,7 @@ func New(opts ...OptFunc) (c TLSWrap, err error) {
 	return cr, err
 }
 
-func (c *wrapper) initWatcher() (err error) {
+func (c *TLSWrap) initWatcher() (err error) {
 	if c.certPath != "" {
 		cw, err := filewatch.New(c.certPath, func(s string, err error) {
 			if err != nil {
@@ -196,7 +187,7 @@ func (c *wrapper) initWatcher() (err error) {
 	return
 }
 
-func (c *wrapper) loadLeaf() (err error) {
+func (c *TLSWrap) loadLeaf() (err error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -212,7 +203,7 @@ func (c *wrapper) loadLeaf() (err error) {
 	return
 }
 
-func (c *wrapper) loadClientCA() (err error) {
+func (c *TLSWrap) loadClientCA() (err error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -232,7 +223,7 @@ func (c *wrapper) loadClientCA() (err error) {
 	return
 }
 
-func (c *wrapper) loadRootCA() (err error) {
+func (c *TLSWrap) loadRootCA() (err error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -255,7 +246,7 @@ func (c *wrapper) loadRootCA() (err error) {
 	return
 }
 
-func (c *wrapper) clientConfig() *tls.Config {
+func (c *TLSWrap) clientConfig() *tls.Config {
 	cfg := c.cfg.Clone()
 	cfg.RootCAs = c.rootCA
 	if c.cert == nil {
@@ -268,7 +259,7 @@ func (c *wrapper) clientConfig() *tls.Config {
 	return cfg
 }
 
-func (c *wrapper) serverConfig() *tls.Config {
+func (c *TLSWrap) serverConfig() *tls.Config {
 	cfg := c.cfg.Clone()
 	if c.cert == nil {
 		return cfg
@@ -281,22 +272,22 @@ func (c *wrapper) serverConfig() *tls.Config {
 	return cfg
 }
 
-func (c *wrapper) getCertificate() (*tls.Certificate, error) {
+func (c *TLSWrap) getCertificate() (*tls.Certificate, error) {
 	if c.cert == nil {
 		return nil, fmt.Errorf("no certificate found")
 	}
 	return c.cert, nil
 }
 
-func (c *wrapper) Dialer(d *net.Dialer) Dialer {
+func (c *TLSWrap) Dialer(d *net.Dialer) Dialer {
 	return dialer{c: c, d: d}
 }
 
-func (c *wrapper) Listener(l net.Listener) net.Listener {
+func (c *TLSWrap) Listener(l net.Listener) net.Listener {
 	return listener{c: c, l: l}
 }
 
-func (c *wrapper) Close(ctx context.Context) (err error) {
+func (c *TLSWrap) Close(ctx context.Context) (err error) {
 	for _, closer := range c.closers {
 		err = errors.Join(closer(ctx))
 	}
@@ -304,7 +295,7 @@ func (c *wrapper) Close(ctx context.Context) (err error) {
 }
 
 type dialer struct {
-	c *wrapper
+	c *TLSWrap
 	d *net.Dialer
 }
 
@@ -318,7 +309,7 @@ func (d dialer) DialContext(ctx context.Context, net string, addr string) (net.C
 }
 
 type listener struct {
-	c *wrapper
+	c *TLSWrap
 	l net.Listener
 }
 

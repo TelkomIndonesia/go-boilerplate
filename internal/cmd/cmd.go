@@ -66,7 +66,7 @@ type CMD struct {
 	aead       *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD]
 	bidx       *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]
 	hc         httpclient.HTTPClient
-	tls        tlswrap.TLSWrap
+	tlsw       *tlswrap.TLSWrap
 	canceler   func(ctx context.Context) context.Context
 	otelLoader func(ctx context.Context) func()
 
@@ -130,7 +130,7 @@ func (c *CMD) initCMD() (err error) {
 	c.logger = util.Require(c.CMD.Logger, log.Global().WithCtx(log.String("name", "logger")))
 	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithCtx(log.String("name", "aead")))
 	c.bidx = util.Require(c.CMD.BIDXDerivableKeyset, c.logger.WithCtx(log.String("name", "blind-idx")))
-	c.tls = util.Require(c.CMD.TLSWrap, c.logger.WithCtx(log.String("name", "tlswrapper")))
+	c.tlsw = util.Require(c.CMD.TLSWrap, c.logger.WithCtx(log.String("name", "tlswrapper")))
 	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithCtx(log.String("name", "httpclient")))
 	return
 }
@@ -192,7 +192,7 @@ func (c *CMD) initHTTPServer() (err error) {
 	}
 
 	c.h, err = httpserver.New(
-		httpserver.WithListener(c.tls.Listener(l)),
+		httpserver.WithListener(c.tlsw.Listener(l)),
 		httpserver.WithProfileRepository(c.p),
 		httpserver.WithTenantRepository(c.ts),
 		httpserver.WithLogger(c.logger),

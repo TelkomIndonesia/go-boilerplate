@@ -4,19 +4,20 @@ import (
 	"runtime/debug"
 )
 
-func Version() string {
+func Version() (v string) {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return ""
+		return
 	}
-	v := ""
+
 	for _, s := range info.Settings {
 		if s.Key != "vcs.revision" {
 			continue
 		}
 
-		return v
+		v = s.Value
+		break
 	}
-	return v
+	return
 
 }

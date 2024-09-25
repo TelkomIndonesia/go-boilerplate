@@ -26,9 +26,9 @@ type AEAD[T any, A tink.AEAD] struct {
 	vtob     func([]byte) (T, error)
 	btov     func(T) ([]byte, error)
 
-	ad    []byte
-	b     []byte
 	v     T
+	b     []byte
+	ad    []byte
 	isNil bool
 }
 

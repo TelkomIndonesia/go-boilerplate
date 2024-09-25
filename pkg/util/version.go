@@ -14,7 +14,8 @@ func Version() string {
 		if s.Key != "vcs.revision" {
 			continue
 		}
-		v = s.Value
+
+		return v
 	}
 	return v
 

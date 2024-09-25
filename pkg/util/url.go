@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func ParseURLWithDefaultScheme(u string, defaultScheme string) (*url.URL, error) {
+func URLWithDefaultScheme(u string, defaultScheme string) (*url.URL, error) {
 	if !strings.Contains(u, "://") {
 		u = fmt.Sprintf("%s://%s", defaultScheme, u)
 	}

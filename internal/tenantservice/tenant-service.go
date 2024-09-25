@@ -37,7 +37,7 @@ func WithTracer(name string) OptFunc {
 
 func WithBaseUrl(u string) OptFunc {
 	return func(ts *TenantService) (err error) {
-		ts.base, err = util.ParseURLWithDefaultScheme(u, "https")
+		ts.base, err = util.URLWithDefaultScheme(u, "https")
 		return
 	}
 }

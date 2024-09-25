@@ -21,7 +21,7 @@ func TestEnsureUrlScheme(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result, err := ParseURLWithDefaultScheme(test.input, test.inputDefaultScheme)
+		result, err := URLWithDefaultScheme(test.input, test.inputDefaultScheme)
 		if err != nil {
 			t.Errorf("did not expect an error for input %s, but got %v", test.input, err)
 			continue

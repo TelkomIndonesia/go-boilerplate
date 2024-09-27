@@ -14,6 +14,12 @@ components:
       type: string
       format: uuid
       x-go-type-skip-optional-pointer: true
+    Error:
+      properties:
+        code:
+          $ref: "#/components/schemas/String"
+        message:
+          $ref: "#/components/schemas/String"
     Profile:
       properties:
         id:

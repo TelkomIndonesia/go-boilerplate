@@ -1,4 +1,4 @@
-package zap
+package zaplogger
 
 import (
 	"testing"
@@ -11,5 +11,5 @@ func TestLog(t *testing.T) {
 	l, err := New()
 	require.NoError(t, err, "should create logger")
 	msg := struct{ Hello string }{Hello: "world"}
-	l.Info("test", log.Any("hello", msg), log.String("hi", "hello"))
+	l.WithLog(log.String("name", t.Name())).Info("test", log.Any("hello", msg), log.String("hi", "hello"))
 }

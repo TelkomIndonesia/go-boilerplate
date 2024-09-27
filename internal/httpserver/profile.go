@@ -14,10 +14,12 @@ import (
 func (s oapiServerImplementation) GetProfile(ctx context.Context, request oapi.GetProfileRequestObject) (oapi.GetProfileResponseObject, error) {
 	pr, err := s.h.profileRepo.FetchProfile(ctx, request.TenantId, request.ProfileId)
 	if err != nil {
-		return nil, err
+		err := fmt.Errorf("failed to fetch profile: %w", err)
+		s.h.logger.WithTrace(ctx).Error("failed to fetch repo", log.Error("error", err))
+		return oapi.GetProfile500JSONResponse{Message: err.Error()}, nil
 	}
 	if pr == nil {
-		return oapi.GetProfile404Response{}, nil
+		return oapi.GetProfile404JSONResponse{Message: "profile not found"}, nil
 	}
 
 	return oapi.GetProfile200JSONResponse{
@@ -35,7 +37,9 @@ func (s oapiServerImplementation) GetProfile(ctx context.Context, request oapi.G
 func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.PostProfileRequestObject) (oapi.PostProfileResponseObject, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create id: %w", err)
+		err := fmt.Errorf("failed to create id: %w", err)
+		s.h.logger.WithTrace(ctx).Error("failed to post profile", log.Error("error", err))
+		return oapi.PostProfile400JSONResponse{Message: err.Error()}, nil
 	}
 
 	pr := &profile.Profile{
@@ -51,14 +55,17 @@ func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.
 	if request.Params.Validate != nil && *request.Params.Validate {
 		err = s.h.profileMgr.ValidateProfile(ctx, pr)
 		if err != nil {
-			s.h.logger.Error("failed to validate repo", log.Error("error", err))
-			return nil, err
+			err := fmt.Errorf("failed to validate profie: %w", err)
+			s.h.logger.WithTrace(ctx).Error("failed to post profile", log.Error("error", err))
+			return oapi.PostProfile400JSONResponse{Message: err.Error()}, nil
 		}
 	}
 
 	err = s.h.profileRepo.StoreProfile(ctx, pr)
 	if err != nil {
-		return nil, err
+		err := fmt.Errorf("failed to store profie: %w", err)
+		s.h.logger.WithTrace(ctx).Error("failed to post profile", log.Error("error", err))
+		return oapi.PostProfile500JSONResponse{Message: err.Error()}, nil
 	}
 
 	return oapi.PostProfile201JSONResponse{

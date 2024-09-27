@@ -124,7 +124,7 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 
 	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.Time.UnixNano())
 	if err != nil {
-		p.logger.Warn("failed to send notify", log.Error("error", err), log.TraceContext("trace-id", ctx))
+		p.logger.Warn("failed to send notify", log.WithTrace(ctx, log.Error("error", err)))
 	}
 
 	return
@@ -182,7 +182,7 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 
 		last, err = p.relayOutboxes(ctx, relayFunc)
 		if err != nil {
-			p.logger.Error("failed to relay outboxes", log.Error("error", err), log.TraceContext("trace-id", ctx))
+			p.logger.Error("failed to relay outboxes", log.WithTrace(ctx, log.Error("error", err)))
 		}
 
 		stopTimer()
@@ -285,7 +285,7 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 		return nil
 	}
 
-	p.logger.Warn("got partial relay error", log.Error("error", err))
+	p.logger.Warn("got partial relay error", log.WithTrace(ctx, log.Error("error", err)))
 
 	ids := []string{}
 	for _, e := range *errRelay {

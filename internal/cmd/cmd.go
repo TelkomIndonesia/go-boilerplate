@@ -127,11 +127,11 @@ func (c *CMD) initCMD() (err error) {
 	if c.canceler == nil {
 		c.canceler = c.CMD.CancelOnExit
 	}
-	c.logger = util.Require(c.CMD.Logger, log.Global().WithCtx(log.String("name", "logger")))
-	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithCtx(log.String("name", "aead")))
-	c.bidx = util.Require(c.CMD.BIDXDerivableKeyset, c.logger.WithCtx(log.String("name", "blind-idx")))
-	c.tlsw = util.Require(c.CMD.TLSWrap, c.logger.WithCtx(log.String("name", "tlswrapper")))
-	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithCtx(log.String("name", "httpclient")))
+	c.logger = util.Require(c.CMD.Logger, log.Global().WithLog(log.String("name", "logger")))
+	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithLog(log.String("name", "aead")))
+	c.bidx = util.Require(c.CMD.BIDXDerivableKeyset, c.logger.WithLog(log.String("name", "blind-idx")))
+	c.tlsw = util.Require(c.CMD.TLSWrap, c.logger.WithLog(log.String("name", "tlswrapper")))
+	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithLog(log.String("name", "httpclient")))
 	return
 }
 
@@ -159,7 +159,7 @@ func (c *CMD) initPostgres() (err error) {
 	opts := []postgres.OptFunc{
 		postgres.WithConnString(c.PostgresUrl.String()),
 		postgres.WithDerivableKeysets(c.aead, c.bidx),
-		postgres.WithLogger(c.logger),
+		postgres.WithLogger(c.logger.WithLog(log.String("logger-name", "postgres"))),
 	}
 	if c.k != nil {
 		opts = append(opts, postgres.WithOutboxCERelayFunc(c.k.OutboxCERelayFunc()))
@@ -177,7 +177,7 @@ func (c *CMD) initTenantService() (err error) {
 	c.ts, err = tenantservice.New(
 		tenantservice.WithBaseUrl(c.TenantServiceBaseUrl.String()),
 		tenantservice.WithHTTPClient(c.hc.Client),
-		tenantservice.WithLogger(c.logger),
+		tenantservice.WithLogger(c.logger.WithLog(log.String("logger-name", "tenant-service"))),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate tenant service: %w", err)
@@ -195,7 +195,7 @@ func (c *CMD) initHTTPServer() (err error) {
 		httpserver.WithListener(c.tlsw.Listener(l)),
 		httpserver.WithProfileRepository(c.p),
 		httpserver.WithTenantRepository(c.ts),
-		httpserver.WithLogger(c.logger),
+		httpserver.WithLogger(c.logger.WithLog(log.String("logger-name", "http-server"))),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate http server: %w", err)

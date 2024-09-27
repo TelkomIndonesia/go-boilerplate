@@ -41,6 +41,16 @@ paths:
                                 $ref: '#/components/schemas/Profile'
                 "400":
                     description: bad request
+                    content:
+                        "application/json":
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                "500":
+                    description: server error
+                    content:
+                        "application/json":
+                            schema:
+                                $ref: '#/components/schemas/Error'
     /tenants/{tenant-id}/profiles/{profile-id}:
         get:
             security:
@@ -65,16 +75,32 @@ paths:
                         "application/json":
                             schema:
                                 $ref: '#/components/schemas/Profile'
+                "400":
+                    description: bad request
+                    content:
+                        "application/json":
+                            schema:
+                                $ref: '#/components/schemas/Error'
                 "404":
-                    description: not found
+                    description: bad request
+                    content:
+                        "application/json":
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                "500":
+                    description: server error
+                    content:
+                        "application/json":
+                            schema:
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
+        String:
+            type: string
+            x-go-type-skip-optional-pointer: true
         UUID:
             type: string
             format: uuid
-            x-go-type-skip-optional-pointer: true
-        String:
-            type: string
             x-go-type-skip-optional-pointer: true
         Time:
             type: string
@@ -108,3 +134,9 @@ components:
                     $ref: '#/components/schemas/String'
                 dob:
                     $ref: '#/components/schemas/Time'
+        Error:
+            properties:
+                code:
+                    $ref: '#/components/schemas/String'
+                message:
+                    $ref: '#/components/schemas/String'

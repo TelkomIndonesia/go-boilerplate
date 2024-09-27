@@ -9,7 +9,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/internal"
 )
 
-var _ Logger = deflogger{}
+var _ LoggerBase = deflogger{}
 
 type OptFunc func(*deflogger) error
 
@@ -23,7 +23,7 @@ func WithWritter(w io.Writer) OptFunc {
 type deflogger struct {
 	w io.Writer
 
-	ctxFunc []LogContextFunc
+	ctxFunc []LogFunc
 }
 
 func New(opts ...OptFunc) (l Logger, err error) {
@@ -34,17 +34,17 @@ func New(opts ...OptFunc) (l Logger, err error) {
 			return nil, fmt.Errorf("failed to apply option: %w", err)
 		}
 	}
-	return dl, nil
+	return WithLoggerExt(dl), nil
 }
 
 type defMessage struct {
-	Level   string              `json:"level"`
-	Message string              `json:"message"`
-	Fields  internal.MapContext `json:"fields"`
+	Level   string          `json:"level"`
+	Message string          `json:"message"`
+	Fields  internal.LogMap `json:"fields"`
 }
 
-func (d deflogger) println(level string, message string, fn ...LogContextFunc) {
-	ctx := internal.MapContext{}
+func (d deflogger) println(level string, message string, fn ...LogFunc) {
+	ctx := internal.LogMap{}
 	for _, fn := range append(d.ctxFunc, fn...) {
 		fn(ctx)
 	}
@@ -55,25 +55,19 @@ func (d deflogger) println(level string, message string, fn ...LogContextFunc) {
 	})
 }
 
-func (d deflogger) Debug(message string, fn ...LogContextFunc) {
+func (d deflogger) Debug(message string, fn ...LogFunc) {
 	d.println("DEBUG", message, append(fn, d.ctxFunc...)...)
 }
-func (d deflogger) Info(message string, fn ...LogContextFunc) {
+func (d deflogger) Info(message string, fn ...LogFunc) {
 	d.println("INFO", message, append(fn, d.ctxFunc...)...)
 }
-func (d deflogger) Warn(message string, fn ...LogContextFunc) {
+func (d deflogger) Warn(message string, fn ...LogFunc) {
 	d.println("WARN", message, append(fn, d.ctxFunc...)...)
 }
-func (d deflogger) Error(message string, fn ...LogContextFunc) {
+func (d deflogger) Error(message string, fn ...LogFunc) {
 	d.println("ERROR", message, append(fn, d.ctxFunc...)...)
 }
-func (d deflogger) Fatal(message string, fn ...LogContextFunc) {
+func (d deflogger) Fatal(message string, fn ...LogFunc) {
 	d.println("FATAL", message, append(fn, d.ctxFunc...)...)
 	os.Exit(1)
 }
-func (d deflogger) WithCtx(f LogContextFunc) Logger {
-	d.ctxFunc = append(d.ctxFunc, f)
-	return d
-}
-
-var _ LogContext = internal.MapContext{}

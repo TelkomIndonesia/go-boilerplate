@@ -21,5 +21,21 @@ get:
         "application/json":
           schema:
             $ref: "../schemas/profile.yml#/components/schemas/Profile"
+    400:
+      description: bad request
+      content:
+        "application/json":
+          schema:
+            $ref: "../schemas/profile.yml#/components/schemas/Error"
     404:
-      description: not found
+      description: bad request
+      content:
+        "application/json":
+          schema:
+            $ref: "../schemas/profile.yml#/components/schemas/Error"
+    500:
+      description: server error
+      content:
+        "application/json":
+          schema:
+            $ref: "../schemas/profile.yml#/components/schemas/Error"

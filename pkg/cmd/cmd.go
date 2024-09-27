@@ -9,7 +9,7 @@ import (
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/zap"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/zaplogger"
 	"github.com/telkomindonesia/go-boilerplate/pkg/otelloader"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
@@ -74,16 +74,16 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 	c.initAEADDerivableKeySet()
 	c.initMACDerivableKeySet()
 	c.initBIDXDerivableKeyset()
-	c.initHTTPC()
+	c.initHTTPClient()
 	return
 }
 
 func (c *CMD) initLogger() {
-	opts := []zap.OptFunc{}
+	opts := []zaplogger.OptFunc{}
 	if c.LogLevel != nil {
-		opts = append(opts, zap.WithLevelString(*c.LogLevel))
+		opts = append(opts, zaplogger.WithLevelString(*c.LogLevel))
 	}
-	l, err := zap.New(opts...)
+	l, err := zaplogger.New(opts...)
 
 	c.logger = func() (log.Logger, error) { return l, err }
 }
@@ -113,9 +113,12 @@ func (c *CMD) initTLSWrap() {
 	if c.TLSCertPath != nil && c.TLSKeyPath != nil {
 		opts = append(opts, tlswrap.WithLeafCert(*c.TLSKeyPath, *c.TLSCertPath))
 	}
-	if l, err := c.Logger(); err == nil && l != nil {
-		opts = append(opts, tlswrap.WithLogger(l))
+
+	l, err := c.Logger()
+	if err != nil {
+		l = log.Global()
 	}
+	opts = append(opts, tlswrap.WithLogger(l.WithLog(log.String("logger-name", "tlswrap"))))
 
 	t, err := tlswrap.New(opts...)
 	c.tlsWrap = func() (*tlswrap.TLSWrap, error) { return t, err }
@@ -180,7 +183,7 @@ func (c CMD) BIDXDerivableKeysetWithLen(len int) func() (*tinkx.DerivableKeyset[
 	return func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return m, err }
 }
 
-func (c *CMD) initHTTPC() {
+func (c *CMD) initHTTPClient() {
 	opts := []httpclient.OptFunc{}
 	if tlswrapper, err := c.tlsWrap(); err == nil && tlswrapper != nil {
 		d := tlswrapper.Dialer(&net.Dialer{Timeout: 10 * time.Second})
@@ -199,8 +202,12 @@ func (c CMD) LoadOtel(ctx context.Context) (deferer func()) {
 	if c.OtelTraceProvider != nil {
 		n = *c.OtelTraceProvider
 	}
-	l, _ := c.Logger()
-	return otelloader.WithTraceProvider(ctx, n, l)
+	l, err := c.Logger()
+	if err != nil {
+		l = log.Global()
+	}
+
+	return otelloader.WithTraceProvider(ctx, n, l.WithLog(log.String("logger-name", "otel-loader")))
 }
 
 func (c CMD) CancelOnExit(ctx context.Context) context.Context {

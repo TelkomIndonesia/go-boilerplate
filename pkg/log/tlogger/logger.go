@@ -1,6 +1,7 @@
 package tlogger
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -8,68 +9,64 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/internal"
 )
 
-var _ log.Logger = &logger{}
-
 type logger struct {
 	t       *testing.T
-	ctxFunc []log.LogContextFunc
+	ctx     context.Context
+	logFunc []log.LogFunc
 }
 
-func (l *logger) println(level string, message string, fn ...log.LogContextFunc) {
+func New(t *testing.T) log.Logger {
+	return logger{t: t}
+}
+
+func (l logger) Debug(message string, fn ...log.LogFunc) {
+	l.t.Helper()
+	l.println("DEBUG", message, fn...)
+}
+
+func (l logger) Error(message string, fn ...log.LogFunc) {
+	l.t.Helper()
+	l.println("ERROR", message, fn...)
+}
+
+func (l logger) Fatal(message string, fn ...log.LogFunc) {
+	l.t.Helper()
+	l.println("FATAL", message, fn...)
+}
+
+func (l logger) Info(message string, fn ...log.LogFunc) {
+	l.t.Helper()
+	l.println("INFO", message, fn...)
+}
+
+func (l logger) Warn(message string, fn ...log.LogFunc) {
+	l.t.Helper()
+	l.println("WARN", message, fn...)
+}
+
+func (l logger) WithLog(c ...log.LogFunc) log.Logger {
+	l.logFunc = append(l.logFunc, c...)
+	return l
+}
+
+func (l logger) WithTrace(ctx context.Context) log.Logger {
+	return l
+}
+
+func (l logger) println(level string, message string, fn ...log.LogFunc) {
 	l.t.Helper()
 
-	ctx := internal.MapContext{}
-	for _, fn := range append(l.ctxFunc, fn...) {
-		fn(ctx)
-	}
+	mlog := internal.LogMap{}
+	log.WithTrace(l.ctx, append(fn, l.logFunc...)...)(mlog)
 
 	m, err := json.Marshal(map[string]interface{}{
 		"level":   level,
 		"message": message,
-		"fields":  ctx,
+		"fields":  mlog,
 	})
 	if err != nil {
 		l.t.Error(err)
 	}
 
 	l.t.Log(string(m))
-}
-
-// Debug implements log.Logger.
-func (l *logger) Debug(message string, fn ...log.LogContextFunc) {
-	l.t.Helper()
-	l.println("DEBUG", message, fn...)
-}
-
-// Error implements log.Logger.
-func (l *logger) Error(message string, fn ...log.LogContextFunc) {
-	l.t.Helper()
-	l.println("ERROR", message, fn...)
-}
-
-// Fatal implements log.Logger.
-func (l *logger) Fatal(message string, fn ...log.LogContextFunc) {
-	l.t.Helper()
-	l.println("FATAL", message, fn...)
-}
-
-// Info implements log.Logger.
-func (l *logger) Info(message string, fn ...log.LogContextFunc) {
-	l.t.Helper()
-	l.println("INFO", message, fn...)
-}
-
-// Warn implements log.Logger.
-func (l *logger) Warn(message string, fn ...log.LogContextFunc) {
-	l.t.Helper()
-	l.println("WARN", message, fn...)
-}
-
-// WithCtx implements log.Logger.
-func (l *logger) WithCtx(c log.LogContextFunc) log.Logger {
-	return &logger{ctxFunc: append(l.ctxFunc, c)}
-}
-
-func New(t *testing.T) log.Logger {
-	return &logger{t: t}
 }

@@ -32,6 +32,12 @@ type CreateProfile struct {
 	Phone String `json:"phone,omitempty"`
 }
 
+// Error defines model for Error.
+type Error struct {
+	Code    String `json:"code,omitempty"`
+	Message String `json:"message,omitempty"`
+}
+
 // Profile defines model for Profile.
 type Profile struct {
 	Dob      Time   `json:"dob,omitempty"`
@@ -176,12 +182,22 @@ func (response PostProfile201JSONResponse) VisitPostProfileResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PostProfile400Response struct {
+type PostProfile400JSONResponse Error
+
+func (response PostProfile400JSONResponse) VisitPostProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
-func (response PostProfile400Response) VisitPostProfileResponse(w http.ResponseWriter) error {
-	w.WriteHeader(400)
-	return nil
+type PostProfile500JSONResponse Error
+
+func (response PostProfile500JSONResponse) VisitPostProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 type GetProfileRequestObject struct {
@@ -202,12 +218,31 @@ func (response GetProfile200JSONResponse) VisitGetProfileResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetProfile404Response struct {
+type GetProfile400JSONResponse Error
+
+func (response GetProfile400JSONResponse) VisitGetProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
-func (response GetProfile404Response) VisitGetProfileResponse(w http.ResponseWriter) error {
+type GetProfile404JSONResponse Error
+
+func (response GetProfile404JSONResponse) VisitGetProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
-	return nil
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetProfile500JSONResponse Error
+
+func (response GetProfile500JSONResponse) VisitGetProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
 // StrictServerInterface represents all server handlers.
@@ -293,16 +328,17 @@ func (sh *strictHandler) GetProfile(ctx echo.Context, tenantId UUID, profileId U
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8xUTY/TMBD9K9XA0dlk2R6Qb3xIqLeVYE9ohdxk2hoSj9eeVFRR/jsaJ/2IFtGyIJZT",
-	"rfHrG897L9NBSY0nh44j6A5iucHGpOO7gIbxNtDK1igFH8hjYIvpuqKl/LwMuAINL/IjTz6S5J9sg9Ar",
-	"wMbY+hz4Iwfr1gJ3psHfQFt3OdhvyF3M3fcKnmF8W53D3t0t3v9PQilgdMbxl0ufLsqOf9Yd8M4jaIhD",
-	"QcH3bE2ZFLP4zfqMPFtyps48WccYQHNosVeQ9NUdrCg0hkFDZRgzlqp6Mml64Clp29rqyXwyqHUrEsba",
-	"luhievFgHCwE6UwNCtpQg4YNs9d5XlNp6g1FTtJalvztkzh7c7sABVsM0ZIDDddXxVUhQPLojLeg4SaV",
-	"FHjDmxTWfPAn5t1wyGzV534gTAAvzXQnHMHIJItKWlLk/QcgbME0yBgi6M8dSJpSB9gHEQ7koCDgQ2sD",
-	"VoMQalwsF8ZDjfQPLYbdkX9raisewyndaMySqEbjoO/vh+YY+S1VO4GU5BhdGtB4X9syjZh/jeSOO+/c",
-	"06brMDk7nTEVoicXB01fFdd/rfmkbYWxDDYFThLZliXGKAmYF0VaTZP7palmox6iLEQs22B5JyaKVrFt",
-	"GhN2oKFME878oZf6dXDybjxJVRqv8Sch+oDPm6Ep/fHFf8p//8ju4p/bPX9styOerah11Rmz18gnTido",
-	"2O59OW6jqPO93/r1fH4Douv0+rCtRsB9/yMAAP//ownaSVUIAAA=",
+	"H4sIAAAAAAAC/+RVW2vbTBD9K2a+73EVKY0LZd96o/gt0OaphLKRxva20u5mdhRqhP57mZV8I6G209AU",
+	"8uRl9vicuZxZdVD6JniHjiPoDmK5xMak43tCw3hJfm5rlEAgH5DYYrqu/I38/E84Bw3/5VuefCTJv9gG",
+	"oVeAjbH1IfBnJusWAnemwRPQ1h0PDkvvjubuewUfiTzdL7701QkpNhijWZyk+wxtt9Uh7NXV7MO/NCAF",
+	"jM44/nZs6tLZ8c+6A14FBA1xCCj4mS18JsEs/rAh84Gtd6bOgreOkUAztdgrSP3VHcw9NYZBQ2UYM5ao",
+	"ejRpSnCXtG1t9Wg+KdS6uRfG2pboYsp4GBzMBOlMDQpaqkHDkjnoPK99aeqlj5xaa1n8t3bi5O3lDBTc",
+	"IUXrHWg4PyvOCgH6gM4ECxouUkhBMLxMZs2H+cS8Gw6Zrfo8DIQJEERMd8JBRiqZVSLpI68XQNjINMhI",
+	"EfTXDsRNSQHWRoQNOSggvG0tYTU0Qo0P2pH2UCP9bYu02vLfmdrKjGGXbhzMjfc1Ggd9fz2IY+R3vloN",
+	"r4RjdKlAE0Jty1Ri/j16t31rD6W2/wynye7XmAIxeBeHnr4qzp9MfE+2wliSTYYTR7ZliTGKA6ZF8WSK",
+	"w4P7gN6NqSZjf0Xz9d/QjEh3SBMc7xVELFuyvBInysBj2zSGVqChTGOahE3D1O/dn3fjSaKS4AIf2IRP",
+	"+LyLsE+/zfhP+a/vebZ4AZ6dFtMXvycL5J0lSVD572Dp7dco6ny9KvrNdHoBYsn9683XagRc978CAAD/",
+	"/0l0s7bNCgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -13,7 +13,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/types"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/loggable"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
@@ -55,11 +55,11 @@ type CMD struct {
 	envPrefix string
 	dotenv    bool
 
-	HTTPAddr             string                    `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
-	PostgresUrl          types.MaskedStringUserURL `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
-	KafkaBrokers         []string                  `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
-	KafkaTopicOutbox     string                    `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
-	TenantServiceBaseUrl types.MaskedStringUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
+	HTTPAddr             string                       `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
+	PostgresUrl          loggable.MaskedStringUserURL `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
+	KafkaBrokers         []string                     `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
+	KafkaTopicOutbox     string                       `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
+	TenantServiceBaseUrl loggable.MaskedStringUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	CMD        *cmd.CMD `env:"-" json:"cmd"`
 	logger     log.Logger
@@ -222,5 +222,5 @@ func (c *CMD) close(ctx context.Context, err error) error {
 }
 
 func (c CMD) AsLog() any {
-	return types.AsLog(c)
+	return loggable.AsLog(c)
 }

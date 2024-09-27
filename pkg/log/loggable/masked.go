@@ -1,4 +1,4 @@
-package types
+package loggable
 
 import (
 	"net/url"

@@ -126,14 +126,3 @@ func cloneHandle(h *keyset.Handle) (hc *keyset.Handle, err error) {
 
 	return hc, nil
 }
-
-// GetBlindIdxs
-// Deprecated: use BlindIdx.ComputeAll() instead.
-func GetBlindIdxs(h *keyset.Handle, key []byte, len int) (idxs [][]byte, err error) {
-	b, err := NewBIDX(h, len)
-	if err != nil {
-		return nil, err
-	}
-
-	return b.ComputeAll(key)
-}

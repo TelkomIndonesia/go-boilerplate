@@ -54,11 +54,6 @@ func TestBlindIndexes(t *testing.T) {
 		require.NoError(t, err, "should compute multiple mac")
 		assert.Contains(t, vs, v1, "should contain previous mac")
 		assert.Contains(t, vs, v2, "should contain new mac")
-
-		vsold, err := GetBlindIdxs(handle, data[:], len(v))
-		require.NoError(t, err, "should compute multiple mac")
-		assert.Contains(t, vsold, v1, "should contain previous mac")
-		assert.Contains(t, vsold, v2, "should contain new mac")
 	}
 }
 

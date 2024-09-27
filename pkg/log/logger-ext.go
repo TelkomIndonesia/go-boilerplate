@@ -46,5 +46,5 @@ func (l loggerExt) Fatal(message string, fn ...LogFunc) {
 }
 
 func (l loggerExt) wrap(fn ...LogFunc) LogFunc {
-	return WithTrace(l.ctx, append(fn, l.logFuncs...)...)
+	return WithTrace(l.ctx, append(l.logFuncs, fn...)...)
 }

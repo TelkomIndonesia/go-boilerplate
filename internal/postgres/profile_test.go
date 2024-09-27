@@ -14,7 +14,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/ltesting"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
-	obpostgres "github.com/telkomindonesia/go-boilerplate/pkg/outboxce/postgres"
+	obcepostgres "github.com/telkomindonesia/go-boilerplate/pkg/outboxce/postgres"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -93,10 +93,10 @@ func TestProfileBasic(t *testing.T) {
 	t.Run("outbox", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		ob, err := obpostgres.New(
-			obpostgres.WithDB(p.db, p.dbUrl),
-			obpostgres.WithLogger(ltesting.New(t)),
-			obpostgres.WithMaxWaitNotif(0))
+		ob, err := obcepostgres.New(
+			obcepostgres.WithDB(p.db, p.dbUrl),
+			obcepostgres.WithLogger(ltesting.New(t)),
+			obcepostgres.WithMaxWaitNotif(0))
 		require.NoError(t, err)
 
 		i := 0

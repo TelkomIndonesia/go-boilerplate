@@ -10,7 +10,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/lzap"
-	"github.com/telkomindonesia/go-boilerplate/pkg/otelloader"
+	"github.com/telkomindonesia/go-boilerplate/pkg/otelinit"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
@@ -197,7 +197,7 @@ func (c CMD) HTTPClient() (httpclient.HTTPClient, error) {
 	return c.httpClient()
 }
 
-func (c CMD) LoadOtel(ctx context.Context) (deferer func()) {
+func (c CMD) InitOtel(ctx context.Context) (deferer func()) {
 	n := ""
 	if c.OtelTraceProvider != nil {
 		n = *c.OtelTraceProvider
@@ -207,7 +207,7 @@ func (c CMD) LoadOtel(ctx context.Context) (deferer func()) {
 		l = log.Global()
 	}
 
-	return otelloader.WithTraceProvider(ctx, n, l.WithLog(log.String("logger-name", "otel-loader")))
+	return otelinit.WithTraceProvider(ctx, n, l.WithLog(log.String("logger-name", "otel-loader")))
 }
 
 func (c CMD) CancelOnExit(ctx context.Context) context.Context {

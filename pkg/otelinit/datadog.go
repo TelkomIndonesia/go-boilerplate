@@ -1,4 +1,4 @@
-package otelloader
+package otelinit
 
 import (
 	"os"

@@ -35,20 +35,6 @@ func WithoutDotEnv() OptFunc {
 	}
 }
 
-func WithCanceler(f func(context.Context) context.Context) OptFunc {
-	return func(s *CMD) (err error) {
-		s.canceler = f
-		return
-	}
-}
-
-func WithOtelLoader(f func(ctx context.Context) func()) OptFunc {
-	return func(s *CMD) (err error) {
-		s.otelLoader = f
-		return
-	}
-}
-
 var _ log.Loggable = CMD{}
 
 type CMD struct {
@@ -61,14 +47,14 @@ type CMD struct {
 	KafkaTopicOutbox     string                       `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
 	TenantServiceBaseUrl loggable.MaskedStringUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
-	CMD        *cmd.CMD `env:"-" json:"cmd"`
-	logger     log.Logger
-	aead       *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD]
-	bidx       *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]
-	hc         httpclient.HTTPClient
-	tlsw       *tlswrap.TLSWrap
-	canceler   func(ctx context.Context) context.Context
-	otelLoader func(ctx context.Context) func()
+	CMD      *cmd.CMD `env:"-" json:"cmd"`
+	logger   log.Logger
+	aead     *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD]
+	bidx     *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX]
+	hc       httpclient.HTTPClient
+	tlsw     *tlswrap.TLSWrap
+	canceler func(ctx context.Context) context.Context
+	initOtel func(ctx context.Context) func()
 
 	h  *httpserver.HTTPServer
 	p  *postgres.Postgres
@@ -121,12 +107,8 @@ func (c *CMD) initCMD() (err error) {
 		return fmt.Errorf("failed to instantiate cmd: %w", err)
 	}
 
-	if c.otelLoader == nil {
-		c.otelLoader = c.CMD.LoadOtel
-	}
-	if c.canceler == nil {
-		c.canceler = c.CMD.CancelOnExit
-	}
+	c.initOtel = c.CMD.InitOtel
+	c.canceler = c.CMD.CancelOnExit
 	c.logger = util.Require(c.CMD.Logger, log.Global().WithLog(log.String("name", "logger")))
 	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithLog(log.String("name", "aead")))
 	c.bidx = util.Require(c.CMD.BIDXDerivableKeyset, c.logger.WithLog(log.String("name", "blind-idx")))
@@ -208,7 +190,7 @@ func (c *CMD) initHTTPServer() (err error) {
 func (c *CMD) Run(ctx context.Context) (err error) {
 	defer func() { c.logger.Error("error", log.Error("error", err)) }()
 	defer func() { err = c.close(ctx, err) }()
-	defer c.otelLoader(ctx)()
+	defer c.initOtel(ctx)()
 
 	c.logger.Info("server starting", log.Any("server", c))
 	return c.h.Start(c.canceler(ctx))

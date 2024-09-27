@@ -88,7 +88,7 @@ l1 -> reusable.log: {
 l1.l2.cmd -> reusable.cmd: {
   class: DependencyLine
 }
-l1.l2.cmd -> reusable.otelloader: {
+l1.l2.cmd -> reusable.otelinit: {
   class: DependencyLine
 }
 l1.l2.cmd -> reusable.util: {
@@ -103,9 +103,6 @@ l1.l2.cmd -> reusable.httpclient: {
 l1.l2.l3.postgres -> reusable.tinkx: {
   class: DependencyLine
 }
-l1.l2.l3.postgres -> reusable.sqlval: {
-  class: DependencyLine
-}
 l1.l2.l3.postgres -> reusable.outboxce: {
   class: DependencyLine
 }
@@ -117,22 +114,16 @@ reusable: Reusable Library {
   near: bottom-right
   class: Layer
 
-  util: pkg/util {
-    class: Package
-  }
   cmd: pkg/cmd {
     class: Package
   }
   tinkx: pkg/tinkx {
     class: Package
   }
-  sqlval: pkg/tinkx/sqlval {
-    class: Package
-  }
   log: pkg/log {
     class: Package
   }
-  otelloader: pkg/otelloader {
+  otelinit: pkg/otelinit {
     class: Package
   }
   outboxce: pkg/outboxce {
@@ -147,14 +138,16 @@ reusable: Reusable Library {
   httpclient: pkg/httpclient {
     class: Package
   }
+  util: pkg/util {
+    class: Package
+  }
 
   cmd -> util: {class: DependencyLine}
   cmd -> tinkx: {class: DependencyLine}
   cmd -> log: {class: DependencyLine}
-  cmd -> otelloader: {class: DependencyLine}
+  cmd -> otelinit: {class: DependencyLine}
   cmd -> tlswrap: {class: DependencyLine}
   cmd -> httpclient: {class: DependencyLine}
-  sqlval -> tinkx: {class: DependencyLine}
   tlswrap -> filewatch: {class: DependencyLine}
   tlswrap -> log: {class: DependencyLine}
 }

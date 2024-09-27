@@ -1,4 +1,4 @@
-package otelinit
+package oteloader
 
 import (
 	"github.com/go-logr/logr"

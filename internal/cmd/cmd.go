@@ -55,7 +55,7 @@ type CMD struct {
 	hc       httpclient.HTTPClient
 	tlsw     *tlswrap.TLSWrap
 	canceler func(ctx context.Context) context.Context
-	initOtel func(ctx context.Context) func()
+	loadOtel func(ctx context.Context) func()
 
 	h  *httpserver.HTTPServer
 	p  *postgres.Postgres
@@ -108,7 +108,7 @@ func (c *CMD) initCMD() (err error) {
 		return fmt.Errorf("failed to instantiate cmd: %w", err)
 	}
 
-	c.initOtel = c.CMD.InitOtel
+	c.loadOtel = c.CMD.LoadOtel
 	c.canceler = c.CMD.CancelOnExit
 	c.logger = c.CMD.Logger()
 	c.aead = c.CMD.AEADDerivableKeyset()
@@ -191,7 +191,7 @@ func (c *CMD) initHTTPServer() (err error) {
 func (c *CMD) Run(ctx context.Context) (err error) {
 	defer func() { c.logger.Error("error", log.Error("error", err)) }()
 	defer func() { err = c.close(ctx, err) }()
-	defer c.initOtel(ctx)()
+	defer c.loadOtel(ctx)()
 
 	c.logger.Info("server starting", log.Any("server", c))
 	return c.h.Start(c.canceler(ctx))

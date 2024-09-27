@@ -92,7 +92,7 @@ l1 -> reusable.log: {
 l1.l2.cmd -> reusable.cmd: {
   class: DependencyLine
 }
-l1.l2.cmd -> reusable.otelinit: {
+l1.l2.cmd -> reusable.oteloader: {
   class: DependencyLine
 }
 l1.l2.cmd -> reusable.tlswrap: {
@@ -124,7 +124,7 @@ reusable: Reusable Library {
   log: pkg/log {
     class: Package
   }
-  otelinit: pkg/otelinit {
+  oteloader: pkg/oteloader {
     class: Package
   }
   outboxce: pkg/outboxce {
@@ -146,7 +146,7 @@ reusable: Reusable Library {
   cmd -> ctxutil: {class: DependencyLine}
   cmd -> tinkx: {class: DependencyLine}
   cmd -> log: {class: DependencyLine}
-  cmd -> otelinit: {class: DependencyLine}
+  cmd -> oteloader: {class: DependencyLine}
   cmd -> tlswrap: {class: DependencyLine}
   cmd -> httpclient: {class: DependencyLine}
   tlswrap -> filewatch: {class: DependencyLine}

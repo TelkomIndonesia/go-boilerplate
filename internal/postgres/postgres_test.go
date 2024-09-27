@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/ltesting"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/logtest"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 )
 
@@ -64,7 +64,7 @@ func tNewPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 
 	p, err := New(append(opts,
 		WithConnString(url),
-		WithLogger(ltesting.NewLogger(t)),
+		WithLogger(logtest.NewLogger(t)),
 		WithDerivableKeysets(tGetKeysetHandle(t)))...,
 	)
 	require.NoError(t, err, "should create postgres")

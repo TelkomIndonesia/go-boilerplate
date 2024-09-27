@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/ltesting"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/logtest"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce/internal/sample"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
@@ -59,7 +59,7 @@ func tNewManagerPostgres(t *testing.T, opts ...OptFunc) *postgres {
 	db, err := sql.Open("postgres", url)
 	require.NoError(t, err)
 
-	p, err := NewManager(append(opts, WithDB(db, url), WithLogger(ltesting.NewLogger(t).WithLog(log.String("name", t.Name()))))...)
+	p, err := NewManager(append(opts, WithDB(db, url), WithLogger(logtest.NewLogger(t).WithLog(log.String("name", t.Name()))))...)
 	require.NoError(t, err, "should create postgres")
 	return p.(*postgres)
 }
@@ -142,7 +142,7 @@ func TestPostgresOutbox(t *testing.T) {
 						p.maxRelaySize = 10
 						defer p.db.Close()
 
-						outboxce.RelayLoopWithRetry(ctx, p, sender, ltesting.NewLogger(t).WithLog(log.Int64("replica-id", int64(i))))
+						outboxce.RelayLoopWithRetry(ctx, p, sender, logtest.NewLogger(t).WithLog(log.Int64("replica-id", int64(i))))
 					}()
 				}
 			}

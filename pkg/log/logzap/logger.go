@@ -1,4 +1,4 @@
-package lzap
+package logzap
 
 import (
 	"fmt"

@@ -12,7 +12,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/ctxutil"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/lzap"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/logzap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/oteloader"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
@@ -81,11 +81,11 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 }
 
 func (c *CMD) initLogger() {
-	opts := []lzap.OptFunc{}
+	opts := []logzap.OptFunc{}
 	if c.LogLevel != nil {
-		opts = append(opts, lzap.WithLevelString(*c.LogLevel))
+		opts = append(opts, logzap.WithLevelString(*c.LogLevel))
 	}
-	l, err := lzap.NewLogger(opts...)
+	l, err := logzap.NewLogger(opts...)
 
 	c.LoggerE = func() (log.Logger, error) { return l, err }
 }

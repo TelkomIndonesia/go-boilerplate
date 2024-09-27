@@ -1,4 +1,4 @@
-package ltesting
+package logtest
 
 import (
 	"context"

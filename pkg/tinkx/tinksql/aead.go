@@ -13,10 +13,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ interface {
-	sql.Scanner
-	driver.Value
-} = &AEAD[any, tink.AEAD]{}
+var _ sql.Scanner = &AEAD[any, tink.AEAD]{}
+var _ driver.Value = &AEAD[any, tink.AEAD]{}
 var _ AEADFunc[tinkx.PrimitiveAEAD] = (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD])(nil).GetPrimitiveFunc(nil)
 
 type AEADFunc[A tink.AEAD] func() (A, error)

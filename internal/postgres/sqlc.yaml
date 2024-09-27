@@ -59,10 +59,3 @@ sql:
     queries: "query.sql"
     database:
       uri: "postgresql://testing:testing@localhost:5432/testing?sslmode=disable"
-    rules:
-      - debug
-
-rules:
-  - name: debug
-    message: "Query plan results in a sequential scan"
-    rule: "!has(postgresql.explain)"

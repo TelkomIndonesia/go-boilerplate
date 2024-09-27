@@ -38,6 +38,6 @@ explain:
 	@docker compose up -d postgres
 	@go mod edit -replace github.com/sqlc-dev/sqlc=github.com/telkomindonesia/sqlc@v0.0.0-20240919043553-64214ea9cd12
 	@go mod tidy
-	@go run github.com/sqlc-dev/sqlc/cmd/sqlc explain -f ./pkg/postgres/sqlc.yaml
+	@go run github.com/sqlc-dev/sqlc/cmd/sqlc explain -f ./internal/postgres/sqlc.yaml
 	@go mod edit -dropreplace github.com/sqlc-dev/sqlc
 	@go mod tidy

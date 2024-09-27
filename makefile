@@ -1,5 +1,3 @@
-.PHONY:
-
 keys:
 	go run ./tools/gentinkey .local/tink-aead.json .local/tink-mac.json .local/tink-jwt-mac.json
 	docker compose -f docker-compose.keys.yml up

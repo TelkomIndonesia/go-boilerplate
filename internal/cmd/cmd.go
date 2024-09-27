@@ -110,11 +110,11 @@ func (c *CMD) initCMD() (err error) {
 
 	c.initOtel = c.CMD.InitOtel
 	c.canceler = c.CMD.CancelOnExit
-	c.logger = util.Require(c.CMD.Logger, log.Global().WithLog(log.String("name", "logger")))
-	c.aead = util.Require(c.CMD.AEADDerivableKeyset, c.logger.WithLog(log.String("name", "aead")))
-	c.bidx = util.Require(c.CMD.BIDXDerivableKeyset, c.logger.WithLog(log.String("name", "blind-idx")))
-	c.tlsw = util.Require(c.CMD.TLSWrap, c.logger.WithLog(log.String("name", "tlswrapper")))
-	c.hc = util.Require(c.CMD.HTTPClient, c.logger.WithLog(log.String("name", "httpclient")))
+	c.logger = c.CMD.Logger()
+	c.aead = c.CMD.AEADDerivableKeyset()
+	c.bidx = c.CMD.BIDXDerivableKeyset()
+	c.tlsw = c.CMD.TLSWrap()
+	c.hc = c.CMD.HTTPClient()
 	return
 }
 

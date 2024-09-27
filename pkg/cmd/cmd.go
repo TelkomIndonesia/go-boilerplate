@@ -50,12 +50,12 @@ type CMD struct {
 
 	tlscfg *tls.Config
 
-	logger     func() (log.Logger, error)
-	tlsWrap    func() (*tlswrap.TLSWrap, error)
-	aead       func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error)
-	mac        func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error)
-	bidx       func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error)
-	httpClient func() (httpclient.HTTPClient, error)
+	LoggerE              func() (log.Logger, error)
+	TLSWrapE             func() (*tlswrap.TLSWrap, error)
+	AEADDerivableKeysetE func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error)
+	MacDerivableKeysetE  func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error)
+	BIDXDerivableKeysetE func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error)
+	HTTPClientE          func() (httpclient.HTTPClient, error)
 }
 
 func New(opts ...OptFunc) (c *CMD, err error) {
@@ -85,11 +85,19 @@ func (c *CMD) initLogger() {
 	}
 	l, err := lzap.New(opts...)
 
-	c.logger = func() (log.Logger, error) { return l, err }
+	c.LoggerE = func() (log.Logger, error) { return l, err }
 }
 
-func (c CMD) Logger() (log.Logger, error) {
-	return c.logger()
+func (c CMD) Logger() log.Logger {
+	return require(c.LoggerE, log.Global())
+}
+
+func (c CMD) loggerOrGlobal() log.Logger {
+	l, err := c.LoggerE()
+	if err != nil {
+		return log.Global()
+	}
+	return l
 }
 
 func (c *CMD) initTLSWrap() {
@@ -114,87 +122,74 @@ func (c *CMD) initTLSWrap() {
 		opts = append(opts, tlswrap.WithLeafCert(*c.TLSKeyPath, *c.TLSCertPath))
 	}
 
-	l, err := c.Logger()
+	l, err := c.LoggerE()
 	if err != nil {
 		l = log.Global()
 	}
 	opts = append(opts, tlswrap.WithLogger(l.WithLog(log.String("logger-name", "tlswrap"))))
 
 	t, err := tlswrap.New(opts...)
-	c.tlsWrap = func() (*tlswrap.TLSWrap, error) { return t, err }
+	c.TLSWrapE = func() (*tlswrap.TLSWrap, error) { return t, err }
 }
 
-func (c CMD) TLSWrap() (*tlswrap.TLSWrap, error) {
-	return c.tlsWrap()
+func (c *CMD) TLSWrap() *tlswrap.TLSWrap {
+	return require(c.TLSWrapE, c.loggerOrGlobal())
 }
 
 func (c *CMD) initAEADDerivableKeySet() {
 	if c.AEADDerivableKeysetPath == nil {
-		c.aead = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) { return nil, nil }
+		c.AEADDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) { return nil, nil }
 		return
 	}
 
 	a, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.AEADDerivableKeysetPath, tinkx.NewPrimitiveAEAD)
-	c.aead = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) { return a, err }
+	c.AEADDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) { return a, err }
 }
 
-func (c CMD) AEADDerivableKeyset() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) {
-	return c.aead()
+func (c *CMD) AEADDerivableKeyset() *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD] {
+	return require(c.AEADDerivableKeysetE, c.loggerOrGlobal())
 }
 
 func (c *CMD) initMACDerivableKeySet() {
 	if c.MACDerivableKeysetPath == nil {
-		c.mac = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) { return nil, nil }
+		c.MacDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) { return nil, nil }
 		return
 	}
 
 	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, tinkx.NewPrimitiveMAC)
-	c.mac = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) { return m, err }
+	c.MacDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) { return m, err }
 }
 
-func (c CMD) MacDerivableKeyset() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) {
-	return c.mac()
+func (c *CMD) MacDerivableKeyset() *tinkx.DerivableKeyset[tinkx.PrimitiveMAC] {
+	return require(c.MacDerivableKeysetE, c.loggerOrGlobal())
 }
 
 func (c *CMD) initBIDXDerivableKeyset() {
 	if c.MACDerivableKeysetPath == nil {
-		c.bidx = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return nil, nil }
+		c.BIDXDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return nil, nil }
 		return
 	}
 
 	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, tinkx.NewPrimitiveBIDXWithLen(*c.BIDXLength))
-	c.bidx = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return m, err }
+	c.BIDXDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return m, err }
 }
 
-func (c CMD) BIDXDerivableKeyset() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) {
-	return c.bidx()
-}
-
-func (c CMD) BIDXDerivableKeysetWithLen(len int) func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) {
-	if c.MACDerivableKeysetPath == nil {
-		return func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return nil, nil }
-	}
-
-	p := tinkx.NewPrimitiveBIDX
-	if len > 0 {
-		p = tinkx.NewPrimitiveBIDXWithLen(len)
-	}
-	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, p)
-	return func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return m, err }
+func (c *CMD) BIDXDerivableKeyset() *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX] {
+	return require(c.BIDXDerivableKeysetE, c.loggerOrGlobal())
 }
 
 func (c *CMD) initHTTPClient() {
 	opts := []httpclient.OptFunc{}
-	if tlswrapper, err := c.tlsWrap(); err == nil && tlswrapper != nil {
+	if tlswrapper, err := c.TLSWrapE(); err == nil && tlswrapper != nil {
 		d := tlswrapper.Dialer(&net.Dialer{Timeout: 10 * time.Second})
 		opts = append(opts, httpclient.WithDialTLS(d.DialContext))
 	}
 	h, err := httpclient.New(opts...)
-	c.httpClient = func() (httpclient.HTTPClient, error) { return h, err }
+	c.HTTPClientE = func() (httpclient.HTTPClient, error) { return h, err }
 }
 
-func (c CMD) HTTPClient() (httpclient.HTTPClient, error) {
-	return c.httpClient()
+func (c *CMD) HTTPClient() httpclient.HTTPClient {
+	return require(c.HTTPClientE, c.loggerOrGlobal())
 }
 
 func (c CMD) InitOtel(ctx context.Context) (deferer func()) {
@@ -202,7 +197,7 @@ func (c CMD) InitOtel(ctx context.Context) (deferer func()) {
 	if c.OtelTraceProvider != nil {
 		n = *c.OtelTraceProvider
 	}
-	l, err := c.Logger()
+	l, err := c.LoggerE()
 	if err != nil {
 		l = log.Global()
 	}

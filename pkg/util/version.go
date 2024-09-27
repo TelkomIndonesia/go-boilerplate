@@ -19,5 +19,4 @@ func Version() (v string) {
 		break
 	}
 	return
-
 }

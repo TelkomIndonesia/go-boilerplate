@@ -1,8 +1,8 @@
-package util
+package cmd
 
 import "github.com/telkomindonesia/go-boilerplate/pkg/log"
 
-func Require[T any](f func() (T, error), l log.Logger) T {
+func require[T any](f func() (T, error), l log.Logger) T {
 	if l == nil {
 		l = log.Global()
 	}

@@ -11,17 +11,18 @@ servers:
     - url: "https://localhost:8443"
 paths:
     /tenants/{tenant-id}/profiles:
+        parameters:
+            - name: tenant-id
+              in: path
+              required: true
+              schema:
+                $ref: '#/components/schemas/UUID'
         post:
             security:
                 - {}
             summary: "create profile"
             operationId: PostProfile
             parameters:
-                - name: tenant-id
-                  in: path
-                  required: true
-                  schema:
-                    $ref: '#/components/schemas/UUID'
                 - name: "validate"
                   in: query
                   schema:
@@ -52,22 +53,22 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/Error'
     /tenants/{tenant-id}/profiles/{profile-id}:
+        parameters:
+            - name: tenant-id
+              required: true
+              in: path
+              schema:
+                $ref: '#/components/schemas/UUID'
+            - name: profile-id
+              in: path
+              required: true
+              schema:
+                $ref: '#/components/schemas/UUID'
         get:
             security:
                 - {}
             summary: "get profile"
             operationId: "GetProfile"
-            parameters:
-                - name: tenant-id
-                  required: true
-                  in: path
-                  schema:
-                    $ref: '#/components/schemas/UUID'
-                - name: profile-id
-                  in: path
-                  required: true
-                  schema:
-                    $ref: '#/components/schemas/UUID'
             responses:
                 "200":
                     description: "success"

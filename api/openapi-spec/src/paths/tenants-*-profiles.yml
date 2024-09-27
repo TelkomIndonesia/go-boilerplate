@@ -1,14 +1,15 @@
+parameters:
+  - name: tenant-id
+    in: path
+    required: true
+    schema:
+      $ref: "../schemas/common.yml#/components/schemas/UUID"
 post:
   security:
     - {}
   summary: "create profile"
   operationId: PostProfile
   parameters:
-    - name: tenant-id
-      in: path
-      required: true
-      schema:
-        $ref: "../schemas/profile.yml#/components/schemas/UUID"
     - name: "validate"
       in: query
       schema:
@@ -32,10 +33,10 @@ post:
       content:
         "application/json":
           schema:
-            $ref: "../schemas/profile.yml#/components/schemas/Error"
+            $ref: "../schemas/common.yml#/components/schemas/Error"
     500:
       description: server error
       content:
         "application/json":
           schema:
-            $ref: "../schemas/profile.yml#/components/schemas/Error"
+            $ref: "../schemas/common.yml#/components/schemas/Error"

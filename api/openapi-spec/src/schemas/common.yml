@@ -1,0 +1,22 @@
+components:
+  schemas:
+    String:
+      type: string
+      x-go-type-skip-optional-pointer: true
+    Time:
+      type: string
+      format: date-time
+      x-go-type-skip-optional-pointer: true
+    Boolean:
+      type: boolean
+      x-go-type-skip-optional-pointer: true
+    UUID:
+      type: string
+      format: uuid
+      x-go-type-skip-optional-pointer: true
+    Error:
+      properties:
+        code:
+          $ref: "#/components/schemas/String"
+        message:
+          $ref: "#/components/schemas/String"

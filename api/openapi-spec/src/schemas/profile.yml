@@ -1,50 +1,30 @@
 components:
   schemas:
-    String:
-      type: string
-      x-go-type-skip-optional-pointer: true
-    Time:
-      type: string
-      format: date-time
-      x-go-type-skip-optional-pointer: true
-    Boolean:
-      type: boolean
-      x-go-type-skip-optional-pointer: true
-    UUID:
-      type: string
-      format: uuid
-      x-go-type-skip-optional-pointer: true
-    Error:
-      properties:
-        code:
-          $ref: "#/components/schemas/String"
-        message:
-          $ref: "#/components/schemas/String"
     Profile:
       properties:
         id:
-          $ref: "#/components/schemas/UUID"
+          $ref: "common.yml#/components/schemas/UUID"
         tenant_id:
-          $ref: "#/components/schemas/UUID"
+          $ref: "common.yml#/components/schemas/UUID"
         nin:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         name:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         email:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         phone:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         dob:
-          $ref: "#/components/schemas/Time"
+          $ref: "common.yml#/components/schemas/Time"
     CreateProfile:
       properties:
         nin:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         name:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         email:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         phone:
-          $ref: "#/components/schemas/String"
+          $ref: "common.yml#/components/schemas/String"
         dob:
-          $ref: "#/components/schemas/Time"
+          $ref: "common.yml#/components/schemas/Time"

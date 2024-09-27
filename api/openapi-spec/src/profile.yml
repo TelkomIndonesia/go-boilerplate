@@ -11,7 +11,7 @@ servers:
   - url: "https://localhost:8443"
 paths:
   /tenants/{tenant-id}/profiles:
-    $ref: paths/create_profile.yml
+    $ref: paths/tenants-*-profiles.yml
 
   /tenants/{tenant-id}/profiles/{profile-id}:
-    $ref: paths/get_profile_id.yml
+    $ref: paths/tenants-*-profiles-*.yml

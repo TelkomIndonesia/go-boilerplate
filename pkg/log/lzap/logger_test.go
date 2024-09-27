@@ -8,7 +8,7 @@ import (
 )
 
 func TestLog(t *testing.T) {
-	l, err := New()
+	l, err := NewLogger()
 	require.NoError(t, err, "should create logger")
 	msg := struct{ Hello string }{Hello: "world"}
 	l.WithLog(log.String("name", t.Name())).Info("test", log.Any("hello", msg), log.String("hi", "hello"))

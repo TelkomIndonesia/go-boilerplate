@@ -85,7 +85,7 @@ func (c *CMD) initLogger() {
 	if c.LogLevel != nil {
 		opts = append(opts, lzap.WithLevelString(*c.LogLevel))
 	}
-	l, err := lzap.New(opts...)
+	l, err := lzap.NewLogger(opts...)
 
 	c.LoggerE = func() (log.Logger, error) { return l, err }
 }

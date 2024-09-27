@@ -95,7 +95,7 @@ func TestProfileBasic(t *testing.T) {
 		defer cancel()
 		ob, err := opostgres.NewManager(
 			opostgres.WithDB(p.db, p.dbUrl),
-			opostgres.WithLogger(ltesting.New(t)),
+			opostgres.WithLogger(ltesting.NewLogger(t)),
 			opostgres.WithMaxWaitNotif(0))
 		require.NoError(t, err)
 

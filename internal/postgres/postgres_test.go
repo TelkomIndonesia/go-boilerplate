@@ -64,7 +64,7 @@ func tNewPostgres(t *testing.T, opts ...OptFunc) *Postgres {
 
 	p, err := New(append(opts,
 		WithConnString(url),
-		WithLogger(ltesting.New(t)),
+		WithLogger(ltesting.NewLogger(t)),
 		WithDerivableKeysets(tGetKeysetHandle(t)))...,
 	)
 	require.NoError(t, err, "should create postgres")

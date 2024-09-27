@@ -15,7 +15,7 @@ type logger struct {
 	logFunc []log.LogFunc
 }
 
-func New(t *testing.T) log.Logger {
+func NewLogger(t *testing.T) log.Logger {
 	return logger{t: t}
 }
 

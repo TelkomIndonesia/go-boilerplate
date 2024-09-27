@@ -95,9 +95,6 @@ l1.l2.cmd -> reusable.cmd: {
 l1.l2.cmd -> reusable.otelinit: {
   class: DependencyLine
 }
-l1.l2.cmd -> reusable.util: {
-  class: DependencyLine
-}
 l1.l2.cmd -> reusable.tlswrap: {
   class: DependencyLine
 }
@@ -142,11 +139,11 @@ reusable: Reusable Library {
   httpclient: pkg/httpclient {
     class: Package
   }
-  util: pkg/util {
+  ctxutil: pkg/ctxutil {
     class: Package
   }
 
-  cmd -> util: {class: DependencyLine}
+  cmd -> ctxutil: {class: DependencyLine}
   cmd -> tinkx: {class: DependencyLine}
   cmd -> log: {class: DependencyLine}
   cmd -> otelinit: {class: DependencyLine}

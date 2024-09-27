@@ -1,4 +1,4 @@
-package util
+package env
 
 import (
 	"fmt"
@@ -7,12 +7,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type LoadEnvOptions struct {
+type Options struct {
 	Prefix string
 	DotEnv bool
 }
 
-func LoadEnv(v interface{}, opt LoadEnvOptions) (err error) {
+func Load(v interface{}, opt Options) (err error) {
 	if opt.DotEnv {
 		godotenv.Load()
 	}

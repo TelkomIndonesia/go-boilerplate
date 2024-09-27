@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/internal/tenantservice/internal/oapi/tenant"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -36,7 +36,10 @@ func WithTracer(name string) OptFunc {
 
 func WithBaseUrl(u string) OptFunc {
 	return func(ts *TenantService) (err error) {
-		ts.base, err = util.URLWithDefaultScheme(u, "https")
+		if !strings.HasPrefix(u, "https://") || !strings.HasPrefix(u, "http://") {
+			u = "https://" + u
+		}
+		ts.base, err = url.Parse(u)
 		return
 	}
 }

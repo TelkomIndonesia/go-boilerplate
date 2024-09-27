@@ -7,20 +7,22 @@ import (
 	"net"
 	"time"
 
+	"github.com/telkomindonesia/go-boilerplate/pkg/cmd/env"
+	"github.com/telkomindonesia/go-boilerplate/pkg/cmd/version"
+	"github.com/telkomindonesia/go-boilerplate/pkg/ctxutil"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/lzap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/otelinit"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
 type OptFunc func(*CMD) error
 
 func WithEnv(prefix string, dotenv bool) OptFunc {
 	return func(u *CMD) error {
-		return util.LoadEnv(u, util.LoadEnvOptions{
+		return env.Load(u, env.Options{
 			Prefix: prefix,
 			DotEnv: dotenv,
 		})
@@ -46,9 +48,9 @@ type CMD struct {
 	TLSMutualAuth           bool    `env:"TLS_MUTUAL_AUTH,expand" json:"tls_mutual_auth"`
 	OtelTraceProvider       *string `env:"OTEL_TRACE_PROVIDER" json:"otel_trace_provider" `
 	LogLevel                *string `env:"LOG_LEVEL" json:"log_level"`
-	Version                 string  `json:"version"`
 
-	tlscfg *tls.Config
+	Version string `json:"version"`
+	tlscfg  *tls.Config
 
 	LoggerE              func() (log.Logger, error)
 	TLSWrapE             func() (*tlswrap.TLSWrap, error)
@@ -60,7 +62,7 @@ type CMD struct {
 
 func New(opts ...OptFunc) (c *CMD, err error) {
 	c = &CMD{
-		Version: util.Version(),
+		Version: version.Version(),
 		tlscfg:  &tls.Config{},
 	}
 	for _, opt := range opts {
@@ -206,5 +208,5 @@ func (c CMD) InitOtel(ctx context.Context) (deferer func()) {
 }
 
 func (c CMD) CancelOnExit(ctx context.Context) context.Context {
-	return util.CancelOnExitSignal(ctx)
+	return ctxutil.WithExitSignal(ctx)
 }

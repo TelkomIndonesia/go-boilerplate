@@ -12,12 +12,12 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres"
 	"github.com/telkomindonesia/go-boilerplate/internal/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
+	"github.com/telkomindonesia/go-boilerplate/pkg/cmd/env"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/loggable"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 )
 
 type OptFunc func(*CMD) error
@@ -75,7 +75,7 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 			return
 		}
 	}
-	err = util.LoadEnv(c, util.LoadEnvOptions{
+	err = env.Load(c, env.Options{
 		Prefix: c.envPrefix,
 		DotEnv: c.dotenv,
 	})

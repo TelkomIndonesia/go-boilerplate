@@ -11,7 +11,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/httpserver/internal/oapi"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	profilemock "github.com/telkomindonesia/go-boilerplate/internal/profile/mock"
-	"github.com/telkomindonesia/go-boilerplate/pkg/util"
+	"github.com/telkomindonesia/go-boilerplate/pkg/ctxutil"
 )
 
 func TestGetProfile(t *testing.T) {
@@ -28,7 +28,7 @@ func TestGetProfile(t *testing.T) {
 	s := oapiServerImplementation{h: h}
 
 	// set up test data
-	ctx, mctx := util.ContextWithMatcher(context.Background())
+	ctx, mctx := ctxutil.WithMatcher(context.Background())
 	tid := uuid.New()
 	pid := uuid.New()
 

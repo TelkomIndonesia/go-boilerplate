@@ -38,27 +38,27 @@ func TestAEAD(t *testing.T) {
 		switch v := v.(type) {
 		case string:
 			a, b := AEADString(m.GetPrimitiveFunc(nil), v, ad), AEADString(m.GetPrimitiveFunc(nil), "", ad)
-			return a, &b, func() any { return b.To() }
+			return a, &b, func() any { return b.Plain() }
 
 		case []byte:
 			a, b := AEADByteArray(m.GetPrimitiveFunc(nil), v, ad), AEADByteArray(m.GetPrimitiveFunc(nil), nil, ad)
-			return a, &b, func() any { return b.To() }
+			return a, &b, func() any { return b.Plain() }
 
 		case int64:
 			a, b := AEADInt64(m.GetPrimitiveFunc(nil), v, ad), AEADInt64(m.GetPrimitiveFunc(nil), 0, ad)
-			return a, &b, func() any { return b.To() }
+			return a, &b, func() any { return b.Plain() }
 
 		case float64:
 			a, b := AEADFloat64(m.GetPrimitiveFunc(nil), v, ad), AEADFloat64(m.GetPrimitiveFunc(nil), 0, ad)
-			return a, &b, func() any { return b.To() }
+			return a, &b, func() any { return b.Plain() }
 
 		case bool:
 			a, b := AEADBool(m.GetPrimitiveFunc(nil), v, ad), AEADBool(m.GetPrimitiveFunc(nil), !v, ad)
-			return a, &b, func() any { return b.To() }
+			return a, &b, func() any { return b.Plain() }
 
 		case time.Time:
 			a, b := AEADTime(m.GetPrimitiveFunc(nil), v, ad), AEADTime(m.GetPrimitiveFunc(nil), time.Now(), ad)
-			return a, &b, func() any { return b.To() }
+			return a, &b, func() any { return b.Plain() }
 
 		default:
 			t.Errorf("unknwon type :%v", v)
@@ -90,8 +90,8 @@ func TestAEADNilable(t *testing.T) {
 	s := AEADString(m.GetPrimitiveFunc(nil), "", ad)
 	err = s.Scan(nil)
 	require.NoError(t, err, "should not return error")
-	assert.Empty(t, s.To(), "should return nil pointer")
-	assert.Nil(t, s.ToP(), "should return empty value")
+	assert.Empty(t, s.Plain(), "should return nil pointer")
+	assert.Nil(t, s.PlainP(), "should return empty value")
 }
 
 type tAEADAny struct {
@@ -116,7 +116,7 @@ func TestAEADAny(t *testing.T) {
 		sv = AEADAny(m.GetPrimitiveFunc(nil), tAEADAny{}, ad)
 		err = sv.Scan(v)
 		require.NoError(t, err, "should not return error")
-		assert.Equal(t, data, sv.To())
+		assert.Equal(t, data, sv.Plain())
 	})
 
 	t.Run("slice", func(t *testing.T) {
@@ -128,7 +128,7 @@ func TestAEADAny(t *testing.T) {
 		sv = AEADAny(m.GetPrimitiveFunc(nil), []tAEADAny{}, ad)
 		err = sv.Scan(v)
 		require.NoError(t, err, "should not return error")
-		assert.Equal(t, data, sv.To())
+		assert.Equal(t, data, sv.Plain())
 	})
 
 	t.Run("pointerOfStruct", func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestAEADAny(t *testing.T) {
 		sv = AEADAny(m.GetPrimitiveFunc(nil), &tAEADAny{}, ad)
 		err = sv.Scan(v)
 		require.NoError(t, err, "should not return error")
-		assert.Equal(t, data, sv.To())
+		assert.Equal(t, data, sv.Plain())
 	})
 
 }

@@ -68,11 +68,11 @@ func (s *AEAD[T, A]) Scan(src any) (err error) {
 	return
 }
 
-func (s *AEAD[T, A]) To() T {
+func (s *AEAD[T, A]) Plain() T {
 	return s.v
 }
 
-func (s *AEAD[T, A]) ToP() *T {
+func (s *AEAD[T, A]) PlainP() *T {
 	if s.isNil {
 		return nil
 	}

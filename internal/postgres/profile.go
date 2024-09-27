@@ -99,11 +99,11 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 	pr = &profile.Profile{
 		ID:       id,
 		TenantID: tenantID,
-		NIN:      spr.Nin.To(),
-		Name:     spr.Name.To(),
-		Phone:    spr.Phone.To(),
-		Email:    spr.Email.To(),
-		DOB:      spr.Dob.To(),
+		NIN:      spr.Nin.Plain(),
+		Name:     spr.Name.Plain(),
+		Phone:    spr.Phone.Plain(),
+		Email:    spr.Email.Plain(),
+		DOB:      spr.Dob.Plain(),
 	}
 	return
 }
@@ -145,7 +145,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 		},
 		func(fpbnr sqlc.FindProfilesByNameRow) (bool, error) {
 			// due to bloom filter, we need to verify if the name match
-			if fpbnr.Name.To() != qname {
+			if fpbnr.Name.Plain() != qname {
 				return false, nil
 			}
 
@@ -153,11 +153,11 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 				&profile.Profile{
 					ID:       fpbnr.ID,
 					TenantID: tenantID,
-					NIN:      fpbnr.Nin.To(),
-					Name:     fpbnr.Name.To(),
-					Email:    fpbnr.Email.To(),
-					Phone:    fpbnr.Phone.To(),
-					DOB:      fpbnr.Dob.To(),
+					NIN:      fpbnr.Nin.Plain(),
+					Name:     fpbnr.Name.Plain(),
+					Email:    fpbnr.Email.Plain(),
+					Phone:    fpbnr.Phone.Plain(),
+					DOB:      fpbnr.Dob.Plain(),
 				})
 			return false, nil
 		},

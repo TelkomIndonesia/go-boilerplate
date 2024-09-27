@@ -9,7 +9,7 @@ import (
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/zaplogger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/lzap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/otelloader"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
@@ -79,11 +79,11 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 }
 
 func (c *CMD) initLogger() {
-	opts := []zaplogger.OptFunc{}
+	opts := []lzap.OptFunc{}
 	if c.LogLevel != nil {
-		opts = append(opts, zaplogger.WithLevelString(*c.LogLevel))
+		opts = append(opts, lzap.WithLevelString(*c.LogLevel))
 	}
-	l, err := zaplogger.New(opts...)
+	l, err := lzap.New(opts...)
 
 	c.logger = func() (log.Logger, error) { return l, err }
 }

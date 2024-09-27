@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/outbox"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/tlogger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/ltesting"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	obpostgres "github.com/telkomindonesia/go-boilerplate/pkg/outboxce/postgres"
 	"google.golang.org/protobuf/proto"
@@ -95,7 +95,7 @@ func TestProfileBasic(t *testing.T) {
 		defer cancel()
 		ob, err := obpostgres.New(
 			obpostgres.WithDB(p.db, p.dbUrl),
-			obpostgres.WithLogger(tlogger.New(t)),
+			obpostgres.WithLogger(ltesting.New(t)),
 			obpostgres.WithMaxWaitNotif(0))
 		require.NoError(t, err)
 

@@ -1,4 +1,4 @@
-package tlogger
+package ltesting
 
 import (
 	"context"

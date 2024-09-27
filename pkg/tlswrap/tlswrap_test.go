@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/tlogger"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/ltesting"
 )
 
 func TestReload(t *testing.T) {
@@ -37,7 +37,7 @@ func TestReload(t *testing.T) {
 		WithRootCA(filepath.Join(testdirR, "ca.crt")),
 		WithLeafCert(filepath.Join(testdirR, "profile.key"), filepath.Join(testdirR, "profile.crt")),
 		WithConfigReloadListener(func(s, c *tls.Config) { t.Log("event"); eventR <- struct{}{} }),
-		WithLogger(tlogger.New(t).WithLog(log.String("name", "reloaded"))),
+		WithLogger(ltesting.New(t).WithLog(log.String("name", "reloaded"))),
 	)
 	require.NoError(t, err, "should load certificates")
 	t.Cleanup(func() { twR.Close(context.Background()) })
@@ -46,7 +46,7 @@ func TestReload(t *testing.T) {
 		WithClientCA("./testdata/set1/ca.crt"),
 		WithRootCA("./testdata/set1/ca.crt"),
 		WithLeafCert("./testdata/set1/profile.key", "./testdata/set1/profile.crt"),
-		WithLogger(tlogger.New(t).WithLog(log.String("name", "static1"))),
+		WithLogger(ltesting.New(t).WithLog(log.String("name", "static1"))),
 	)
 	require.NoError(t, err, "should load certificates in set 1")
 	t.Cleanup(func() { tw1.Close(context.Background()) })
@@ -55,7 +55,7 @@ func TestReload(t *testing.T) {
 		WithClientCA("./testdata/set2/ca.crt"),
 		WithRootCA("./testdata/set2/ca.crt"),
 		WithLeafCert("./testdata/set2/profile.key", "./testdata/set2/profile.crt"),
-		WithLogger(tlogger.New(t).WithLog(log.String("name", "static2"))),
+		WithLogger(ltesting.New(t).WithLog(log.String("name", "static2"))),
 	)
 	require.NoError(t, err, "should load certificates in set 2")
 	t.Cleanup(func() { tw2.Close(context.Background()) })
@@ -65,7 +65,7 @@ func TestReload(t *testing.T) {
 		s = httptest.NewUnstartedServer(helloworld)
 		t.Cleanup(s.Close)
 		s.Listener = tw.Listener(s.Listener)
-		s.Config.ErrorLog = log.NewGoLogger(tlogger.New(t), "httptest-server", 0)
+		s.Config.ErrorLog = log.NewGoLogger(ltesting.New(t), "httptest-server", 0)
 		s.StartTLS()
 
 		c = &http.Client{

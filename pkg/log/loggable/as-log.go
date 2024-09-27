@@ -11,7 +11,6 @@ func AsLog(v any) any {
 }
 
 func asLogRecurse(v any, root bool) any {
-	loggable := reflect.TypeOf((*log.Loggable)(nil)).Elem()
 	value := reflect.ValueOf(v)
 	t := reflect.TypeOf(v)
 	if t.Kind() == reflect.Ptr {
@@ -23,8 +22,9 @@ func asLogRecurse(v any, root bool) any {
 		return value
 	}
 
+	Loggable := reflect.TypeOf((*log.Loggable)(nil)).Elem()
 	switch {
-	case !root && value.Type().Implements(loggable):
+	case !root && value.Type().Implements(Loggable):
 		return value.Interface().(log.Loggable).AsLog()
 
 	case value.Kind() == reflect.Struct:

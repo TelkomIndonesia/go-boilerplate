@@ -23,3 +23,7 @@ Features:
 ## Using as library
 
 The packages under `pkg` are reusable for importing into other project. Moreover `pkg/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./internal/cmd/cmd.go#L118-L136)
+
+### Versions with BREAKING CHANGES
+
+- v0.20.0 introduces completely major breaking changes as the pacjage structure is completely rewritten

@@ -1,4 +1,4 @@
-package sqlval
+package tsqlval
 
 import (
 	"database/sql/driver"

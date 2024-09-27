@@ -54,7 +54,7 @@ sql:
                 import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
                 type: BIDXString
 
-  # used when `vet`
+  # used in `make explain`
   - engine: "postgresql"
     queries: "query.sql"
     database:

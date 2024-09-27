@@ -15,8 +15,9 @@ Features:
   - [x] Auto Load CA & Leaf TLS certificate.
   - [x] mTLS support.
 - [x] Opentelemetry (console, otlphttp, otlpgrpc, and datadog trace provider).
+  - [x] Code Generator for auto instrumentation (otelwrap)
 - [x] Plugable log (zap, testing).
-  - [x] Embed otel trace-id + copy logged field to otel trace.
+  - [x] Embed opentelemetry trace-id + copy logged field to opentelemetry trace.
 - [x] Env config.
 - [x] Dockerized.
 - [x] CI/CD as Code (dagger)

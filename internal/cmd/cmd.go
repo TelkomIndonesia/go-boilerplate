@@ -8,6 +8,7 @@ import (
 
 	"github.com/telkomindonesia/go-boilerplate/internal/httpserver"
 	"github.com/telkomindonesia/go-boilerplate/internal/kafka"
+	"github.com/telkomindonesia/go-boilerplate/internal/otelwrap"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres"
 	"github.com/telkomindonesia/go-boilerplate/internal/tenantservice"
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd"
@@ -175,8 +176,8 @@ func (c *CMD) initHTTPServer() (err error) {
 
 	c.h, err = httpserver.New(
 		httpserver.WithListener(c.tlsw.Listener(l)),
-		httpserver.WithProfileRepository(c.p),
-		httpserver.WithTenantRepository(c.ts),
+		httpserver.WithProfileRepository(otelwrap.NewProfileRepositoryWrapper(c.p, otelwrap.Tracer, "Postgres")),
+		httpserver.WithTenantRepository(otelwrap.NewTenantRepositoryWrapper(c.ts, otelwrap.Tracer, "TenantService")),
 		httpserver.WithLogger(c.logger.WithLog(log.String("logger-name", "http-server"))),
 	)
 	if err != nil {

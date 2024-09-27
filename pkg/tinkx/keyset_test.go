@@ -3,6 +3,7 @@ package tinkx
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -126,5 +127,44 @@ func TestLoadKeysFromFile(t *testing.T) {
 		assert.Equal(t, m1, m2, "should return the same primitive")
 		_, err = m1.ComputePrimary([]byte("test"))
 		require.NoError(t, err, "should hash")
+	})
+}
+
+func BenchmarkGetHandle(b *testing.B) {
+	template, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
+	if err != nil {
+		b.Fatal(err)
+	}
+	handle, err := keyset.NewHandle(template)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	n := 10
+	b.Run("DerivableKeyset", func(b *testing.B) {
+		dkeyset := DerivableKeyset[PrimitiveAEAD]{
+			master:      handle,
+			constructur: NewPrimitiveAEAD,
+		}
+		for i := 0; i < b.N; i++ {
+			_, err := dkeyset.GetHandle([]byte(b.Name() + strconv.Itoa(i%n)))
+			if err != nil {
+				b.Error(err)
+			}
+		}
+	})
+
+	b.Run("Deriver", func(b *testing.B) {
+		deriver, err := keyderivation.New(handle)
+		if err != nil {
+			b.Error(err)
+		}
+
+		for i := 0; i < b.N; i++ {
+			_, err = deriver.DeriveKeyset([]byte(b.Name() + strconv.Itoa(i%n)))
+			if err != nil {
+				b.Error(err)
+			}
+		}
 	})
 }

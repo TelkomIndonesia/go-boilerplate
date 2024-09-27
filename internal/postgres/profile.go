@@ -11,7 +11,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
-	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx/tsqlval"
+	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx/tinksql"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -33,15 +33,15 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 	err = query.StoreProfile(ctx, sqlc.StoreProfileParams{
 		ID:        pr.ID,
 		TenantID:  pr.TenantID,
-		Nin:       tsqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.NIN, pr.ID[:]),
-		NinBidx:   tsqlval.BIDXString(p.bidxFullFunc(&pr.TenantID), pr.NIN),
-		Name:      tsqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.Name, pr.ID[:]),
-		NameBidx:  tsqlval.BIDXString(p.bidxFunc(&pr.TenantID), pr.Name),
-		Phone:     tsqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.Phone, pr.ID[:]),
-		PhoneBidx: tsqlval.BIDXString(p.bidxFunc(&pr.TenantID), pr.Phone),
-		Email:     tsqlval.AEADString(p.aeadFunc(&pr.TenantID), pr.Email, pr.ID[:]),
-		EmailBidx: tsqlval.BIDXString(p.bidxFunc(&pr.TenantID), pr.Email),
-		Dob:       tsqlval.AEADTime(p.aeadFunc(&pr.TenantID), pr.DOB, pr.ID[:]),
+		Nin:       tinksql.AEADString(p.aeadFunc(&pr.TenantID), pr.NIN, pr.ID[:]),
+		NinBidx:   tinksql.BIDXString(p.bidxFullFunc(&pr.TenantID), pr.NIN),
+		Name:      tinksql.AEADString(p.aeadFunc(&pr.TenantID), pr.Name, pr.ID[:]),
+		NameBidx:  tinksql.BIDXString(p.bidxFunc(&pr.TenantID), pr.Name),
+		Phone:     tinksql.AEADString(p.aeadFunc(&pr.TenantID), pr.Phone, pr.ID[:]),
+		PhoneBidx: tinksql.BIDXString(p.bidxFunc(&pr.TenantID), pr.Phone),
+		Email:     tinksql.AEADString(p.aeadFunc(&pr.TenantID), pr.Email, pr.ID[:]),
+		EmailBidx: tinksql.BIDXString(p.bidxFunc(&pr.TenantID), pr.Email),
+		Dob:       tinksql.AEADTime(p.aeadFunc(&pr.TenantID), pr.DOB, pr.ID[:]),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to insert to profile: %w", err)
@@ -82,11 +82,11 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 		sqlc.FetchProfileParams{TenantID: tenantID, ID: id},
 		func(fpr *sqlc.FetchProfileRow) {
 			// initiate so that we can decrypt
-			fpr.Nin = tsqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
-			fpr.Name = tsqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
-			fpr.Phone = tsqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
-			fpr.Email = tsqlval.AEADString(p.aeadFunc(&tenantID), "", id[:])
-			fpr.Dob = tsqlval.AEADTime(p.aeadFunc(&tenantID), time.Time{}, id[:])
+			fpr.Nin = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Name = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Phone = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Email = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
+			fpr.Dob = tinksql.AEADTime(p.aeadFunc(&tenantID), time.Time{}, id[:])
 		},
 	)
 	if err == sql.ErrNoRows {
@@ -133,15 +133,15 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 	_, err = p.q.FindProfilesByName(ctx,
 		sqlc.FindProfilesByNameParams{
 			TenantID: tenantID,
-			NameBidx: tsqlval.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(pqByteArray),
+			NameBidx: tinksql.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(pqByteArray),
 		},
 		func(fpbnr *sqlc.FindProfilesByNameRow) {
 			// initiate so that we can decrypt
-			fpbnr.Nin = tsqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Name = tsqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Phone = tsqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Email = tsqlval.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Dob = tsqlval.AEADTime(p.aeadFunc(&fpbnr.TenantID), time.Time{}, fpbnr.ID[:])
+			fpbnr.Nin = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Name = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Phone = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Email = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+			fpbnr.Dob = tinksql.AEADTime(p.aeadFunc(&fpbnr.TenantID), time.Time{}, fpbnr.ID[:])
 		},
 		func(fpbnr sqlc.FindProfilesByNameRow) (bool, error) {
 			// due to bloom filter, we need to verify if the name match

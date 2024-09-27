@@ -26,4 +26,4 @@ The packages under `pkg` are reusable for importing into other project. Moreover
 
 ### Versions with BREAKING CHANGES
 
-- v0.20.0 introduces completely major breaking changes as the pacjage structure is completely rewritten
+- v0.20.0 introduces completely major breaking changes as the package structure is completely rewritten

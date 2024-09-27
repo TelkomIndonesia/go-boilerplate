@@ -73,6 +73,7 @@ func TestReadWrite(t *testing.T) {
 	}
 
 	receivedEvents := map[string]event.Event{}
+	mutex := sync.Mutex{}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	go func() {
 		defer cancel()
@@ -87,6 +88,8 @@ func TestReadWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		err = c.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) {
+			mutex.Lock()
+			defer mutex.Unlock()
 			receivedEvents[event.ID()] = event
 
 			if len(receivedEvents) == len(events) {

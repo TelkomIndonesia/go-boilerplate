@@ -39,8 +39,8 @@ func main() {
 		WithEnvVariable("POSTGRES_PASSWORD", "testing").
 		WithEnvVariable("POSTGRES_USER", "testing").
 		WithEnvVariable("POSTGRES_DB", "testing").
-		WithMountedFile("/docker-entrypoint-initdb.d/schema.sql", src.File("pkg/postgres/schema.sql")).
-		WithMountedFile("/docker-entrypoint-initdb.d/outboxce.sql", src.File("pkg/util/outboxce/postgres/schema.sql")) // outboxce
+		WithMountedFile("/docker-entrypoint-initdb.d/schema.sql", src.File("internal/postgres/schema.sql")).
+		WithMountedFile("/docker-entrypoint-initdb.d/outboxce.sql", src.File("pkg/outboxce/postgres/schema.sql")) // outboxce
 	postgresService, err := postgres.AsService().Start(ctx)
 	if err != nil {
 		log.Fatalf("failed to start postgres service %v", err)

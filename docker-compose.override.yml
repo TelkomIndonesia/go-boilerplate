@@ -3,6 +3,18 @@ volumes:
   go-build:
 
 services:
+  postgres:
+    volumes:
+      - ./pkg/outboxce/postgres/schema.sql:/docker-entrypoint-initdb.d/outboxce.sql:ro # outboxce
+
+  tenant:
+    environment:
+      CA_PATH: /src/internal/httpserver/testdata/ca.crt
+      TLS_KEY_PATH: /src/internal/httpserver/testdata/tenant.key
+      TLS_CERT_PATH: /src/internal/httpserver/testdata/tenant.crt
+    volumes:
+      - .:/src
+
   kafka_topic:
     image: bitnami/kafka
     restart: on-failure
@@ -14,15 +26,7 @@ services:
       - |
         kafka-topics.sh --bootstrap-server kafka:9092 --topic outboxce --create
         kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic outboxce
-
-  tenant:
-    environment:
-      CA_PATH: /src/internal/httpserver/testdata/ca.crt
-      TLS_KEY_PATH: /src/internal/httpserver/testdata/tenant.key
-      TLS_CERT_PATH: /src/internal/httpserver/testdata/tenant.crt
-    volumes:
-      - .:/src
-
+  
   profile:
     build:
       target: ${PROFILE_DOCKERFILE_TARGET:-base}

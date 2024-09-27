@@ -12,7 +12,6 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/util"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -83,11 +82,6 @@ func New(opts ...OptFunc) (ts *TenantService, err error) {
 }
 
 func (ts TenantService) FetchTenant(ctx context.Context, id uuid.UUID) (t *profile.Tenant, err error) {
-	ctx, span := ts.tracer.Start(ctx, "fetchTenant", trace.WithAttributes(
-		attribute.Stringer("id", id),
-	))
-	defer span.End()
-
 	res, err := ts.tc.GetTenantWithResponse(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch tenant: %w", err)

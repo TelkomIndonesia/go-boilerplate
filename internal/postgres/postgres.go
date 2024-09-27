@@ -12,7 +12,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
-	obcepostgres "github.com/telkomindonesia/go-boilerplate/pkg/outboxce/postgres"
+	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce/opostgres"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"go.opentelemetry.io/otel"
@@ -104,9 +104,9 @@ func New(opts ...OptFunc) (p *Postgres, err error) {
 		return nil, fmt.Errorf("missing logger")
 	}
 	if p.obceManager == nil {
-		p.obceManager, err = obcepostgres.New(
-			obcepostgres.WithDB(p.db, p.dbUrl),
-			obcepostgres.WithLogger(p.logger),
+		p.obceManager, err = opostgres.NewManager(
+			opostgres.WithDB(p.db, p.dbUrl),
+			opostgres.WithLogger(p.logger),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to instantiate outbox manager: %w", err)

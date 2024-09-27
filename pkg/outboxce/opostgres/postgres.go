@@ -1,4 +1,4 @@
-package postgres
+package opostgres
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -65,7 +64,7 @@ type postgres struct {
 	logger      log.Logger
 }
 
-func New(opts ...OptFunc) (outboxce.Manager, error) {
+func NewManager(opts ...OptFunc) (outboxce.Manager, error) {
 	p := &postgres{
 		maxWaitNotif: time.Minute,
 		maxRelaySize: 100,
@@ -92,13 +91,6 @@ func New(opts ...OptFunc) (outboxce.Manager, error) {
 }
 
 func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) (err error) {
-	ctx, span := p.tracer.Start(ctx, "storeOutbox", trace.WithAttributes(
-		attribute.Stringer("tenantID", ob.TenantID),
-		attribute.Stringer("id", ob.ID),
-		attribute.String("eventName", ob.EventType),
-	))
-	defer span.End()
-
 	ce, err := ob.Build()
 	if err != nil {
 		return fmt.Errorf("failed to build cloudevent :%w", err)

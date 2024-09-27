@@ -5,7 +5,7 @@ volumes:
 services:
   postgres:
     volumes:
-      - ./pkg/outboxce/postgres/schema.sql:/docker-entrypoint-initdb.d/outboxce.sql:ro # outboxce
+      - ./pkg/outboxce/opostgres/schema.sql:/docker-entrypoint-initdb.d/outboxce.sql:ro # outboxce
 
   tenant:
     environment:

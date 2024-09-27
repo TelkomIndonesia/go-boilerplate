@@ -12,17 +12,9 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx/tinksql"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err error) {
-	ctx, span := p.tracer.Start(ctx, "storeProfile", trace.WithAttributes(
-		attribute.Stringer("tenantID", pr.TenantID),
-		attribute.Stringer("id", pr.ID),
-	))
-	defer span.End()
-
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
 		return fmt.Errorf("failed to open transaction: %w", err)
@@ -72,12 +64,6 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 }
 
 func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (pr *profile.Profile, err error) {
-	ctx, span := p.tracer.Start(ctx, "fetchProfile", trace.WithAttributes(
-		attribute.Stringer("tenantID", tenantID),
-		attribute.Stringer("id", id),
-	))
-	defer span.End()
-
 	spr, err := p.q.FetchProfile(ctx,
 		sqlc.FetchProfileParams{TenantID: tenantID, ID: id},
 		func(fpr *sqlc.FetchProfileRow) {
@@ -109,11 +95,6 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 }
 
 func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qname string) (names []string, err error) {
-	ctx, span := p.tracer.Start(ctx, "findProfileNames", trace.WithAttributes(
-		attribute.Stringer("tenantID", tenantID),
-	))
-	defer span.End()
-
 	return p.q.FindTextHeap(ctx, sqlc.FindTextHeapParams{
 		TenantID: tenantID,
 		Type:     textHeapTypeProfileName,
@@ -124,11 +105,6 @@ func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qna
 }
 
 func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, qname string) (prs []*profile.Profile, err error) {
-	ctx, span := p.tracer.Start(ctx, "findProfilesByName", trace.WithAttributes(
-		attribute.Stringer("tenantID", tenantID),
-	))
-	defer span.End()
-
 	// we don't need the return value since we are using the Filter func to efficiently convert the item
 	_, err = p.q.FindProfilesByName(ctx,
 		sqlc.FindProfilesByNameParams{

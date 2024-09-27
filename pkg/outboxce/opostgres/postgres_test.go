@@ -1,4 +1,4 @@
-package postgres
+package opostgres
 
 import (
 	"context"
@@ -59,7 +59,7 @@ func tNewManagerPostgres(t *testing.T, opts ...OptFunc) *postgres {
 	db, err := sql.Open("postgres", url)
 	require.NoError(t, err)
 
-	p, err := New(append(opts, WithDB(db, url), WithLogger(ltesting.New(t).WithLog(log.String("name", t.Name()))))...)
+	p, err := NewManager(append(opts, WithDB(db, url), WithLogger(ltesting.New(t).WithLog(log.String("name", t.Name()))))...)
 	require.NoError(t, err, "should create postgres")
 	return p.(*postgres)
 }

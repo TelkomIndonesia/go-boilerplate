@@ -98,7 +98,7 @@ type tAEADAny struct {
 	Field string
 }
 
-func TestAEADAny(t *testing.T) {
+func TestAEADMsgpack(t *testing.T) {
 	template, err := keyderivation.CreatePRFBasedKeyTemplate(prf.HKDFSHA256PRFKeyTemplate(), aead.AES128GCMKeyTemplate())
 	require.NoError(t, err)
 	h, err := keyset.NewHandle(template)
@@ -109,11 +109,11 @@ func TestAEADAny(t *testing.T) {
 
 	t.Run("struct", func(t *testing.T) {
 		data := tAEADAny{Field: "a"}
-		sv := AEADAny(m.GetPrimitiveFunc(nil), data, ad)
+		sv := AEADMsgpack(m.GetPrimitiveFunc(nil), data, ad)
 		v, err := sv.Value()
 		require.NoError(t, err, "should not return error")
 
-		sv = AEADAny(m.GetPrimitiveFunc(nil), tAEADAny{}, ad)
+		sv = AEADMsgpack(m.GetPrimitiveFunc(nil), tAEADAny{}, ad)
 		err = sv.Scan(v)
 		require.NoError(t, err, "should not return error")
 		assert.Equal(t, data, sv.Plain())
@@ -121,11 +121,11 @@ func TestAEADAny(t *testing.T) {
 
 	t.Run("slice", func(t *testing.T) {
 		data := []tAEADAny{{Field: "a"}}
-		sv := AEADAny(m.GetPrimitiveFunc(nil), data, ad)
+		sv := AEADMsgpack(m.GetPrimitiveFunc(nil), data, ad)
 		v, err := sv.Value()
 		require.NoError(t, err, "should not return error")
 
-		sv = AEADAny(m.GetPrimitiveFunc(nil), []tAEADAny{}, ad)
+		sv = AEADMsgpack(m.GetPrimitiveFunc(nil), []tAEADAny{}, ad)
 		err = sv.Scan(v)
 		require.NoError(t, err, "should not return error")
 		assert.Equal(t, data, sv.Plain())
@@ -133,11 +133,11 @@ func TestAEADAny(t *testing.T) {
 
 	t.Run("pointerOfStruct", func(t *testing.T) {
 		data := &tAEADAny{Field: "a"}
-		sv := AEADAny(m.GetPrimitiveFunc(nil), data, ad)
+		sv := AEADMsgpack(m.GetPrimitiveFunc(nil), data, ad)
 		v, err := sv.Value()
 		require.NoError(t, err, "should not return error")
 
-		sv = AEADAny(m.GetPrimitiveFunc(nil), &tAEADAny{}, ad)
+		sv = AEADMsgpack(m.GetPrimitiveFunc(nil), &tAEADAny{}, ad)
 		err = sv.Scan(v)
 		require.NoError(t, err, "should not return error")
 		assert.Equal(t, data, sv.Plain())

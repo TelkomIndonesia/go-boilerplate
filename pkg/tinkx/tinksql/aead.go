@@ -172,7 +172,7 @@ func AEADFloat64[A tink.AEAD](aead AEADFunc[A], t float64, ad []byte) AEAD[float
 	}
 }
 
-func AEADAny[A tink.AEAD, T any](aead AEADFunc[A], t T, ad []byte) AEAD[T, A] {
+func AEADMsgpack[A tink.AEAD, T any](aead AEADFunc[A], t T, ad []byte) AEAD[T, A] {
 	return AEAD[T, A]{
 		aeadFunc: aead,
 		ad:       ad,

@@ -144,7 +144,9 @@ func (c *CMD) initAEADDerivableKeySet() {
 		return
 	}
 
-	a, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.AEADDerivableKeysetPath, tinkx.NewPrimitiveAEAD)
+	a, err := tinkx.NewInsecureCleartextDerivableKeyset(
+		*c.AEADDerivableKeysetPath, tinkx.NewPrimitiveAEAD, tinkx.DerivableKeysetWithCapCache[tinkx.PrimitiveAEAD](100),
+	)
 	c.AEADDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error) { return a, err }
 }
 
@@ -158,7 +160,9 @@ func (c *CMD) initMACDerivableKeySet() {
 		return
 	}
 
-	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, tinkx.NewPrimitiveMAC)
+	m, err := tinkx.NewInsecureCleartextDerivableKeyset(
+		*c.MACDerivableKeysetPath, tinkx.NewPrimitiveMAC, tinkx.DerivableKeysetWithCapCache[tinkx.PrimitiveMAC](100),
+	)
 	c.MacDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error) { return m, err }
 }
 
@@ -172,7 +176,9 @@ func (c *CMD) initBIDXDerivableKeyset() {
 		return
 	}
 
-	m, err := tinkx.NewInsecureCleartextDerivableKeyset(*c.MACDerivableKeysetPath, tinkx.NewPrimitiveBIDXWithLen(*c.BIDXLength))
+	m, err := tinkx.NewInsecureCleartextDerivableKeyset(
+		*c.MACDerivableKeysetPath, tinkx.NewPrimitiveBIDXWithLen(*c.BIDXLength), tinkx.DerivableKeysetWithCapCache[tinkx.PrimitiveBIDX](100),
+	)
 	c.BIDXDerivableKeysetE = func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error) { return m, err }
 }
 

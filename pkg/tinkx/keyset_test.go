@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -40,10 +41,8 @@ func TestDerivedKeyRotation(t *testing.T) {
 	}
 
 	t.Run("encrypt", func(t *testing.T) {
-		m := DerivableKeyset[PrimitiveAEAD]{
-			master:      rotateKey(),
-			constructur: NewPrimitiveAEAD,
-		}
+		m, err := NewDerivableKeyset(rotateKey(), NewPrimitiveAEAD, DerivableKeysetWithCapCache[PrimitiveAEAD](100))
+		require.NoError(t, err)
 		aead, err := m.GetPrimitive(salt)
 		require.NoError(t, err, "should return aead primitive")
 
@@ -52,10 +51,8 @@ func TestDerivedKeyRotation(t *testing.T) {
 	})
 
 	t.Run("decrypt", func(t *testing.T) {
-		m := DerivableKeyset[PrimitiveAEAD]{
-			master:      rotateKey(),
-			constructur: NewPrimitiveAEAD,
-		}
+		m, err := NewDerivableKeyset(rotateKey(), NewPrimitiveAEAD, DerivableKeysetWithCapCache[PrimitiveAEAD](100))
+		require.NoError(t, err)
 		aead, err := m.GetPrimitive(salt)
 		require.NoError(t, err, "should return aead primitive")
 
@@ -78,7 +75,7 @@ func TestLoadKeysFromFile(t *testing.T) {
 		f, err := os.Create(k)
 		require.NoError(t, err, "should open file for write")
 		insecurecleartextkeyset.Write(h, keyset.NewJSONWriter(f))
-		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveAEAD)
+		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveAEAD, DerivableKeysetWithCapCache[PrimitiveAEAD](100))
 		require.NoError(t, err, "should read key")
 		p1, err := d.GetPrimitive(nil)
 		require.NoError(t, err, "should get primitive")
@@ -98,7 +95,7 @@ func TestLoadKeysFromFile(t *testing.T) {
 		f, err := os.Create(k)
 		require.NoError(t, err, "should open file for write")
 		insecurecleartextkeyset.Write(h, keyset.NewJSONWriter(f))
-		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveMAC)
+		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveMAC, DerivableKeysetWithCapCache[PrimitiveMAC](100))
 		require.NoError(t, err, "should read key")
 		m1, err := d.GetPrimitive(nil)
 		require.NoError(t, err, "should get primitive")
@@ -118,7 +115,7 @@ func TestLoadKeysFromFile(t *testing.T) {
 		f, err := os.Create(k)
 		require.NoError(t, err, "should open file for write")
 		insecurecleartextkeyset.Write(h, keyset.NewJSONWriter(f))
-		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveBIDX)
+		d, err := NewInsecureCleartextDerivableKeyset(k, NewPrimitiveBIDX, DerivableKeysetWithCapCache[PrimitiveBIDX](100))
 		require.NoError(t, err, "should read key")
 		m1, err := d.GetPrimitive(nil)
 		require.NoError(t, err, "should get primitive")
@@ -128,6 +125,24 @@ func TestLoadKeysFromFile(t *testing.T) {
 		_, err = m1.ComputePrimary([]byte("test"))
 		require.NoError(t, err, "should hash")
 	})
+}
+
+type tCacheSyncMap[T any] struct{ m sync.Map }
+
+// Get implements DerivationCache.
+func (m *tCacheSyncMap[T]) Get(key []byte) (t T, ok bool) {
+	v, ok := m.m.Load(string(key))
+	if !ok {
+		return
+	}
+	t, ok = v.(T)
+	return
+}
+
+// Set implements DerivationCache.
+func (m *tCacheSyncMap[T]) Set(key []byte, t T) (ok bool) {
+	m.m.Store(string(key), t)
+	return
 }
 
 func BenchmarkGetHandle(b *testing.B) {
@@ -140,28 +155,45 @@ func BenchmarkGetHandle(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	n := 10
-	b.Run("DerivableKeyset", func(b *testing.B) {
-		dkeyset := DerivableKeyset[PrimitiveAEAD]{
-			master:      handle,
-			constructur: NewPrimitiveAEAD,
+	n := 100
+	b.Run("NoCache", func(b *testing.B) {
+		dkeyset, err := NewDerivableKeyset(handle, NewPrimitiveAEAD)
+		if err != nil {
+			b.Fatal(err)
 		}
+
 		for i := 0; i < b.N; i++ {
-			_, err := dkeyset.GetHandle([]byte(b.Name() + strconv.Itoa(i%n)))
+			_, _, err := dkeyset.GetPrimitiveAndHandle([]byte(b.Name() + strconv.Itoa(i%n)))
 			if err != nil {
 				b.Error(err)
 			}
 		}
 	})
 
-	b.Run("Deriver", func(b *testing.B) {
-		deriver, err := keyderivation.New(handle)
+	b.Run("Otter", func(b *testing.B) {
+		dkeyset, err := NewDerivableKeyset(handle, NewPrimitiveAEAD, DerivableKeysetWithCapCache[PrimitiveAEAD](n))
 		if err != nil {
-			b.Error(err)
+			b.Fatal(err)
 		}
 
 		for i := 0; i < b.N; i++ {
-			_, err = deriver.DeriveKeyset([]byte(b.Name() + strconv.Itoa(i%n)))
+			_, _, err := dkeyset.GetPrimitiveAndHandle([]byte(b.Name() + strconv.Itoa(i%n)))
+			if err != nil {
+				b.Error(err)
+			}
+		}
+	})
+
+	b.Run("SyncMap", func(b *testing.B) {
+		dkeyset, err := NewDerivableKeyset(handle, NewPrimitiveAEAD)
+		if err != nil {
+			b.Fatal(err)
+		}
+		dkeyset.keys = &tCacheSyncMap[*keyset.Handle]{}
+		dkeyset.primitives = &tCacheSyncMap[PrimitiveAEAD]{}
+
+		for i := 0; i < b.N; i++ {
+			_, _, err := dkeyset.GetPrimitiveAndHandle([]byte(b.Name() + strconv.Itoa(i%n)))
 			if err != nil {
 				b.Error(err)
 			}

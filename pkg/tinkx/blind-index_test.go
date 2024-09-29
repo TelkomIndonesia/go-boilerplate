@@ -57,7 +57,7 @@ func TestBlindIndexes(t *testing.T) {
 	}
 }
 
-func TestCopyBIDXWithLen(t *testing.T) {
+func TestBIDXWithLen(t *testing.T) {
 	h, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 	require.NoError(t, err, "should return new handle")
 	bidx, err := NewPrimitiveBIDX(h)
@@ -67,7 +67,7 @@ func TestCopyBIDXWithLen(t *testing.T) {
 
 	var bidxN BIDX = bidx
 	for i := len(v); i > 0; i-- {
-		bidxN, err = CopyBIDXWithLen(bidxN, i)
+		bidxN, err = BIDXWithLen(bidxN, i)
 		require.NoError(t, err, "should return bidx handle")
 		vn, err := bidxN.ComputePrimary([]byte("data"))
 		require.NoError(t, err, "should produce bidx")

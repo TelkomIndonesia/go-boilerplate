@@ -149,7 +149,7 @@ func (p *Postgres) bidxFullFunc(tenantID *uuid.UUID) func() (tinkx.PrimitiveBIDX
 	if err != nil {
 		return func() (tinkx.PrimitiveBIDX, error) { return tinkx.PrimitiveBIDX{}, err }
 	}
-	b, err := tinkx.CopyBIDXWithLen(pb, 0)
+	b, err := tinkx.BIDXWithLen(pb, 0)
 	return func() (tinkx.PrimitiveBIDX, error) { return tinkx.PrimitiveBIDX{BIDX: b}, nil }
 }
 

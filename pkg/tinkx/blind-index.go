@@ -65,20 +65,27 @@ func NewBIDX(h *keyset.Handle, length int) (BIDX, error) {
 	return b, nil
 }
 
-func CopyBIDXWithLen(t BIDX, len int) (BIDX, error) {
-	b, ok := t.(bidx)
-	if !ok {
-		pb, ok := t.(PrimitiveBIDX)
-		if !ok {
-			return nil, fmt.Errorf("unknwon BIDX implementation")
-		}
-		b, ok = pb.BIDX.(bidx)
-		if !ok {
-			return nil, fmt.Errorf("unknwon BIDX implementation")
-		}
+var bufpool sync.Pool = sync.Pool{
+	New: func() any { return new(bytes.Buffer) },
+}
+
+func cloneHandle(h *keyset.Handle) (hc *keyset.Handle, err error) {
+	b := bufpool.Get().(*bytes.Buffer)
+	defer func() { b.Reset(); bufpool.Put(b) }()
+
+	w := keyset.NewBinaryWriter(b)
+	err = insecurecleartextkeyset.Write(h, w)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy handle to memory: %w", err)
 	}
-	b.len = len
-	return b, nil
+
+	r := keyset.NewBinaryReader(b)
+	hc, err = insecurecleartextkeyset.Read(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy handle from memory: %w", err)
+	}
+
+	return hc, nil
 }
 
 func (b bidx) ComputePrimary(data []byte) (idx []byte, err error) {
@@ -104,25 +111,37 @@ func (b bidx) ComputeAll(data []byte) (idxs [][]byte, err error) {
 	return
 }
 
-var bufpool sync.Pool = sync.Pool{
-	New: func() any { return new(bytes.Buffer) },
-}
-
-func cloneHandle(h *keyset.Handle) (hc *keyset.Handle, err error) {
-	b := bufpool.Get().(*bytes.Buffer)
-	defer func() { b.Reset(); bufpool.Put(b) }()
-
-	w := keyset.NewBinaryWriter(b)
-	err = insecurecleartextkeyset.Write(h, w)
-	if err != nil {
-		return nil, fmt.Errorf("failed to copy handle to memory: %w", err)
+func BIDXWithLen(t BIDX, len int) (BIDX, error) {
+	b, ok := t.(bidx)
+	if !ok {
+		bp, okp := t.(*bidx)
+		if okp {
+			b, ok = *bp, okp
+		}
 	}
+	if !ok {
+		pb, ok := t.(PrimitiveBIDX)
+		if !ok {
+			pbp, okp := t.(*PrimitiveBIDX)
+			if okp {
+				pb, ok = *pbp, okp
+			}
+		}
+		if !ok {
+			return nil, fmt.Errorf("unknwon BIDX implementation")
+		}
 
-	r := keyset.NewBinaryReader(b)
-	hc, err = insecurecleartextkeyset.Read(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to copy handle from memory: %w", err)
+		b, ok = pb.BIDX.(bidx)
+		if !ok {
+			bp, okp := pb.BIDX.(*bidx)
+			if okp {
+				b, ok = *bp, okp
+			}
+		}
+		if !ok {
+			return nil, fmt.Errorf("unknwon BIDX implementation")
+		}
 	}
-
-	return hc, nil
+	b.len = len
+	return b, nil
 }

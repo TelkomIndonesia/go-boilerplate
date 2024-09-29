@@ -112,6 +112,17 @@ func (b bidx) ComputeAll(data []byte) (idxs [][]byte, err error) {
 }
 
 func BIDXWithLen(t BIDX, len int) (BIDX, error) {
+	pb, ok := t.(PrimitiveBIDX)
+	if !ok {
+		pbp, okp := t.(*PrimitiveBIDX)
+		if okp {
+			pb, ok = *pbp, okp
+		}
+	}
+	if ok {
+		t = pb.BIDX
+	}
+
 	b, ok := t.(bidx)
 	if !ok {
 		bp, okp := t.(*bidx)
@@ -120,27 +131,7 @@ func BIDXWithLen(t BIDX, len int) (BIDX, error) {
 		}
 	}
 	if !ok {
-		pb, ok := t.(PrimitiveBIDX)
-		if !ok {
-			pbp, okp := t.(*PrimitiveBIDX)
-			if okp {
-				pb, ok = *pbp, okp
-			}
-		}
-		if !ok {
-			return nil, fmt.Errorf("unknwon BIDX implementation")
-		}
-
-		b, ok = pb.BIDX.(bidx)
-		if !ok {
-			bp, okp := pb.BIDX.(*bidx)
-			if okp {
-				b, ok = *bp, okp
-			}
-		}
-		if !ok {
-			return nil, fmt.Errorf("unknwon BIDX implementation")
-		}
+		return nil, fmt.Errorf("unknwon BIDX implementation")
 	}
 	b.len = len
 	return b, nil

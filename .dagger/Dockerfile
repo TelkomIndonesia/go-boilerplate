@@ -1,4 +1,4 @@
-FROM golang:1.21 AS builder
+FROM golang:1.23 AS builder
 
 COPY --from=docker:cli /usr/local/bin/docker /usr/local/bin/docker
 

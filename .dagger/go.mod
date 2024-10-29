@@ -1,8 +1,6 @@
 module github.com/telkomindonesia/go-boilerplate/.dagger
 
-go 1.22.5
-
-toolchain go1.23.2
+go 1.23.2
 
 require dagger.io/dagger v0.13.6
 

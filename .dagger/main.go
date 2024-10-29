@@ -66,9 +66,8 @@ func main() {
 	waiter := client.Container().From("alpine").
 		WithServiceBinding("postgres", postgresService).
 		WithServiceBinding("kafka", kafkaService).
-		WithEntrypoint([]string{"sh", "-c"}).
 		WithEnvVariable("_NOW_", time.Now().String()).
-		WithExec([]string{`
+		WithExec([]string{"sh", "-c", `
 			until nc postgres 5432; do echo "wait postgres"; sleep 1; done
 			until nc kafka 9092; do echo "wait kafka"; sleep 1; done
 		`})
@@ -87,12 +86,7 @@ func main() {
 		WithMountedDirectory("/tmp/waiter", waiter.Directory("/")).
 		WithWorkdir(dir).
 		WithMountedDirectory(".", src).
-		WithExec(
-			[]string{"go", "test", "-coverprofile", "coverage.out", "./..."},
-			dagger.ContainerWithExecOpts{
-				SkipEntrypoint: true,
-			},
-		)
+		WithExec([]string{"go", "test", "-coverprofile", "coverage.out", "./..."})
 	_, err = test.File("coverage.out").Export(ctx, filepath.Join(dir, "coverage.out"))
 	if err != nil {
 		log.Fatalf("failed to export coverage: %v", err)

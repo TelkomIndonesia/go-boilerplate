@@ -127,17 +127,18 @@ func New(opts ...OptFunc) (c *TLSWrap, err error) {
 }
 
 func (c *TLSWrap) initWatcher() (err error) {
+	ctx := context.Background()
 	if c.certPath != "" {
 		cw, err := filewatch.New(c.certPath, func(s string, err error) {
 			if err != nil {
-				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
+				c.logger.Error(ctx, "leaf-cert-file-watcher", log.Error("error", err))
 				return
 			}
 			if err = c.loadLeaf(); err != nil {
-				c.logger.Error("leaf-cert-file-watcher", log.Error("error", err))
+				c.logger.Error(ctx, "leaf-cert-file-watcher", log.Error("error", err))
 				return
 			}
-			c.logger.Info("leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
+			c.logger.Info(ctx, "leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("failed to instantiate leaf cert content watcher")
@@ -149,14 +150,14 @@ func (c *TLSWrap) initWatcher() (err error) {
 	if c.clientCAPath != "" {
 		cw, err := filewatch.New(c.clientCAPath, func(s string, err error) {
 			if err != nil {
-				c.logger.Error("client-ca-file-watcher", log.Error("error", err))
+				c.logger.Error(ctx, "client-ca-file-watcher", log.Error("error", err))
 				return
 			}
 			if err = c.loadClientCA(); err != nil {
-				c.logger.Error("client-ca-file-watcher", log.Error("error", err))
+				c.logger.Error(ctx, "client-ca-file-watcher", log.Error("error", err))
 				return
 			}
-			c.logger.Info("client-ca-file-watcher", log.String("info", "ca file updated"))
+			c.logger.Info(ctx, "client-ca-file-watcher", log.String("info", "ca file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("failed to instantiate ca content watcher")
@@ -168,14 +169,14 @@ func (c *TLSWrap) initWatcher() (err error) {
 	if c.rootCAPath != "" {
 		cw, err := filewatch.New(c.rootCAPath, func(s string, err error) {
 			if err != nil {
-				c.logger.Error("root-ca-file-watcher", log.Error("error", err))
+				c.logger.Error(ctx, "root-ca-file-watcher", log.Error("error", err))
 				return
 			}
 			if err = c.loadRootCA(); err != nil {
-				c.logger.Error("root-ca-file-watcher", log.Error("error", err))
+				c.logger.Error(ctx, "root-ca-file-watcher", log.Error("error", err))
 				return
 			}
-			c.logger.Info("root-ca-file-watcher", log.String("info", "ca file updated"))
+			c.logger.Info(ctx, "root-ca-file-watcher", log.String("info", "ca file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("failed to instantiate root ca content watcher")

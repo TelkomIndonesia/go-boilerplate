@@ -1,6 +1,8 @@
 package oteloader
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
@@ -18,11 +20,11 @@ func (o logsink) Enabled(level int) bool {
 }
 
 func (o logsink) Error(err error, msg string, keysAndValues ...any) {
-	o.l.Error(msg, log.Error("error", err), log.String("name", o.name), log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
+	o.l.Error(context.Background(), msg, log.Error("error", err), log.String("name", o.name), log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
 }
 
 func (o logsink) Info(level int, msg string, keysAndValues ...any) {
-	o.l.Info(msg, log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
+	o.l.Info(context.Background(), msg, log.String("name", o.name), log.Any("fields", append(o.fields, keysAndValues...)))
 }
 
 func (o logsink) Init(info logr.RuntimeInfo) {}

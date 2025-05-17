@@ -20,7 +20,7 @@ func RelayLoopWithRetry(ctx context.Context, m Manager, s RelayFunc, l log.Logge
 	}
 	for {
 		if err := m.RelayLoop(ctx, s); err != nil {
-			l.Warn("got outbox observer error", log.WithTrace(ctx, log.Error("error", err)))
+			l.Warn(ctx, "got outbox observer error", log.WithTrace(log.Error("error", err))...)
 		}
 
 		select {

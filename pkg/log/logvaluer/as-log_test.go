@@ -1,4 +1,4 @@
-package loggable
+package logvaluer
 
 import (
 	"testing"

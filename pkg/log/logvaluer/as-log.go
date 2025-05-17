@@ -1,4 +1,4 @@
-package loggable
+package logvaluer
 
 import (
 	"reflect"
@@ -22,10 +22,10 @@ func asLogRecurse(v any, root bool) any {
 		return value
 	}
 
-	Loggable := reflect.TypeOf((*log.Loggable)(nil)).Elem()
+	Loggable := reflect.TypeOf((*log.Valuer)(nil)).Elem()
 	switch {
 	case !root && value.Type().Implements(Loggable):
-		return value.Interface().(log.Loggable).AsLog()
+		return value.Interface().(log.Valuer).AsLog()
 
 	case value.Kind() == reflect.Struct:
 		result := make(map[string]interface{})

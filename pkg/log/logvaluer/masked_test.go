@@ -1,4 +1,4 @@
-package loggable
+package logvaluer
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 
 func TestMasked(t *testing.T) {
 	data := []struct {
-		in  log.Loggable
+		in  log.Valuer
 		out string
 	}{
 		{

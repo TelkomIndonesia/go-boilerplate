@@ -116,7 +116,7 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 
 	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.Time.UnixNano())
 	if err != nil {
-		p.logger.Warn("failed to send notify", log.WithTrace(ctx, log.Error("error", err)))
+		p.logger.Warn(ctx, "failed to send notify", log.WithTrace(log.Error("error", err))...)
 	}
 
 	return
@@ -124,7 +124,7 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 
 func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) (err error) {
 	if relayFunc == nil {
-		p.logger.Warn("No outbox sender, will do nothing.")
+		p.logger.Warn(ctx, "No outbox sender, will do nothing.")
 		<-ctx.Done()
 		return
 	}
@@ -134,7 +134,7 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 		return fmt.Errorf("failed to obtain lock: %w", err)
 	}
 	defer unlocker()
-	p.logger.Warn("Got lock for observing outbox")
+	p.logger.Warn(ctx, "Got lock for observing outbox")
 
 	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
 	if err = l.Listen(p.channelName); err != nil {
@@ -174,7 +174,7 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 
 		last, err = p.relayOutboxes(ctx, relayFunc)
 		if err != nil {
-			p.logger.Error("failed to relay outboxes", log.WithTrace(ctx, log.Error("error", err)))
+			p.logger.Error(ctx, "failed to relay outboxes", log.WithTrace(log.Error("error", err))...)
 		}
 
 		stopTimer()
@@ -277,7 +277,7 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 		return nil
 	}
 
-	p.logger.Warn("got partial relay error", log.WithTrace(ctx, log.Error("error", err)))
+	p.logger.Warn(ctx, "got partial relay error", log.WithTrace(log.Error("error", err))...)
 
 	ids := []string{}
 	for _, e := range *errRelay {

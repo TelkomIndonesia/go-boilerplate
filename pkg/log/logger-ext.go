@@ -1,50 +1,140 @@
 package log
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+)
 
 type loggerExt struct {
-	LoggerBase
+	base LoggerBase
 
-	logFuncs []LogFunc
-	ctx      context.Context
+	attrs     []Attr
+	withTrace bool
 }
 
 func WithLoggerExt(l LoggerBase) Logger {
 	return loggerExt{
-		LoggerBase: l,
+		base: l,
 	}
 }
 
-func (l loggerExt) WithLog(fns ...LogFunc) Logger {
-	l.logFuncs = append(l.logFuncs, fns...)
+func (l loggerExt) WithAttrs(fns ...Attr) Logger {
+	l.attrs = append(l.attrs, fns...)
 	return l
 }
 
-func (l loggerExt) WithTrace(ctx context.Context) Logger {
-	l.ctx = ctx
+func (l loggerExt) WithTrace() Logger {
+	l.withTrace = true
 	return l
 }
 
-func (l loggerExt) Debug(message string, fn ...LogFunc) {
-	l.LoggerBase.Debug(message, l.wrap(fn...))
+func (l loggerExt) Debug(ctx context.Context, message string, attrs ...Attr) {
+	l.invoke(l.base.Debug, ctx, message, attrs...)
 }
 
-func (l loggerExt) Info(message string, fn ...LogFunc) {
-	l.LoggerBase.Info(message, l.wrap(fn...))
+func (l loggerExt) Info(ctx context.Context, message string, attrs ...Attr) {
+	l.invoke(l.base.Info, ctx, message, attrs...)
 }
 
-func (l loggerExt) Warn(message string, fn ...LogFunc) {
-	l.LoggerBase.Warn(message, l.wrap(fn...))
+func (l loggerExt) Warn(ctx context.Context, message string, attrs ...Attr) {
+	l.invoke(l.base.Warn, ctx, message, attrs...)
 }
 
-func (l loggerExt) Error(message string, fn ...LogFunc) {
-	l.LoggerBase.Error(message, l.wrap(fn...))
+func (l loggerExt) Error(ctx context.Context, message string, attrs ...Attr) {
+	l.invoke(l.base.Error, ctx, message, attrs...)
 }
 
-func (l loggerExt) Fatal(message string, fn ...LogFunc) {
-	l.LoggerBase.Fatal(message, l.wrap(fn...))
+func (l loggerExt) Fatal(ctx context.Context, message string, attrs ...Attr) {
+	l.invoke(l.base.Fatal, ctx, message, attrs...)
 }
 
-func (l loggerExt) wrap(fn ...LogFunc) LogFunc {
-	return WithTrace(l.ctx, append(l.logFuncs, fn...)...)
+func (l loggerExt) invoke(fn func(context.Context, string, ...Attr), ctx context.Context, message string, attrs ...Attr) {
+	if len(l.attrs) > 0 {
+		attrs = append(l.attrs, attrs...)
+	}
+
+	l.addToSpan(ctx, attrs...)
+	fn(ctx, message, attrs...)
+}
+
+func (l loggerExt) addToSpan(ctx context.Context, attrs ...Attr) {
+	if ctx == nil {
+		return
+	}
+	span := trace.SpanFromContext(ctx)
+	if !span.SpanContext().HasTraceID() {
+		return
+	}
+
+	tattrs := make([]attribute.KeyValue, 0, len(attrs))
+	for _, attr := range attrs {
+		if !l.withTrace && !attr.withTrace {
+			continue
+		}
+
+		if attr.err != nil {
+			span.RecordError(attr.err, trace.WithStackTrace(true))
+			span.SetStatus(codes.Error, attr.err.Error())
+			continue
+		}
+
+		added := true
+		switch attr.attr.Value.Kind() {
+		case slog.KindString:
+			tattrs = append(tattrs, attribute.String(attr.attr.Key, attr.attr.Value.String()))
+		case slog.KindDuration:
+			tattrs = append(tattrs, attribute.String(attr.attr.Key, attr.attr.Value.Duration().String()))
+		case slog.KindTime:
+			tattrs = append(tattrs, attribute.String(attr.attr.Key, attr.attr.Value.Time().Format(time.RFC3339)))
+		case slog.KindBool:
+			tattrs = append(tattrs, attribute.Bool(attr.attr.Key, attr.attr.Value.Bool()))
+		case slog.KindInt64:
+			tattrs = append(tattrs, attribute.Int64(attr.attr.Key, attr.attr.Value.Int64()))
+		case slog.KindFloat64:
+			tattrs = append(tattrs, attribute.Float64(attr.attr.Key, attr.attr.Value.Float64()))
+		default:
+			added = false
+		}
+		if added {
+			continue
+		}
+
+		switch v := attr.attr.Value.Any().(type) {
+		case bool:
+			tattrs = append(tattrs, attribute.Bool(attr.attr.Key, v))
+		case []bool:
+			tattrs = append(tattrs, attribute.BoolSlice(attr.attr.Key, v))
+		case int:
+			tattrs = append(tattrs, attribute.Int(attr.attr.Key, v))
+		case []int:
+			tattrs = append(tattrs, attribute.IntSlice(attr.attr.Key, v))
+		case int64:
+			tattrs = append(tattrs, attribute.Int64(attr.attr.Key, v))
+		case []int64:
+			tattrs = append(tattrs, attribute.Int64Slice(attr.attr.Key, v))
+		case float64:
+			tattrs = append(tattrs, attribute.Float64(attr.attr.Key, v))
+		case []float64:
+			tattrs = append(tattrs, attribute.Float64Slice(attr.attr.Key, v))
+		case string:
+			tattrs = append(tattrs, attribute.String(attr.attr.Key, v))
+		case []string:
+			tattrs = append(tattrs, attribute.StringSlice(attr.attr.Key, v))
+		case fmt.Stringer:
+			tattrs = append(tattrs, attribute.Stringer(attr.attr.Key, v))
+		default:
+			b, err := json.Marshal(v)
+			if err == nil {
+				tattrs = append(tattrs, attribute.String(attr.attr.Key, string(b)))
+			}
+		}
+	}
+	span.SetAttributes(tattrs...)
 }

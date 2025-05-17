@@ -102,7 +102,7 @@ func (h *HTTPServer) buildServer() (err error) {
 
 	h.server = &http.Server{
 		Handler:  h.handler,
-		ErrorLog: log.NewGoLogger(h.logger, "http_server: ", 0),
+		ErrorLog: log.NewStdLogger(h.logger, "http_server: ", 0),
 	}
 	return
 }

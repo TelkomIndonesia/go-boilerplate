@@ -9,10 +9,7 @@ import (
 )
 
 func withTraceConsoleExporter(ctx context.Context, opts ...stdouttrace.Option) func() {
-	traceExporter, _ := stdouttrace.New(
-		append(opts,
-			stdouttrace.WithPrettyPrint(),
-		)...)
+	traceExporter, _ := stdouttrace.New(opts...)
 
 	traceProvider := trace.NewTracerProvider(
 		trace.WithBatcher(traceExporter),

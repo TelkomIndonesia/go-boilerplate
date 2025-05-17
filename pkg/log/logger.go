@@ -10,14 +10,14 @@ type Logger interface {
 }
 
 type LoggerBase interface {
-	Debug(message string, fn ...LogFunc)
-	Info(message string, fn ...LogFunc)
-	Warn(message string, fn ...LogFunc)
-	Error(message string, fn ...LogFunc)
-	Fatal(message string, fn ...LogFunc)
+	Debug(ctx context.Context, message string, attrs ...Attr)
+	Info(ctx context.Context, message string, attrs ...Attr)
+	Warn(ctx context.Context, message string, attrs ...Attr)
+	Error(ctx context.Context, message string, attrs ...Attr)
+	Fatal(ctx context.Context, message string, attrs ...Attr)
 }
 
 type LoggerExt interface {
-	WithLog(...LogFunc) Logger
-	WithTrace(ctx context.Context) Logger
+	WithAttrs(attrs ...Attr) Logger
+	WithTrace() Logger
 }

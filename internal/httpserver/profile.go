@@ -15,7 +15,7 @@ func (s oapiServerImplementation) GetProfile(ctx context.Context, request oapi.G
 	pr, err := s.h.profileRepo.FetchProfile(ctx, request.TenantId, request.ProfileId)
 	if err != nil {
 		err := fmt.Errorf("failed to fetch profile: %w", err)
-		s.h.logger.WithTrace(ctx).Error("failed to fetch repo", log.Error("error", err))
+		s.h.logger.WithTrace().Error(ctx, "failed to fetch repo", log.Error("error", err))
 		return oapi.GetProfile500JSONResponse{Message: err.Error()}, nil
 	}
 	if pr == nil {
@@ -38,7 +38,7 @@ func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.
 	id, err := uuid.NewV7()
 	if err != nil {
 		err := fmt.Errorf("failed to create id: %w", err)
-		s.h.logger.WithTrace(ctx).Error("failed to post profile", log.Error("error", err))
+		s.h.logger.WithTrace().Error(ctx, "failed to post profile", log.Error("error", err))
 		return oapi.PostProfile400JSONResponse{Message: err.Error()}, nil
 	}
 
@@ -56,7 +56,7 @@ func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.
 		err = s.h.profileMgr.ValidateProfile(ctx, pr)
 		if err != nil {
 			err := fmt.Errorf("failed to validate profie: %w", err)
-			s.h.logger.WithTrace(ctx).Error("failed to post profile", log.Error("error", err))
+			s.h.logger.WithTrace().Error(ctx, "failed to post profile", log.Error("error", err))
 			return oapi.PostProfile400JSONResponse{Message: err.Error()}, nil
 		}
 	}
@@ -64,7 +64,7 @@ func (s oapiServerImplementation) PostProfile(ctx context.Context, request oapi.
 	err = s.h.profileRepo.StoreProfile(ctx, pr)
 	if err != nil {
 		err := fmt.Errorf("failed to store profie: %w", err)
-		s.h.logger.WithTrace(ctx).Error("failed to post profile", log.Error("error", err))
+		s.h.logger.WithTrace().Error(ctx, "failed to post profile", log.Error("error", err))
 		return oapi.PostProfile500JSONResponse{Message: err.Error()}, nil
 	}
 

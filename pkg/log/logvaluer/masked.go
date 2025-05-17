@@ -1,4 +1,4 @@
-package loggable
+package logvaluer
 
 import (
 	"net/url"
@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	_ log.Loggable = MaskedString("")
-	_ log.Loggable = MaskedStringUserURL("")
+	_ log.Valuer = MaskedString("")
+	_ log.Valuer = MaskedStringUserURL("")
 )
 
 type MaskedString string

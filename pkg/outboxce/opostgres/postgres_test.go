@@ -33,7 +33,6 @@ func tGetManagerPostgresTruncated(t *testing.T) *postgres {
 	sqlStatement := `TRUNCATE TABLE outboxce RESTART IDENTITY CASCADE`
 	_, err := p.db.Exec(sqlStatement)
 	require.NoError(t, err)
-
 	return testPostgres
 }
 
@@ -59,7 +58,7 @@ func tNewManagerPostgres(t *testing.T, opts ...OptFunc) *postgres {
 	db, err := sql.Open("postgres", url)
 	require.NoError(t, err)
 
-	p, err := NewManager(append(opts, WithDB(db, url), WithLogger(logtest.NewLogger(t).WithLog(log.String("name", t.Name()))))...)
+	p, err := NewManager(append(opts, WithDB(db, url), WithLogger(logtest.NewLogger(t).WithAttrs(log.String("name", t.Name()))))...)
 	require.NoError(t, err, "should create postgres")
 	return p.(*postgres)
 }
@@ -142,7 +141,7 @@ func TestPostgresOutbox(t *testing.T) {
 						p.maxRelaySize = 10
 						defer p.db.Close()
 
-						outboxce.RelayLoopWithRetry(ctx, p, sender, logtest.NewLogger(t).WithLog(log.Int64("replica-id", int64(i))))
+						outboxce.RelayLoopWithRetry(ctx, p, sender, logtest.NewLogger(t).WithAttrs(log.Int64("replica-id", int64(i))))
 					}()
 				}
 			}

@@ -1,6 +1,10 @@
 package cmd
 
-import "github.com/telkomindonesia/go-boilerplate/pkg/log"
+import (
+	"context"
+
+	"github.com/telkomindonesia/go-boilerplate/pkg/log"
+)
 
 func require[T any](f func() (T, error), l log.Logger) T {
 	if l == nil {
@@ -9,7 +13,7 @@ func require[T any](f func() (T, error), l log.Logger) T {
 
 	t, err := f()
 	if err != nil {
-		l.Fatal("requirement-unsatisfied", log.Error("error", err))
+		l.Fatal(context.Background(), "requirement-unsatisfied", log.Error("error", err))
 	}
 	return t
 }

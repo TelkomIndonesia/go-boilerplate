@@ -15,7 +15,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd/env"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/loggable"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/logvaluer"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
 )
@@ -36,17 +36,17 @@ func WithoutDotEnv() OptFunc {
 	}
 }
 
-var _ log.Loggable = CMD{}
+var _ log.Valuer = CMD{}
 
 type CMD struct {
 	envPrefix string
 	dotenv    bool
 
-	HTTPAddr             string                       `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
-	PostgresUrl          loggable.MaskedStringUserURL `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
-	KafkaBrokers         []string                     `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
-	KafkaTopicOutbox     string                       `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
-	TenantServiceBaseUrl loggable.MaskedStringUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
+	HTTPAddr             string                        `env:"HTTP_LISTEN_ADDRESS,expand" envDefault:":8080" json:"http_listen_addr"`
+	PostgresUrl          logvaluer.MaskedStringUserURL `env:"POSTGRES_URL,required,notEmpty,expand" json:"postgres_url"`
+	KafkaBrokers         []string                      `env:"KAFKA_BROKERS,expand" json:"kafka_brokers"`
+	KafkaTopicOutbox     string                        `env:"KAFKA_TOPIC_OUTBOX,expand" json:"kafka_topic_outbox"`
+	TenantServiceBaseUrl logvaluer.MaskedStringUserURL `env:"TENANT_SERVICE_BASE_URL,required,notEmpty,expand" json:"tenant_service_base_url"`
 
 	CMD      *cmd.CMD `env:"-" json:"cmd"`
 	logger   log.Logger
@@ -142,7 +142,7 @@ func (c *CMD) initPostgres() (err error) {
 	opts := []postgres.OptFunc{
 		postgres.WithConnString(c.PostgresUrl.String()),
 		postgres.WithDerivableKeysets(c.aead, c.bidx),
-		postgres.WithLogger(c.logger.WithLog(log.String("logger-name", "postgres"))),
+		postgres.WithLogger(c.logger.WithAttrs(log.String("logger-name", "postgres"))),
 	}
 	if c.k != nil {
 		opts = append(opts, postgres.WithOutboxCERelayFunc(c.k.OutboxCERelayFunc()))
@@ -160,7 +160,7 @@ func (c *CMD) initTenantService() (err error) {
 	c.ts, err = tenantservice.New(
 		tenantservice.WithBaseUrl(c.TenantServiceBaseUrl.String()),
 		tenantservice.WithHTTPClient(c.hc.Client),
-		tenantservice.WithLogger(c.logger.WithLog(log.String("logger-name", "tenant-service"))),
+		tenantservice.WithLogger(c.logger.WithAttrs(log.String("logger-name", "tenant-service"))),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate tenant service: %w", err)
@@ -178,7 +178,7 @@ func (c *CMD) initHTTPServer() (err error) {
 		httpserver.WithListener(c.tlsw.Listener(l)),
 		httpserver.WithProfileRepository(otelwrap.NewProfileRepositoryWrapper(c.p, otelwrap.Tracer, "Postgres")),
 		httpserver.WithTenantRepository(otelwrap.NewTenantRepositoryWrapper(c.ts, otelwrap.Tracer, "TenantService")),
-		httpserver.WithLogger(c.logger.WithLog(log.String("logger-name", "http-server"))),
+		httpserver.WithLogger(c.logger.WithAttrs(log.String("logger-name", "http-server"))),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate http server: %w", err)
@@ -189,11 +189,11 @@ func (c *CMD) initHTTPServer() (err error) {
 }
 
 func (c *CMD) Run(ctx context.Context) (err error) {
-	defer func() { c.logger.Error("error", log.Error("error", err)) }()
+	defer func() { c.logger.Error(ctx, "error", log.Error("error", err)) }()
 	defer func() { err = c.close(ctx, err) }()
 	defer c.loadOtel(ctx)()
 
-	c.logger.Info("server starting", log.Any("server", c))
+	c.logger.Info(ctx, "server starting", log.Any("server", c))
 	return c.h.Start(c.canceler(ctx))
 }
 
@@ -205,5 +205,5 @@ func (c *CMD) close(ctx context.Context, err error) error {
 }
 
 func (c CMD) AsLog() any {
-	return loggable.AsLog(c)
+	return logvaluer.AsLog(c)
 }

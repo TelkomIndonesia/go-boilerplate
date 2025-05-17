@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd/env"
@@ -12,7 +15,6 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/ctxutil"
 	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
-	"github.com/telkomindonesia/go-boilerplate/pkg/log/logzap"
 	"github.com/telkomindonesia/go-boilerplate/pkg/oteloader"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tlswrap"
@@ -81,13 +83,27 @@ func New(opts ...OptFunc) (c *CMD, err error) {
 }
 
 func (c *CMD) initLogger() {
-	opts := []logzap.OptFunc{}
+	lvlStr := "info"
 	if c.LogLevel != nil {
-		opts = append(opts, logzap.WithLevelString(*c.LogLevel))
+		lvlStr = *c.LogLevel
 	}
-	l, err := logzap.NewLogger(opts...)
+	lvl := slog.LevelInfo
+	switch strings.ToLower(lvlStr) {
+	case "debug":
+		lvl = slog.LevelDebug
+	case "info":
+		lvl = slog.LevelInfo
+	case "warn":
+		lvl = slog.LevelWarn
+	case "error":
+		lvl = slog.LevelError
+	case "fatal":
+		lvl = slog.LevelError
+	}
+	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl, AddSource: true})
+	l := log.NewLogger(log.WithHandlers(log.NewTraceableHandler(h)))
 
-	c.LoggerE = func() (log.Logger, error) { return l, err }
+	c.LoggerE = func() (log.Logger, error) { return l, nil }
 }
 
 func (c CMD) Logger() log.Logger {
@@ -128,7 +144,7 @@ func (c *CMD) initTLSWrap() {
 	if err != nil {
 		l = log.Global()
 	}
-	opts = append(opts, tlswrap.WithLogger(l.WithLog(log.String("logger-name", "tlswrap"))))
+	opts = append(opts, tlswrap.WithLogger(l.WithAttrs(log.String("logger-name", "tlswrap"))))
 
 	t, err := tlswrap.New(opts...)
 	c.TLSWrapE = func() (*tlswrap.TLSWrap, error) { return t, err }
@@ -210,7 +226,7 @@ func (c CMD) LoadOtel(ctx context.Context) (deferer func()) {
 		l = log.Global()
 	}
 
-	return oteloader.WithTraceProvider(ctx, n, l.WithLog(log.String("logger-name", "otel-loader")))
+	return oteloader.WithTraceProvider(ctx, n, l.WithAttrs(log.String("logger-name", "otel-loader")))
 }
 
 func (c CMD) CancelOnExit(ctx context.Context) context.Context {

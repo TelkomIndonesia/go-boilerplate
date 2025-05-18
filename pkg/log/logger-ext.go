@@ -13,7 +13,7 @@ import (
 )
 
 type loggerExt struct {
-	base LoggerBase
+	l LoggerBase
 
 	attrs     []Attr
 	withTrace bool
@@ -21,7 +21,7 @@ type loggerExt struct {
 
 func WithLoggerExt(l LoggerBase) Logger {
 	return loggerExt{
-		base: l,
+		l: l,
 	}
 }
 
@@ -36,23 +36,23 @@ func (l loggerExt) WithTrace() Logger {
 }
 
 func (l loggerExt) Debug(ctx context.Context, message string, attrs ...Attr) {
-	l.invoke(l.base.Debug, ctx, message, attrs...)
+	l.invoke(l.l.Debug, ctx, message, attrs...)
 }
 
 func (l loggerExt) Info(ctx context.Context, message string, attrs ...Attr) {
-	l.invoke(l.base.Info, ctx, message, attrs...)
+	l.invoke(l.l.Info, ctx, message, attrs...)
 }
 
 func (l loggerExt) Warn(ctx context.Context, message string, attrs ...Attr) {
-	l.invoke(l.base.Warn, ctx, message, attrs...)
+	l.invoke(l.l.Warn, ctx, message, attrs...)
 }
 
 func (l loggerExt) Error(ctx context.Context, message string, attrs ...Attr) {
-	l.invoke(l.base.Error, ctx, message, attrs...)
+	l.invoke(l.l.Error, ctx, message, attrs...)
 }
 
 func (l loggerExt) Fatal(ctx context.Context, message string, attrs ...Attr) {
-	l.invoke(l.base.Fatal, ctx, message, attrs...)
+	l.invoke(l.l.Fatal, ctx, message, attrs...)
 }
 
 func (l loggerExt) invoke(fn func(context.Context, string, ...Attr), ctx context.Context, message string, attrs ...Attr) {

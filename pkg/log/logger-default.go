@@ -26,7 +26,7 @@ type logger struct {
 }
 
 func NewLogger(opts ...DefaultLoggerOpts) Logger {
-	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true})
+	h := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})
 	l := logger{
 		l: slog.New(NewTraceableHandler(h)),
 	}
@@ -67,7 +67,7 @@ func (l logger) Error(ctx context.Context, message string, attrs ...Attr) {
 
 func (l logger) Fatal(ctx context.Context, message string, attrs ...Attr) {
 	l.log(ctx, slog.LevelError, message, attrs...)
-	panic("")
+	os.Exit(1)
 }
 
 func (l logger) log(ctx context.Context, level slog.Level, message string, attrs ...Attr) {
@@ -89,8 +89,8 @@ func (h handler) Handle(ctx context.Context, r slog.Record) error {
 	span := trace.SpanFromContext(ctx)
 	if span.SpanContext().HasTraceID() {
 		r.AddAttrs(
-			slog.String("trace-id", span.SpanContext().TraceID().String()),
-			slog.String("span-id", span.SpanContext().TraceID().String()),
+			slog.String("trace_id", span.SpanContext().TraceID().String()),
+			slog.String("span_id", span.SpanContext().TraceID().String()),
 		)
 	}
 	return h.Handler.Handle(ctx, r)
@@ -136,4 +136,13 @@ var globalLogger = NewLogger()
 
 func Global() Logger {
 	return globalLogger
+}
+
+func SetGlobal(l Logger) {
+	globalLogger = l
+	if l, ok := l.(*loggerExt); ok {
+		if l, ok := l.l.(*logger); ok {
+			slog.SetDefault(l.l)
+		}
+	}
 }

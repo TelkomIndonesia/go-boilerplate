@@ -9,7 +9,8 @@ import (
 
 func main() {
 	ctx := context.Background()
-	c, err := cmd.New()
+
+	c, err := cmd.New(ctx)
 	if err != nil {
 		log.Global().Fatal(ctx, "failed to instantiate server", log.Error("error", err))
 	}

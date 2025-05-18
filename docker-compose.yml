@@ -3,6 +3,7 @@ volumes:
   kafka:
   goose:
 
+
 services:
   postgres:
     image: postgres:16
@@ -14,7 +15,7 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./internal/postgres/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
-    ports: 
+    ports:
       - 5432:5432
 
   kafka:
@@ -44,8 +45,8 @@ services:
     volumes:
       - ./.local:/local
     entrypoint:
-      - sh 
-      - -c 
+      - sh
+      - -c
       - |
         caddy run -a caddyfile -c - <<-'EOF'
         :8443 {
@@ -85,7 +86,8 @@ services:
       PROFILE_TLS_CLIENT_CA_PATH: /local/ca.crt
       PROFILE_TLS_ROOT_CA_PATH: /local/ca.crt
       PROFILE_TLS_MUTUAL_AUTH: "false"
-      PROFILE_OTEL_TRACE_PROVIDER:
+      PROFILE_OTEL_TRACE_EXPORTER:
+      PROFILE_OTEL_LOG_EXPORTER:
       PROFILE_LOG_LEVEL:
 
       PROFILE_HTTP_LISTEN_ADDRESS: :8443
@@ -97,4 +99,3 @@ services:
       - ./.local:/local
     ports:
       - 8443:8443
-      

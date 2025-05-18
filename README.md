@@ -17,9 +17,9 @@ Features:
 - [x] Opentelemetry (console, otlphttp, otlpgrpc, and datadog trace provider).
   - [x] Code Generator for auto instrumentation (otelwrap)
 - [x] Plugable log (slog, *testing.T).
-  - [x] Embed opentelemetry trace-id & span-id.
+  - [x] Embed opentelemetry trace_id & span_id.
   - [x] Copy logged field to opentelemetry trace.
-  - [ ] Switch to otel log
+  - [x] Log to console and/or otel
 - [x] Env config.
 - [x] Dockerized.
 - [x] CI/CD as Code (dagger)

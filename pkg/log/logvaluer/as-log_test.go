@@ -14,6 +14,7 @@ func TestAsLogStruct(t *testing.T) {
 		C struct {
 			A MaskedString
 		}
+		F func()
 	}{
 		A: MaskedString("oijnlkjoiasd"),
 		S: []MaskedString{MaskedString("...aosias2"), MaskedString("aojunlknasrc2")},
@@ -24,6 +25,7 @@ func TestAsLogStruct(t *testing.T) {
 		C: struct{ A MaskedString }{
 			A: MaskedString("asdasdasdasd"),
 		},
+		F: func() {},
 	}
 
 	out := map[string]interface{}{

@@ -59,5 +59,8 @@ func New(opts ...OptFunc) (k *Kafka, err error) {
 }
 
 func (k *Kafka) Close(ctx context.Context) error {
+	if k.sender == nil {
+		return nil
+	}
 	return k.sender.Close(ctx)
 }

@@ -20,7 +20,7 @@ type logger struct {
 
 func NewLogger(t *testing.T) log.Logger {
 	b := &bytes.Buffer{}
-	h := slog.NewTextHandler(b, &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true})
+	h := slog.NewTextHandler(b, &slog.HandlerOptions{Level: slog.LevelDebug})
 	s := slog.New(h)
 	return &logger{t: t, l: log.NewLogger(log.WithHandlers(h)), b: b, s: s}
 }

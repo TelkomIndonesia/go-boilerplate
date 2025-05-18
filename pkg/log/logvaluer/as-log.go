@@ -7,10 +7,11 @@ import (
 )
 
 func AsLog(v any) any {
-	return asLogRecurse(v, true)
+	v, _ = asLogRecurse(v, true)
+	return v
 }
 
-func asLogRecurse(v any, root bool) any {
+func asLogRecurse(v any, root bool) (any, bool) {
 	value := reflect.ValueOf(v)
 	t := reflect.TypeOf(v)
 	if t.Kind() == reflect.Ptr {
@@ -19,13 +20,13 @@ func asLogRecurse(v any, root bool) any {
 	}
 
 	if !value.IsValid() {
-		return value
+		return value, false
 	}
 
 	Loggable := reflect.TypeOf((*log.Valuer)(nil)).Elem()
 	switch {
 	case !root && value.Type().Implements(Loggable):
-		return value.Interface().(log.Valuer).AsLog()
+		return value.Interface().(log.Valuer).AsLog(), true
 
 	case value.Kind() == reflect.Struct:
 		result := make(map[string]interface{})
@@ -35,27 +36,40 @@ func asLogRecurse(v any, root bool) any {
 				continue
 			}
 
-			result[field.Name] = asLogRecurse(value.Field(i).Interface(), false)
+			v, ok := asLogRecurse(value.Field(i).Interface(), false)
+			if ok {
+				result[field.Name] = v
+			}
 		}
-		return result
+		return result, true
 
 	case value.Kind() == reflect.Slice || value.Kind() == reflect.Array:
 		var result = make([]interface{}, 0, value.Len())
 		for j := 0; j < value.Len(); j++ {
 			item := value.Index(j)
-			result = append(result, asLogRecurse(item.Interface(), false))
+			v, ok := asLogRecurse(item.Interface(), false)
+			if ok {
+				result = append(result, v)
+
+			}
 		}
-		return result
+		return result, true
 
 	case value.Kind() == reflect.Map:
-		result := make(map[interface{}]interface{})
+		result := make(map[string]interface{})
 		for _, key := range value.MapKeys() {
 			mapValue := value.MapIndex(key)
-			result[key.Interface()] = asLogRecurse(mapValue.Interface(), false)
+			v, ok := asLogRecurse(mapValue.Interface(), false)
+			if ok {
+				result[key.String()] = v
+			}
 		}
-		return result
+		return result, true
+
+	case value.Kind() == reflect.Func:
+		return nil, false
 
 	default:
-		return v
+		return v, true
 	}
 }

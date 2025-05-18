@@ -73,6 +73,9 @@ func Duration(key string, value time.Duration) Attr {
 }
 
 func Error(key string, value error) Attr {
+	if value == nil {
+		return Attr{}
+	}
 	buf := make([]byte, 2048)
 	n := runtime.Stack(buf, false)
 	return Attr{attr: slog.String(key, value.Error()+"\n"+string(buf[:n])), err: value}

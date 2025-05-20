@@ -32,7 +32,7 @@ func withLogOTLPGRPCExporter(ctx context.Context, l log.Logger, opts ...otlplogg
 		return func() {}
 	}
 
-	provider := otellog.NewLoggerProvider(otellog.WithProcessor(otellog.NewSimpleProcessor(exporter)))
+	provider := otellog.NewLoggerProvider(otellog.WithProcessor(otellog.NewBatchProcessor(exporter)))
 	global.SetLoggerProvider(provider)
 
 	return func() { provider.Shutdown(ctx) }

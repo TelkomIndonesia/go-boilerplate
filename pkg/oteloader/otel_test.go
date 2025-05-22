@@ -23,7 +23,7 @@ func TestInstantiate(t *testing.T) {
 			t:    &ddotel.TracerProvider{},
 		},
 		{
-			name: "otlphttp",
+			name: "otlp",
 			t:    &trace.TracerProvider{},
 		},
 		{
@@ -33,7 +33,8 @@ func TestInstantiate(t *testing.T) {
 	}
 
 	for _, data := range table {
-		WithTraceProvider(ctx, data.name, log.Global())
+		t.Setenv("OTEL_TRACES_EXPORTER", data.name)
+		FromEnv(ctx, log.Global())
 		p := otel.GetTracerProvider()
 		assert.IsType(t, data.t, p)
 	}

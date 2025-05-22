@@ -40,20 +40,18 @@ func WithTLSConfig(cfg *tls.Config) OptFunc {
 }
 
 type CMD struct {
-	MACDerivableKeysetPath  *string           `env:"MAC_DERIVABLE_KEYSET_PATH,expand" json:"mac_derivable_keyset_path"`
-	AEADDerivableKeysetPath *string           `env:"AEAD_DERIVABLE_KEYSET_PATH,expand" json:"aead_derivable_keyset_path"`
-	BIDXDerivableKeysetPath *string           `env:"BIDX_DERIVABLE_KEYSET_PATH,expand" json:"bidx_derivable_keyset_path"`
-	BIDXLength              *int              `env:"BIDX_LENGTH,expand" envDefault:"16" json:"bidx_length"`
-	TLSKeyPath              *string           `env:"TLS_KEY_PATH,expand" json:"tls_key_path"`
-	TLSCertPath             *string           `env:"TLS_CERT_PATH,expand" json:"tls_cert_path"`
-	TLSCAPath               *string           `env:"TLS_CA_PATH,expand" json:"tls_ca_path"`
-	TLSClientCAPath         *string           `env:"TLS_CLIENT_CA_PATH,expand" json:"tls_client_ca_path"`
-	TLSRootCAPath           *string           `env:"TLS_ROOT_CA_PATH,expand" json:"tls_root_ca_path"`
-	TLSMutualAuth           bool              `env:"TLS_MUTUAL_AUTH,expand" json:"tls_mutual_auth"`
-	OtelTraceExporter       *string           `env:"OTEL_TRACE_EXPORTER" json:"otel_trace_exporter" `
-	OtelLogExporter         *string           `env:"OTEL_LOG_EXPORTER" json:"otel_log_exporter" `
-	LogLevel                *string           `env:"LOG_LEVEL" json:"log_level"`
-	LogExporter             map[string]string `env:"LOG_EXPORTER" json:"log_exporter"`
+	MACDerivableKeysetPath  *string `env:"MAC_DERIVABLE_KEYSET_PATH,expand" json:"mac_derivable_keyset_path"`
+	AEADDerivableKeysetPath *string `env:"AEAD_DERIVABLE_KEYSET_PATH,expand" json:"aead_derivable_keyset_path"`
+	BIDXDerivableKeysetPath *string `env:"BIDX_DERIVABLE_KEYSET_PATH,expand" json:"bidx_derivable_keyset_path"`
+	BIDXLength              *int    `env:"BIDX_LENGTH,expand" envDefault:"16" json:"bidx_length"`
+	TLSKeyPath              *string `env:"TLS_KEY_PATH,expand" json:"tls_key_path"`
+	TLSCertPath             *string `env:"TLS_CERT_PATH,expand" json:"tls_cert_path"`
+	TLSCAPath               *string `env:"TLS_CA_PATH,expand" json:"tls_ca_path"`
+	TLSClientCAPath         *string `env:"TLS_CLIENT_CA_PATH,expand" json:"tls_client_ca_path"`
+	TLSRootCAPath           *string `env:"TLS_ROOT_CA_PATH,expand" json:"tls_root_ca_path"`
+	TLSMutualAuth           bool    `env:"TLS_MUTUAL_AUTH,expand" json:"tls_mutual_auth"`
+	LogLevel                *string `env:"LOG_LEVEL" json:"log_level"`
+	LogFormat               string  `env:"LOG_FORMAT" json:"LOG_FORMAT"`
 
 	Version string `json:"version"`
 	tlscfg  *tls.Config
@@ -98,23 +96,25 @@ func New(ctx context.Context, opts ...OptFunc) (c *CMD, err error) {
 }
 
 func (c *CMD) initOtel(ctx context.Context) {
-	l := log.Global()
-
-	traceProvider := ""
-	if c.OtelTraceExporter != nil {
-		traceProvider = *c.OtelTraceExporter
+	var l log.Logger
+	lvl := log.Level("info")
+	if c.LogLevel != nil {
+		lvl = log.Level(*c.LogLevel)
 	}
-	traceCloser := oteloader.WithTraceProvider(ctx, traceProvider, l.WithAttrs(log.String("logger-name", "otel-loader")))
-
-	logProvider := ""
-	if c.OtelLogExporter != nil {
-		logProvider = *c.OtelLogExporter
+	switch c.LogFormat {
+	default:
+		l = log.NewLogger(log.WithHandlers(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
+	case "json":
+		l = log.NewLogger(log.WithHandlers(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
 	}
-	logCloser := oteloader.WithLogProvider(ctx, logProvider, l.WithAttrs(log.String("logger-name", "otel-loader")))
+
+	closer, err := oteloader.FromEnv(ctx, l)
+	if err != nil {
+		l.Error(ctx, "failed to load otel", log.Error("error", err))
+	}
 
 	c.closers = append(c.closers, func(ctx context.Context) error {
-		traceCloser()
-		logCloser()
+		closer(ctx)
 		return nil
 	})
 }
@@ -125,30 +125,16 @@ func (c *CMD) initLogger() {
 		lvl = log.Level(*c.LogLevel)
 	}
 
-	exporters := map[string]string{}
-	for k, v := range c.LogExporter {
-		if k != "console" && k != "otel" {
-			continue
-		}
-		if k == "console" && (v != "keyval" && v != "json") {
-			continue
-		}
-		exporters[k] = v
-	}
-	if len(exporters) == 0 {
-		exporters["console"] = "keyval"
+	handlers := []slog.Handler{
+		otelslog.NewHandler("cmd"),
 	}
 
-	handlers := []slog.Handler{}
-	for k, v := range exporters {
-		switch {
-		default:
-			handlers = append(handlers, log.NewTraceableHandler(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
-		case k == "console" && v == "json":
-			handlers = append(handlers, log.NewTraceableHandler(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
-		case k == "otel":
-			handlers = append(handlers, otelslog.NewHandler("cmd"))
-		}
+	switch c.LogFormat {
+	default:
+		handlers = append(handlers, log.NewTraceableHandler(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
+	case "json":
+		handlers = append(handlers, log.NewTraceableHandler(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
+	case "none":
 	}
 
 	l := log.NewLogger(log.WithHandlers(handlers...))

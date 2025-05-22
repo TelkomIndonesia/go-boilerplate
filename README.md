@@ -26,8 +26,13 @@ Features:
 
 ## Using as library
 
-The packages under `pkg` are reusable for importing into other project. Moreover `pkg/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./internal/cmd/cmd.go#L118-L136)
+The packages under `pkg` are reusable for importing into other project. Moreover `pkg/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./internal/cmd/cmd.go#L118-L136).
+
+```bash
+go get github.com/telkomindonesia/go-boilerplate/pkg
+```
 
 ### Versions with BREAKING CHANGES
 
-- v0.20.0 introduces major breaking changes as the package structure is completely rewritten
+- v0.30.0 introduces major breaking changes to separate [pkg](./pkg/) as it own go module.
+- v0.20.0 introduces major breaking changes as the package structure is completely rewritten.

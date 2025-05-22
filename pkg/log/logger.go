@@ -39,7 +39,7 @@ func (l Level) Level() slog.Level {
 	case "error":
 		return slog.LevelError
 	case "fatal":
-		return slog.LevelError
+		return slog.LevelError + 4
 	}
 	return slog.LevelInfo
 }

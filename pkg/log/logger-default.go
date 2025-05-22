@@ -57,7 +57,7 @@ func (l logger) Error(ctx context.Context, message string, attrs ...Attr) {
 }
 
 func (l logger) Fatal(ctx context.Context, message string, attrs ...Attr) {
-	l.l.LogAttrs(ctx, slog.LevelError, message, asSlogAttrs(attrs)...)
+	l.l.LogAttrs(ctx, slog.LevelError+4, message, asSlogAttrs(attrs)...)
 	os.Exit(1)
 }
 

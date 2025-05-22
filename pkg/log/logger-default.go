@@ -26,7 +26,7 @@ type logger struct {
 }
 
 func NewLogger(opts ...DefaultLoggerOpts) Logger {
-	h := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})
+	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})
 	l := logger{
 		l: slog.New(NewTraceableHandler(h)),
 	}

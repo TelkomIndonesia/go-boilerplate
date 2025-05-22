@@ -26,7 +26,7 @@ Features:
 
 ## Using as library
 
-The packages under `pkg` are reusable for importing into other project. Moreover `pkg/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./internal/cmd/cmd.go#L118-L136).
+The packages under `pkg` are reusable for importing into other project. Moreover `pkg/cmd` can be used to instantiate all the packages using environment variable for [quick inclusion](./internal/cmd/cmd.go#L106-L114).
 
 ```bash
 go get github.com/telkomindonesia/go-boilerplate/pkg

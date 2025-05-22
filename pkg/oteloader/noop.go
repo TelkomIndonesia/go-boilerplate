@@ -27,3 +27,5 @@ var _ log.Exporter = noopLogExporter{}
 func (e noopLogExporter) Export(context.Context, []log.Record) error { return nil }
 func (e noopLogExporter) Shutdown(context.Context) error             { return nil }
 func (e noopLogExporter) ForceFlush(context.Context) error           { return nil }
+
+func noopDeferer(context.Context) {}

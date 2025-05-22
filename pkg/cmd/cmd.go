@@ -84,6 +84,10 @@ func New(ctx context.Context, opts ...OptFunc) (c *CMD, err error) {
 			return nil, fmt.Errorf("failed to apply options: %w", err)
 		}
 	}
+	if c.LogLevel == nil {
+		c.LogLevel = new(string)
+		*c.LogLevel = "info"
+	}
 
 	c.initOtel(ctx)
 	c.initLogger()
@@ -97,15 +101,11 @@ func New(ctx context.Context, opts ...OptFunc) (c *CMD, err error) {
 
 func (c *CMD) initOtel(ctx context.Context) {
 	var l log.Logger
-	lvl := log.Level("info")
-	if c.LogLevel != nil {
-		lvl = log.Level(*c.LogLevel)
-	}
 	switch c.LogFormat {
 	default:
-		l = log.NewLogger(log.WithHandlers(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
-	case "json":
-		l = log.NewLogger(log.WithHandlers(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
+		l = log.NewLogger(log.WithHandlers(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: log.Level(*c.LogLevel)})))
+	case "json", "none":
+		l = log.NewLogger(log.WithHandlers(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: log.Level(*c.LogLevel)})))
 	}
 
 	closer, err := oteloader.FromEnv(ctx, l)
@@ -120,20 +120,14 @@ func (c *CMD) initOtel(ctx context.Context) {
 }
 
 func (c *CMD) initLogger() {
-	lvl := log.Level("info")
-	if c.LogLevel != nil {
-		lvl = log.Level(*c.LogLevel)
-	}
-
 	handlers := []slog.Handler{
 		otelslog.NewHandler("cmd"),
 	}
-
 	switch c.LogFormat {
 	default:
-		handlers = append(handlers, log.NewTraceableHandler(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
+		handlers = append(handlers, log.NewTraceableHandler(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: log.Level(*c.LogLevel)})))
 	case "json":
-		handlers = append(handlers, log.NewTraceableHandler(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})))
+		handlers = append(handlers, log.NewTraceableHandler(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: log.Level(*c.LogLevel)})))
 	case "none":
 	}
 

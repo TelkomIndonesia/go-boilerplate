@@ -25,8 +25,6 @@ import (
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
-func noop(context.Context) {}
-
 func FromEnv(ctx context.Context, l log.Logger) (deferer func(ctx context.Context), errs error) {
 	if l != nil {
 		otel.SetLogger(logr.New(logger{l: l, name: "otel"}))
@@ -35,19 +33,19 @@ func FromEnv(ctx context.Context, l log.Logger) (deferer func(ctx context.Contex
 		}))
 	}
 
+	lp, lpCloser, err := logProviderFromEnv(ctx)
+	if err != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to create log provider: %w", errs))
+	} else {
+		global.SetLoggerProvider(lp)
+	}
+
 	tp, tpCloser, err := traceProviderFromEnv(ctx, l)
 	if err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to create trace provider: %w", errs))
 	} else {
 		otel.SetTracerProvider(tp)
 		otel.SetTextMapPropagator(autoprop.NewTextMapPropagator())
-	}
-
-	lp, lpCloser, err := logProviderFromEnv(ctx)
-	if err != nil {
-		errs = errors.Join(errs, fmt.Errorf("failed to create log provider: %w", errs))
-	} else {
-		global.SetLoggerProvider(lp)
 	}
 
 	mp, mpCloser, err := meterProviderFromEnv(ctx)
@@ -63,6 +61,20 @@ func FromEnv(ctx context.Context, l log.Logger) (deferer func(ctx context.Contex
 		mpCloser(ctx)
 	}
 	return
+}
+
+func logProviderFromEnv(ctx context.Context) (otelog.LoggerProvider, func(context.Context), error) {
+	ex, err := autoexport.NewLogExporter(ctx,
+		autoexport.WithFallbackLogExporter(func(ctx context.Context) (sdklog.Exporter, error) {
+			return noopLogExporter{}, nil
+		}))
+	if err != nil {
+		return nil, noopDeferer, fmt.Errorf("failed to create log exporter: %w", err)
+	}
+
+	return sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewBatchProcessor(ex))),
+		func(ctx context.Context) { ex.Shutdown(ctx) },
+		nil
 }
 
 func traceProviderFromEnv(ctx context.Context, l log.Logger) (trace.TracerProvider, func(context.Context), error) {
@@ -87,7 +99,7 @@ func traceProviderFromEnv(ctx context.Context, l log.Logger) (trace.TracerProvid
 
 	if err != nil {
 		return nil,
-			noop,
+			noopDeferer,
 			fmt.Errorf("failed to create span exporter: %w", err)
 	}
 
@@ -103,24 +115,10 @@ func meterProviderFromEnv(ctx context.Context) (metric.MeterProvider, func(conte
 		}),
 	)
 	if err != nil {
-		return nil, noop, fmt.Errorf("failed to create metric exporter: %w", err)
+		return nil, noopDeferer, fmt.Errorf("failed to create metric exporter: %w", err)
 	}
 
 	return sdkmetric.NewMeterProvider(sdkmetric.WithReader(ex)),
-		func(ctx context.Context) { ex.Shutdown(ctx) },
-		nil
-}
-
-func logProviderFromEnv(ctx context.Context) (otelog.LoggerProvider, func(context.Context), error) {
-	ex, err := autoexport.NewLogExporter(ctx,
-		autoexport.WithFallbackLogExporter(func(ctx context.Context) (sdklog.Exporter, error) {
-			return noopLogExporter{}, nil
-		}))
-	if err != nil {
-		return nil, noop, fmt.Errorf("failed to create log exporter: %w", err)
-	}
-
-	return sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewBatchProcessor(ex))),
 		func(ctx context.Context) { ex.Shutdown(ctx) },
 		nil
 }

@@ -19,6 +19,10 @@ type loggerExt struct {
 	withTrace bool
 }
 
+func (l loggerExt) Enabled(ctx context.Context, lvl Level) bool {
+	return l.Enabled(ctx, lvl)
+}
+
 func WithLoggerExt(l LoggerBase) Logger {
 	return loggerExt{
 		l: l,

@@ -36,37 +36,28 @@ func NewLogger(opts ...DefaultLoggerOpts) Logger {
 	return WithLoggerExt(l)
 }
 
+func (l logger) Enabled(ctx context.Context, lvl Level) bool {
+	return l.l.Enabled(ctx, lvl.Level())
+}
+
 func (l logger) Debug(ctx context.Context, message string, attrs ...Attr) {
-	if !l.l.Enabled(ctx, slog.LevelDebug) {
-		return
-	}
 	l.log(ctx, slog.LevelDebug, message, attrs...)
 }
 
 func (l logger) Info(ctx context.Context, message string, attrs ...Attr) {
-	if !l.l.Enabled(ctx, slog.LevelInfo) {
-		return
-	}
-
 	l.log(ctx, slog.LevelInfo, message, attrs...)
 }
 
 func (l logger) Warn(ctx context.Context, message string, attrs ...Attr) {
-	if !l.l.Enabled(ctx, slog.LevelWarn) {
-		return
-	}
 	l.log(ctx, slog.LevelWarn, message, attrs...)
 }
 
 func (l logger) Error(ctx context.Context, message string, attrs ...Attr) {
-	if !l.l.Enabled(ctx, slog.LevelError) {
-		return
-	}
 	l.log(ctx, slog.LevelError, message, attrs...)
 }
 
 func (l logger) Fatal(ctx context.Context, message string, attrs ...Attr) {
-	l.log(ctx, slog.LevelError, message, attrs...)
+	l.l.LogAttrs(ctx, slog.LevelError, message, asSlogAttrs(attrs)...)
 	os.Exit(1)
 }
 

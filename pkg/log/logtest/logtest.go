@@ -25,31 +25,30 @@ func NewLogger(t *testing.T) log.Logger {
 	return &logger{t: t, l: log.NewLogger(log.WithHandlers(h)), b: b, s: s}
 }
 
-// Debug implements log.Logger.
+func (l *logger) Enabled(context.Context, log.Level) bool {
+	return true
+}
+
 func (l *logger) Debug(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
 	l.log(l.l.Debug, ctx, slog.LevelWarn, message, attrs...)
 }
 
-// Info implements log.Logger.
 func (l *logger) Info(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
 	l.log(l.l.Info, ctx, slog.LevelWarn, message, attrs...)
 }
 
-// Warn implements log.Logger.
 func (l *logger) Warn(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
 	l.log(l.l.Warn, ctx, slog.LevelWarn, message, attrs...)
 }
 
-// Error implements log.Logger.
 func (l *logger) Error(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
 	l.log(l.l.Error, ctx, slog.LevelWarn, message, attrs...)
 }
 
-// Fatal implements log.Logger.
 func (l *logger) Fatal(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
 	l.log(l.l.Error, ctx, slog.LevelWarn, message, attrs...)
@@ -67,14 +66,12 @@ func (l *logger) log(fn func(context.Context, string, ...log.Attr), ctx context.
 	l.b.Reset()
 }
 
-// WithAttrs implements log.Logger.
 func (l *logger) WithAttrs(attrs ...log.Attr) log.Logger {
 	l.t.Helper()
 	l.l = l.l.WithAttrs(attrs...)
 	return l
 }
 
-// WithTrace implements log.Logger.
 func (l *logger) WithTrace() log.Logger {
 	l.t.Helper()
 	l.l = l.l.WithTrace()

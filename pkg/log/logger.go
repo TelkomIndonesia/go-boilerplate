@@ -12,6 +12,8 @@ type Logger interface {
 }
 
 type LoggerBase interface {
+	Enabled(context.Context, Level) bool
+
 	Debug(ctx context.Context, message string, attrs ...Attr)
 	Info(ctx context.Context, message string, attrs ...Attr)
 	Warn(ctx context.Context, message string, attrs ...Attr)

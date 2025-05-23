@@ -14,12 +14,12 @@ Features:
   - [x] OpenAPI-to-code generator (oapi-codegen).
   - [x] Auto Load CA & Leaf TLS certificate.
   - [x] mTLS support.
-- [x] Opentelemetry (console, otlphttp, otlpgrpc, and datadog trace provider).
+- [x] Opentelemetry (console, otlp http, otlp grpc, and datadog trace provider).
   - [x] Code Generator for auto instrumentation (otelwrap)
 - [x] Plugable log (console, otel, *testing.T).
   - [x] Embed opentelemetry trace_id & span_id.
   - [x] Copy logged field to opentelemetry trace.
-  - [x] Log to console and/or otel
+  - [x] Log to multiple target (e.g. console and otel)
 - [x] Env config.
 - [x] Dockerized.
 - [x] CI/CD as Code (dagger)

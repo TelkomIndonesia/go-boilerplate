@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -24,23 +23,29 @@ func (token) AsLog() any {
 }
 
 func TestLogger(t *testing.T) {
-	s, _ := stdouttrace.New()
-	p := trace.NewTracerProvider(
-		trace.WithBatcher(s),
-	)
-	defer p.Shutdown(context.Background())
-
-	otel.SetTracerProvider(p)
+	otel.SetTracerProvider(trace.NewTracerProvider())
 	ctx, span := otel.Tracer("test").Start(context.Background(), "test")
 	defer span.End()
 
-	handler1 := slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
-	handler2 := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
-	l := NewLogger(WithHandlers(handler1, NewTraceableHandler(handler2)))
-	l.WithTrace().Info(ctx, "test",
-		String("hello", "world"),
-		Any("token", token("world")),
-		Error("error", errors.New("test")))
+	t.Run("Default", func(t *testing.T) {
+		l := NewLogger()
+		l.WithTrace().Info(ctx, "test",
+			String("hello", "world"),
+			Any("token", token("world")),
+			Error("error", errors.New("test")))
+	})
+
+	t.Run("MultipleAndTraceable", func(t *testing.T) {
+		handler1 := slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
+		handler2 := slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
+		handler3 := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+		l := NewLogger(WithHandlers(handler1, handler2, NewTraceableHandler(handler3)))
+		l.WithTrace().Info(ctx, "test",
+			String("hello", "world"),
+			Any("token", token("world")),
+			Error("error", errors.New("test")))
+	})
+
 }
 
 func BenchmarkLogger(b *testing.B) {

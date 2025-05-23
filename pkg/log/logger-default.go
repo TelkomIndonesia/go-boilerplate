@@ -2,37 +2,50 @@ package log
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 
-	"go.opentelemetry.io/otel/trace"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log/internal"
 )
+
+func NewTraceableHandler(h slog.Handler) slog.Handler {
+	return internal.NewTraceableHandler(h)
+}
 
 type DefaultLoggerOpts func(*logger)
 
 func WithHandlers(h ...slog.Handler) DefaultLoggerOpts {
 	return func(l *logger) {
-		if len(h) == 1 {
-			l.l = slog.New(h[0])
-			return
-		}
-		l.l = slog.New(mhandler{handlers: h})
+		l.h = h
+		return
 	}
 }
 
 type logger struct {
+	h []slog.Handler
 	l *slog.Logger
 }
 
 func NewLogger(opts ...DefaultLoggerOpts) Logger {
-	h := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})
-	l := logger{
-		l: slog.New(NewTraceableHandler(h)),
-	}
+	l := logger{}
 	for _, opt := range opts {
 		opt(&l)
 	}
+
+	var handler slog.Handler
+	switch len(l.h) {
+	case 0:
+		handler = internal.DefaultHandler
+	case 1:
+		handler = l.h[0]
+	default:
+		handler = l.h[0]
+		for _, h := range l.h[1:] {
+			handler = internal.NewBiHandler(handler, h)
+		}
+	}
+	l.l = slog.New(handler)
+
 	return WithLoggerExt(l)
 }
 
@@ -66,74 +79,4 @@ func (l logger) log(ctx context.Context, level slog.Level, message string, attrs
 		return
 	}
 	l.l.LogAttrs(ctx, level, message, asSlogAttrs(attrs)...)
-}
-
-type handler struct {
-	slog.Handler
-}
-
-func NewTraceableHandler(h slog.Handler) slog.Handler {
-	return handler{Handler: h}
-}
-
-func (h handler) Handle(ctx context.Context, r slog.Record) error {
-	span := trace.SpanFromContext(ctx)
-	if span.SpanContext().HasTraceID() {
-		r.AddAttrs(
-			slog.String("trace_id", span.SpanContext().TraceID().String()),
-			slog.String("span_id", span.SpanContext().TraceID().String()),
-		)
-	}
-	return h.Handler.Handle(ctx, r)
-}
-
-var _ slog.Handler = mhandler{}
-
-type mhandler struct {
-	handlers []slog.Handler
-}
-
-func (m mhandler) Enabled(ctx context.Context, l slog.Level) (e bool) {
-	for _, h := range m.handlers {
-		e = e || h.Enabled(ctx, l)
-	}
-	return
-}
-
-func (m mhandler) Handle(ctx context.Context, r slog.Record) error {
-	for i, h := range m.handlers {
-		if err := h.Handle(ctx, r); err != nil {
-			return fmt.Errorf("failed to handle record with handler %d: %w", i, err)
-		}
-	}
-	return nil
-}
-
-func (m mhandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	for i := range m.handlers {
-		m.handlers[i] = m.handlers[i].WithAttrs(attrs)
-	}
-	return m
-}
-
-func (m mhandler) WithGroup(name string) slog.Handler {
-	for i := range m.handlers {
-		m.handlers[i] = m.handlers[i].WithGroup(name)
-	}
-	return m
-}
-
-var globalLogger = NewLogger()
-
-func Global() Logger {
-	return globalLogger
-}
-
-func SetGlobal(l Logger) {
-	globalLogger = l
-	if l, ok := l.(*loggerExt); ok {
-		if l, ok := l.l.(*logger); ok {
-			slog.SetDefault(l.l)
-		}
-	}
 }

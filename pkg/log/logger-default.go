@@ -17,7 +17,6 @@ type DefaultLoggerOpts func(*logger)
 func WithHandlers(h ...slog.Handler) DefaultLoggerOpts {
 	return func(l *logger) {
 		l.h = h
-		return
 	}
 }
 

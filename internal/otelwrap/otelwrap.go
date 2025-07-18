@@ -7,8 +7,8 @@ import (
 
 var Tracer = otel.Tracer("otelwrap")
 
-//go:generate go run github.com/QuangTung97/otelwrap --out profile-repository.go . profile.ProfileRepository
+//go:generate go tool github.com/QuangTung97/otelwrap --out profile-repository.go . profile.ProfileRepository
 var _ profile.ProfileRepository
 
-//go:generate go run github.com/QuangTung97/otelwrap --out tenant-repository.go . profile.TenantRepository
+//go:generate go tool github.com/QuangTung97/otelwrap --out tenant-repository.go . profile.TenantRepository
 var _ profile.TenantRepository

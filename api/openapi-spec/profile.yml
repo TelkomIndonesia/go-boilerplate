@@ -27,6 +27,7 @@ paths:
                   in: query
                   schema:
                     type: boolean
+                    # x-go-type-skip-optional-pointer: true
             requestBody:
                 required: true
                 content:
@@ -34,19 +35,19 @@ paths:
                         schema:
                             $ref: '#/components/schemas/CreateProfile'
             responses:
-                "201":
+                201:
                     description: success
                     content:
                         "application/json":
                             schema:
                                 $ref: '#/components/schemas/Profile'
-                "400":
+                400:
                     description: bad request
                     content:
                         "application/json":
                             schema:
                                 $ref: '#/components/schemas/Error'
-                "500":
+                500:
                     description: server error
                     content:
                         "application/json":
@@ -70,25 +71,25 @@ paths:
             summary: "get profile"
             operationId: "GetProfile"
             responses:
-                "200":
+                200:
                     description: "success"
                     content:
                         "application/json":
                             schema:
                                 $ref: '#/components/schemas/Profile'
-                "400":
+                400:
                     description: bad request
                     content:
                         "application/json":
                             schema:
                                 $ref: '#/components/schemas/Error'
-                "404":
+                404:
                     description: bad request
                     content:
                         "application/json":
                             schema:
                                 $ref: '#/components/schemas/Error'
-                "500":
+                500:
                     description: server error
                     content:
                         "application/json":

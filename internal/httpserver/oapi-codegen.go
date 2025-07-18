@@ -1,5 +1,5 @@
-//go:generate go run github.com/telkomindonesia/oapik/cmd bundle ../../api/openapi-spec/src/profile.yml ../../api/openapi-spec/profile.yml
-//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config oapi-codegen.yml ../../api/openapi-spec/profile.yml
+//go:generate go tool github.com/telkomindonesia/oapik/cmd/oapik bundle ../../api/openapi-spec/src/profile.yml ../../api/openapi-spec/profile.yml
+//go:generate go tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config oapi-codegen.yml ../../api/openapi-spec/profile.yml
 package httpserver
 
 import (

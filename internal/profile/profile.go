@@ -1,4 +1,4 @@
-//go:generate go run github.com/vektra/mockery/v2
+//go:generate go tool github.com/vektra/mockery/v2
 package profile
 
 import (

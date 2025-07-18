@@ -136,7 +136,7 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 	defer unlocker()
 	p.logger.Warn(ctx, "Got lock for observing outbox")
 
-	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) { return })
+	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) {})
 	if err = l.Listen(p.channelName); err != nil {
 		return fmt.Errorf("failed to listen for outbox notification :%w", err)
 	}

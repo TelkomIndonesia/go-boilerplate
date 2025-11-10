@@ -4,3 +4,4 @@
 .env
 coverage.out
 __debug_bin*
+profile

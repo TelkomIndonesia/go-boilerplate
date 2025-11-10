@@ -1,12 +1,13 @@
 # syntax = docker/dockerfile:1
-ARG GOLANG=golang:1.23
+ARG GOLANG=golang:1.24.2
 
 
 
 FROM ${GOLANG} AS base
 
-ENTRYPOINT [ "go", "run" ]
-CMD [ "./cmd/profile" ]
+RUN go install github.com/air-verse/air@v1.62.0
+
+CMD ["air", "-c", ".air.toml"]
 
 
 

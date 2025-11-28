@@ -7,9 +7,11 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: goose
+      POSTGRES_USER: testing
+      POSTGRES_PASSWORD: testing
+      POSTGRES_DB: testing
+    ports:
+      - 5432:5432
   goose:
     image: golang:1.23
     depends_on:
@@ -27,7 +29,7 @@ services:
       - github.com/pressly/goose/v3/cmd/goose 
       - -dir=./migration/
       - postgres
-      - postgres://postgres:postgres@postgres:5432/goose?sslmode=disable
+      - postgres://testing:testing@postgres:5432/testing?sslmode=disable
     command: 
       - up
   pg_dump:
@@ -36,7 +38,7 @@ services:
       goose:
         condition: service_completed_successfully
     environment:
-      PGPASSWORD: postgres
+      PGPASSWORD: testing
     volumes:
       - ${PWD:-.}:${PWD:-/src}
     working_dir: ${PWD:-/src}
@@ -45,7 +47,7 @@ services:
       - "-h"
       - "postgres"
       - "-U"
-      - "postgres"
+      - "testing"
       - "--schema-only"
       - "--no-owner"
       - "--no-privileges"
@@ -54,4 +56,4 @@ services:
       - "goose_db_*"
       - "-f"
       - "schema.sql"
-      - goose
+      - testing

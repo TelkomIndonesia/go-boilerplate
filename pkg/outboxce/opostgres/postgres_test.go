@@ -158,7 +158,7 @@ func TestPostgresOutbox(t *testing.T) {
 						require.NoError(t, err)
 						defer tx.Commit()
 
-						outbox := outboxce.New(eventSource, eventType, uuid.New(), outbox)
+						outbox := outboxce.New(eventSource, eventType, outbox).WithTenantID(uuid.New())
 						if isEncrypted {
 							outbox = outbox.WithEncryptor(outboxce.TenantAEAD(tGetKeysetHandle(t)))
 						}

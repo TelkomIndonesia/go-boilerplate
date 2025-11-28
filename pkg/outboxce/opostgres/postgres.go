@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cloudevents/sdk-go/v2/event"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
@@ -103,9 +104,9 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 
 	outboxQ := `
 		INSERT INTO outboxce 
-		(id, tenant_id, cloud_event, created_at)
+		(id, tenant_id, cloud_event, created_at, is_delivered)
 		VALUES
-		($1, $2, $3, $4)
+		($1, $2, $3, $4, false)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
 		ob.ID, ob.TenantID, cejson, ob.Time,
@@ -210,7 +211,7 @@ func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
 func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFunc) (last outboxce.OutboxCE, err error) {
 	tx, errtx := p.db.BeginTx(ctx, &sql.TxOptions{})
 	if errtx != nil {
-		return last, fmt.Errorf("failed to open transaction: %w", err)
+		return last, fmt.Errorf("failed to open transaction: %w", errtx)
 	}
 	defer txRollbackDeferer(tx, &err)()
 
@@ -233,7 +234,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	}
 	defer rows.Close()
 
-	events := []event.Event{}
+	events, outboxes := []event.Event{}, map[string]outboxce.OutboxCE{}
 	for rows.Next() {
 		var o outboxce.OutboxCE
 		var data []byte
@@ -249,13 +250,14 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 
 		last = o
 		events = append(events, e)
+		outboxes[e.ID()] = o
 	}
 
 	if len(events) == 0 {
 		return last, tx.Rollback()
 	}
 
-	if err = p.relayWithRelayErrorsHandler(ctx, tx, relayFunc, events); err != nil {
+	if err = p.relayWithRelayErrorsHandler(ctx, tx, relayFunc, events, outboxes); err != nil {
 		return last, fmt.Errorf("failed to relay outboxes with handler: %w", err)
 	}
 
@@ -266,7 +268,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	return
 }
 
-func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, relayFunc outboxce.RelayFunc, events []event.Event) (err error) {
+func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, relayFunc outboxce.RelayFunc, events []event.Event, outboxes map[string]outboxce.OutboxCE) (err error) {
 	err = relayFunc(ctx, events)
 
 	var errRelay = &outboxce.RelayErrors{}
@@ -279,9 +281,9 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 
 	p.logger.Warn(ctx, "got partial relay error", log.WithTrace(log.Error("error", err))...)
 
-	ids := []string{}
+	ids := []uuid.UUID{}
 	for _, e := range *errRelay {
-		ids = append(ids, e.Event.ID())
+		ids = append(ids, outboxes[e.Event.ID()].ID)
 	}
 	q := `
 		UPDATE outboxce

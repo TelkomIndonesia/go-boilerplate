@@ -3,12 +3,12 @@
 
 CREATE TABLE IF NOT EXISTS outboxce (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL,
+    tenant_id UUID,
     cloud_event JSON NOT NULL,
-    is_delivered BOOLEAN DEFAULT FALSE,
+    is_delivered BOOLEAN,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS outboxce_by_created_at ON outboxce(is_delivered, created_at);
+CREATE INDEX IF NOT EXISTS outboxce_by_created_at ON outboxce(created_at) WHERE is_delivered = false;
 
 -- +goose StatementEnd
 

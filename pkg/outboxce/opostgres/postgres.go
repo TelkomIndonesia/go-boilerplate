@@ -106,10 +106,10 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 		INSERT INTO outboxce 
 		(id, tenant_id, cloud_event, created_at, is_delivered)
 		VALUES
-		($1, $2, $3, $4, false)
+		($1, $2, $3, $4, $5)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, cejson, ob.Time,
+		ob.ID, ob.TenantID, cejson, ob.Time, false,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert to outbox: %w", err)

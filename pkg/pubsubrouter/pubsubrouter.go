@@ -173,6 +173,10 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		case resChan <- job.Result:
 			slog.Default().Info("sent worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
 			job.ACK()
+
+		default:
+			slog.Default().Info("buffer full : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
+			job.ACK()
 		}
 	}
 }

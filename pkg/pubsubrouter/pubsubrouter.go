@@ -109,20 +109,24 @@ func (p *PubSubRouter[T]) ListenJobQueue(ctx context.Context) error {
 		case job = <-chanJob:
 		}
 
+		slog.Default().Info("receive job queue : ", "jobID", job.ID, "result", job.Result)
+
 		workerID, err := p.kvRepo.Lookup(ctx, job.ID)
 		if err != nil {
-			slog.WarnContext(ctx, "failed to lookup worker for job",
+			slog.Default().WarnContext(ctx, "failed to lookup worker for job",
 				"jobID", job.ID,
 				"error", err,
 			)
 			job.NACK()
 			continue
 		}
-
 		if workerID == "" {
+			slog.Default().Info("no worker found ", "jobID", job.ID, "result", job.Result)
 			job.ACK()
 			continue
 		}
+
+		slog.Default().Info("matched job queue : ", "workerID", workerID, "jobID", job.ID, "result", job.Result)
 
 		err = p.pubsub.PublishResult(ctx, workerID, job.ID, job.Result)
 		if err != nil {
@@ -140,6 +144,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		return err
 	}
 
+	i := 0
 	for {
 		var job Job[T]
 
@@ -150,6 +155,9 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		case job = <-chanJob:
 		}
 
+		i++
+		slog.Default().Info("receive worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
+
 		resChan, ok := p.chanmap.Get(job.ID)
 		if !ok {
 			job.ACK()
@@ -158,14 +166,13 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		select {
 		case <-ctx.Done():
+			slog.Default().Info("ctx done : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
 			job.NACK()
 			return ctx.Err()
 
 		case resChan <- job.Result:
+			slog.Default().Info("sent worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
 			job.ACK()
-
-		default:
-			job.NACK()
 		}
 	}
 }
@@ -193,7 +200,7 @@ func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string, resChan
 		return err
 	}
 
-	close(resChan)
+	// close(resChan)
 	p.chanmap.Remove(jobID)
 	return
 }

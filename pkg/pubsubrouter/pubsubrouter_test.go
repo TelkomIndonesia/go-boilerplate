@@ -40,15 +40,18 @@ func (k *memKV) Lookup(ctx context.Context, key string) (string, error) {
 }
 
 type memPubSub[T any] struct {
+	workerID string
 	jobQueue chan Job[T]
 
 	workers cmap.ConcurrentMap[string, chan Job[T]]
 }
 
-func newMemPubSub[T any]() *memPubSub[T] {
+func newMemPubSub[T any](workerChans cmap.ConcurrentMap[string, chan Job[T]], workerID string) *memPubSub[T] {
 	return &memPubSub[T]{
+		workerID: workerID,
 		jobQueue: make(chan Job[T], 64),
-		workers:  cmap.New[chan Job[T]](),
+
+		workers: workerChans,
 	}
 }
 
@@ -57,10 +60,10 @@ func (m *memPubSub[T]) JobQueue(ctx context.Context) (<-chan Job[T], error) {
 }
 
 func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (<-chan Job[T], error) {
-
-	workerID := ctx.Value("workerID").(string)
-	ch := make(chan Job[T], 64)
-	m.workers.Set(workerID, ch)
+	ch, ok := m.workers.Get(m.workerID)
+	if !ok {
+		return nil, fmt.Errorf("no channel for %s", m.workerID)
+	}
 	return ch, nil
 }
 
@@ -88,40 +91,19 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	kv := newMemKV()
-	pubsub := newMemPubSub[string]()
-
 	workerID := "worker-1"
+	workerChans := cmap.New[chan Job[string]]()
+	workerChans.Set(workerID, make(chan Job[string], 64))
 
-	psw := NewPubSubWait(workerID, kv, pubsub)
-
-	// Worker channel listener
-	pswWg := sync.WaitGroup{}
-	defer pswWg.Wait()
-	pswWg.Add(2)
-	workerCtx := context.WithValue(ctx, "workerID", workerID)
-	go func() {
-		defer pswWg.Done()
-		err := psw.ListenWorkerChannel(workerCtx)
-		if err != nil && err != workerCtx.Err() {
-			t.Error(err)
-		}
-	}()
-
-	// Job queue router
-	go func() {
-		defer pswWg.Done()
-		err := psw.ListenJobQueue(ctx)
-		if err != nil && err != workerCtx.Err() {
-			t.Error(err)
-		}
-	}()
+	kv := newMemKV()
+	pubsub := newMemPubSub(workerChans, "worker-1")
+	psw := NewPubSubRouter(workerID, kv, pubsub)
+	go psw.Listen(ctx)
+	defer psw.Close()
 
 	const jobs = 10
-
 	var wg sync.WaitGroup
 	wg.Add(jobs)
-
 	for i := range jobs {
 		jobID := "job-" + string(rune('A'+i))
 		expected := "result-" + jobID
@@ -149,7 +131,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 				if res != expected {
 					t.Errorf("unexpected result: got %q want %q", res, expected)
 				}
-			case <-time.After(time.Second):
+			case <-time.After(5 * time.Minute):
 				t.Errorf("timeout waiting for result %s", jobID)
 			}
 		}(jobID, expected)

@@ -2,8 +2,10 @@ package pubsubrouter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 )
@@ -35,9 +37,11 @@ type PubSubRouter[T any] struct {
 	pubsub PubSubSvc[T]
 
 	chanmap cmap.ConcurrentMap[string, chan T]
+
+	stop chan struct{}
 }
 
-func NewPubSubWait[T any](
+func NewPubSubRouter[T any](
 	workerID string,
 	kvRepo KeyValueSvc,
 	pubsub PubSubSvc[T],
@@ -47,9 +51,48 @@ func NewPubSubWait[T any](
 		kvRepo:   kvRepo,
 		pubsub:   pubsub,
 		chanmap:  cmap.New[chan T](),
+		stop:     make(chan struct{}),
 	}
 }
 
+func (p *PubSubRouter[T]) Close() error {
+	close(p.stop)
+	return nil
+}
+
+func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
+	pswWg := sync.WaitGroup{}
+	defer pswWg.Wait()
+	pswWg.Add(2)
+
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-p.stop:
+			cancel()
+		}
+	}()
+
+	go func() {
+		defer pswWg.Done()
+		err1 := p.ListenWorkerChannel(ctx)
+		if err1 != nil && err1 != ctx.Err() {
+			err = errors.Join(err, err1)
+		}
+	}()
+
+	// Job queue router
+	go func() {
+		defer pswWg.Done()
+		err2 := p.ListenJobQueue(ctx)
+		if err2 != nil && err2 != ctx.Err() {
+			err = errors.Join(err, err2)
+		}
+	}()
+
+	return
+}
 func (p *PubSubRouter[T]) ListenJobQueue(ctx context.Context) error {
 	chanJob, err := p.pubsub.JobQueue(ctx)
 	if err != nil {
@@ -83,6 +126,7 @@ func (p *PubSubRouter[T]) ListenJobQueue(ctx context.Context) error {
 
 		err = p.pubsub.PublishResult(ctx, workerID, job.ID, job.Result)
 		if err != nil {
+			job.NACK()
 			return fmt.Errorf("publish worker channel failed: %w", err)
 		}
 
@@ -114,6 +158,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		select {
 		case <-ctx.Done():
+			job.NACK()
 			return ctx.Err()
 
 		case resChan <- job.Result:

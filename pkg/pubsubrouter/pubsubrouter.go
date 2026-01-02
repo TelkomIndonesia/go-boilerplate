@@ -144,7 +144,6 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		return err
 	}
 
-	i := 0
 	for {
 		var job Job[T]
 
@@ -155,8 +154,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		case job = <-chanJob:
 		}
 
-		i++
-		slog.Default().Info("receive worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
+		slog.Default().Info("receive worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
 
 		resChan, ok := p.chanmap.Get(job.ID)
 		if !ok {
@@ -166,16 +164,16 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		select {
 		case <-ctx.Done():
-			slog.Default().Info("ctx done : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
+			slog.Default().Info("ctx done : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
 			job.NACK()
 			return ctx.Err()
 
 		case resChan <- job.Result:
-			slog.Default().Info("sent worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
+			slog.Default().Info("sent worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
 			job.ACK()
 
 		default:
-			slog.Default().Info("buffer full : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result, "i", i)
+			slog.Default().Info("buffer full : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
 			job.ACK()
 		}
 	}

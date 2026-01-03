@@ -13,28 +13,30 @@ import (
 
 type ResultChan[T any] struct {
 	ch   chan T
-	done chan struct{}
+	done <-chan struct{}
 
+	close func()
 	Close func(context.Context) error
 }
 
 func newResultChan[T any](beforeClose func(context.Context) error) ResultChan[T] {
 	ch := make(chan T)
 	done := make(chan struct{})
-	close := func(ctx context.Context) error {
-		if err := beforeClose(ctx); err != nil {
-			return err
-
-		}
-
-		close(done)
-		return nil
-	}
+	once := sync.Once{}
+	once1 := sync.Once{}
 
 	return ResultChan[T]{
 		ch:    ch,
 		done:  done,
-		Close: close,
+		close: func() { once1.Do(func() { close(ch) }) },
+		Close: func(ctx context.Context) error {
+			if err := beforeClose(ctx); err != nil {
+				return err
+			}
+
+			once.Do(func() { close(done) })
+			return nil
+		},
 	}
 }
 
@@ -107,21 +109,10 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 		}
 	}()
 
+	errs := make(chan error, 2)
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
 	wg.Add(2)
-
-	errs := make(chan error, 2)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case errx := <-errs:
-				err = errors.Join(err, errx)
-			}
-		}
-	}()
 
 	go func() {
 		defer wg.Done()
@@ -138,6 +129,15 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 			errs <- err2
 		}
 	}()
+
+	for range 2 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case errx := <-errs:
+			err = errors.Join(err, errx)
+		}
+	}
 
 	return
 }
@@ -219,15 +219,16 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		resChan, ok := p.chanmap.Get(job.ID)
 		if !ok {
-			p.logger.Debug(context.Background(), "no waiter",
+			p.logger.Debug(ctx, "no waiter",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 			continue
 		}
 
+		t := time.NewTimer(time.Second)
 		select {
 		case <-ctx.Done():
-			p.logger.Debug(context.Background(), "ctx done",
+			p.logger.Debug(ctx, "ctx done",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.NACK()
 			return ctx.Err()
@@ -240,14 +241,15 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		case <-resChan.done:
 			p.logger.Debug(ctx, "closed worker queue",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			close(resChan.ch)
+			resChan.close()
 			job.ACK()
 
-		case <-time.After(time.Second):
+		case <-t.C:
 			p.logger.Warn(ctx, "timeout waiting for waiter",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 		}
+		t.Stop()
 	}
 }
 
@@ -258,18 +260,18 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
 	p.wmu.Lock()
 	defer p.wmu.Unlock()
 
-	r := newResultChan[T](func(ctx context.Context) error {
+	rc := newResultChan[T](func(ctx context.Context) error {
 		return p.doneWaiting(ctx, jobID)
 	})
-	p.chanmap.Set(jobID, r)
 
+	p.chanmap.Set(jobID, rc)
 	err = p.kvRepo.Register(ctx, jobID, p.workerID)
 	if err != nil {
 		err = fmt.Errorf("failed to register to key value service")
 		return
 	}
 
-	return r, nil
+	return rc, nil
 }
 
 func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string) (err error) {
@@ -280,7 +282,6 @@ func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string) (err er
 		return fmt.Errorf("failed to unregister to key value service")
 	}
 
-	p.logger.Debug(ctx, "done waiting", log.String("worker-id", p.workerID), log.String("job-id", jobID))
 	p.chanmap.Remove(jobID)
 	return
 }

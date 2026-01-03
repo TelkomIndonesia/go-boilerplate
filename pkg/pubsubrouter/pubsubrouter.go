@@ -15,26 +15,30 @@ type ResultChan[T any] struct {
 	ch   chan T
 	done <-chan struct{}
 
-	close func()
-	Close func(context.Context) error
+	close       func()
+	signalClose func()
+	Close       func(context.Context) error
 }
 
 func newResultChan[T any](beforeClose func(context.Context) error) ResultChan[T] {
 	ch := make(chan T)
 	done := make(chan struct{})
-	once := sync.Once{}
-	once1 := sync.Once{}
+	var once1, once2 sync.Once
 
+	finalClose := func() { once1.Do(func() { close(ch) }) }
+	signalClose := func() { once2.Do(func() { close(done) }) }
 	return ResultChan[T]{
-		ch:    ch,
-		done:  done,
-		close: func() { once1.Do(func() { close(ch) }) },
+		ch:   ch,
+		done: done,
+
+		close:       finalClose,
+		signalClose: signalClose,
+
 		Close: func(ctx context.Context) error {
 			if err := beforeClose(ctx); err != nil {
 				return err
 			}
-
-			once.Do(func() { close(done) })
+			signalClose()
 			return nil
 		},
 	}
@@ -71,7 +75,6 @@ type PubSubRouter[T any] struct {
 	pubsub PubSubSvc[T]
 
 	chanmap cmap.ConcurrentMap[string, ResultChan[T]]
-	stop    chan struct{}
 
 	logger log.Logger
 }
@@ -87,26 +90,11 @@ func NewPubSubRouter[T any](
 		kvRepo:   kvRepo,
 		pubsub:   pubsub,
 		chanmap:  cmap.New[ResultChan[T]](),
-		stop:     make(chan struct{}),
 		logger:   logger,
 	}
 }
 
-func (p *PubSubRouter[T]) Close() error {
-	close(p.stop)
-	return nil
-}
-
 func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
-	ctx, cancel := context.WithCancel(ctx)
-	go func() {
-		select {
-		case <-ctx.Done():
-		case <-p.stop:
-			cancel()
-		}
-	}()
-
 	errs := make(chan error, 2)
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
@@ -114,18 +102,12 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 
 	go func() {
 		defer wg.Done()
-		err1 := p.ListenWorkerChannel(ctx)
-		if err1 != nil {
-			errs <- err1
-		}
+		errs <- p.ListenWorkerChannel(ctx)
 	}()
 
 	go func() {
 		defer wg.Done()
-		err2 := p.ListenJobQueue(ctx)
-		if err2 != nil {
-			errs <- err2
-		}
+		errs <- p.ListenJobQueue(ctx)
 	}()
 
 	for range 2 {
@@ -255,19 +237,25 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
 	results ResultChan[T],
 	err error,
 ) {
-
 	rc := newResultChan[T](func(ctx context.Context) error {
 		return p.doneWaiting(ctx, jobID)
 	})
 
-	ok := p.chanmap.SetIfAbsent(jobID, rc)
-	if !ok {
-		err = fmt.Errorf("job id already exists")
+	updated := false
+	p.chanmap.Upsert(jobID, rc, func(exist bool, old, new ResultChan[T]) ResultChan[T] {
+		if exist {
+			old.signalClose()
+			updated = true
+		}
+		return new
+	})
+	if updated {
 		return
 	}
 
 	err = p.kvRepo.Register(ctx, jobID, p.workerID)
 	if err != nil {
+		p.chanmap.Remove(jobID)
 		err = fmt.Errorf("failed to register to key value service")
 		return
 	}

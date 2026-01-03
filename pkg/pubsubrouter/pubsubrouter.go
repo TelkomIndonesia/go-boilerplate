@@ -10,7 +10,15 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
 
-type ResultChan[T any] struct {
+type Job[T any] struct {
+	ID string
+
+	Result T
+	ACK    func()
+	NACK   func()
+}
+
+type Results[T any] struct {
 	ch   chan T
 	done <-chan struct{}
 
@@ -19,14 +27,14 @@ type ResultChan[T any] struct {
 	Close       func(context.Context) error
 }
 
-func newResultChan[T any](buflen int, beforeClose func(context.Context) error) ResultChan[T] {
+func newResults[T any](buflen int, beforeClose func(context.Context) error) Results[T] {
 	ch := make(chan T, buflen)
 	done := make(chan struct{})
 	var once1, once2 sync.Once
 
 	finalClose := func() { once1.Do(func() { close(ch) }) }
 	signalClose := func() { once2.Do(func() { close(done) }) }
-	return ResultChan[T]{
+	return Results[T]{
 		ch:   ch,
 		done: done,
 
@@ -43,16 +51,8 @@ func newResultChan[T any](buflen int, beforeClose func(context.Context) error) R
 	}
 }
 
-func (c ResultChan[T]) Chan() <-chan T {
+func (c Results[T]) Chan() <-chan T {
 	return c.ch
-}
-
-type Job[T any] struct {
-	ID string
-
-	Result T
-	ACK    func()
-	NACK   func()
 }
 
 type KeyValueSvc interface {
@@ -73,7 +73,7 @@ type PubSubRouter[T any] struct {
 	kvRepo KeyValueSvc
 	pubsub PubSubSvc[T]
 
-	chanmap cmap.ConcurrentMap[string, ResultChan[T]]
+	chanmap cmap.ConcurrentMap[string, Results[T]]
 
 	logger log.Logger
 }
@@ -88,7 +88,7 @@ func NewPubSubRouter[T any](
 		workerID: workerID,
 		kvRepo:   kvRepo,
 		pubsub:   pubsub,
-		chanmap:  cmap.New[ResultChan[T]](),
+		chanmap:  cmap.New[Results[T]](),
 		logger:   logger,
 	}
 }
@@ -197,7 +197,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		resChan, ok := p.chanmap.Get(job.ID)
 		if !ok {
-			p.logger.Warn(ctx, "no handler",
+			p.logger.Warn(ctx, "no receiver",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 			continue
@@ -222,20 +222,20 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			job.ACK()
 
 		default:
-			p.logger.Warn(ctx, "unresponsive handler",
+			p.logger.Warn(ctx, "unresponsive receiver",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 		}
 	}
 }
 
-func (p *PubSubRouter[T]) HandleResults(ctx context.Context, jobID string, buflen int) (results ResultChan[T], err error) {
-	rc := newResultChan[T](buflen, func(ctx context.Context) error {
+func (p *PubSubRouter[T]) ReceiveResults(ctx context.Context, jobID string, buflen int) (results Results[T], err error) {
+	rc := newResults[T](buflen, func(ctx context.Context) error {
 		return p.doneRouting(ctx, jobID)
 	})
 
 	updated := false
-	p.chanmap.Upsert(jobID, rc, func(exist bool, old, new ResultChan[T]) ResultChan[T] {
+	p.chanmap.Upsert(jobID, rc, func(exist bool, old, new Results[T]) Results[T] {
 		if exist {
 			old.signalClose()
 			updated = true

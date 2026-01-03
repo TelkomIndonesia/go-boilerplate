@@ -145,7 +145,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 				ctx, cancel := context.WithCancel(ctx)
 				defer cancel()
 
-				resultsChan, err := psw.WaitResult(ctx, jobID, 100)
+				resultsChan, err := psw.HandleResults(ctx, jobID, 100)
 				require.NoError(t, err)
 				defer func() { resultsChan.Close(t.Context()) }()
 				wgWorkerStart.Done()

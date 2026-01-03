@@ -197,7 +197,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		resChan, ok := p.chanmap.Get(job.ID)
 		if !ok {
-			p.logger.Warn(ctx, "no waiter",
+			p.logger.Warn(ctx, "no handler",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 			continue
@@ -222,19 +222,16 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			job.ACK()
 
 		default:
-			p.logger.Warn(ctx, "unresponsive waiter",
+			p.logger.Warn(ctx, "unresponsive handler",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 		}
 	}
 }
 
-func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string, buflen int) (
-	results ResultChan[T],
-	err error,
-) {
+func (p *PubSubRouter[T]) HandleResults(ctx context.Context, jobID string, buflen int) (results ResultChan[T], err error) {
 	rc := newResultChan[T](buflen, func(ctx context.Context) error {
-		return p.doneWaiting(ctx, jobID)
+		return p.doneRouting(ctx, jobID)
 	})
 
 	updated := false
@@ -259,7 +256,7 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string, buflen i
 	return rc, nil
 }
 
-func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string) (err error) {
+func (p *PubSubRouter[T]) doneRouting(ctx context.Context, jobID string) (err error) {
 	if err := p.kvRepo.UnRegister(ctx, jobID); err != nil {
 		return fmt.Errorf("failed to unregister to key value service")
 	}

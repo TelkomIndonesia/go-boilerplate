@@ -120,12 +120,18 @@ func (p *PubSubRouter[T]) ListenJobQueue(ctx context.Context) error {
 
 	for {
 		var job Job[T]
+		var ok bool
 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 
-		case job = <-chanJob:
+		case job, ok = <-chanJob:
+		}
+
+		if !ok {
+			p.logger.Debug(ctx, "job queue closed", log.String("worker-id", p.workerID))
+			return nil
 		}
 
 		p.logger.Debug(ctx, "receive job queue",
@@ -165,12 +171,18 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 	for {
 		var job Job[T]
+		var ok bool
 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 
-		case job = <-chanJob:
+		case job, ok = <-chanJob:
+		}
+
+		if !ok {
+			p.logger.Debug(ctx, "worker channel closed", log.String("worker-id", p.workerID))
+			return nil
 		}
 
 		p.logger.Debug(ctx, "receive worker queue",

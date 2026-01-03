@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
@@ -242,8 +243,8 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			close(resChan.ch)
 			job.ACK()
 
-		default:
-			p.logger.Warn(ctx, "no waiter",
+		case <-time.After(time.Second):
+			p.logger.Warn(ctx, "timeout waiting for waiter",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 		}

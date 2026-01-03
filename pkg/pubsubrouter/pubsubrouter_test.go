@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -44,13 +45,18 @@ func (k *memKV) Lookup(ctx context.Context, key string) (string, error) {
 }
 
 type memPubSub[T any] struct {
+	t    *testing.T
+	acks atomic.Int32
+
 	workerID string
 	jobQueue chan Job[T]
 	workers  cmap.ConcurrentMap[string, chan Job[T]]
 }
 
-func newMemPubSub[T any](workerID string) *memPubSub[T] {
+func newMemPubSub[T any](t *testing.T, workerID string) *memPubSub[T] {
 	ps := &memPubSub[T]{
+		t: t,
+
 		workerID: workerID,
 		jobQueue: make(chan Job[T]),
 
@@ -94,36 +100,41 @@ func (m *memPubSub[T]) PublishResult(
 	ch <- Job[T]{
 		ID:     jobID,
 		Result: result,
-		ACK:    func() {},
-		NACK:   func() {},
+		ACK: func() {
+			m.acks.Add(1)
+		},
+		NACK: func() {
+			m.t.Errorf("NACK should not be called for job %s", jobID)
+		},
 	}
 	return nil
 }
 
 func TestMultipleWaitersReceiveResults(t *testing.T) {
 	logger := logtest.NewLogger(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
 
 	kv := newMemKV()
-	basepubsub := newMemPubSub[string]("")
+	basepubsub := newMemPubSub[string](t, "")
 
 	jobs := map[string][]string{}
 	jobIDFunc := func(i int) string {
 		return fmt.Sprintf("job-%d", i)
 	}
+	lenResults := 50
 	for i := range 200 {
 		id := jobIDFunc(i)
-		for j := range 50 {
+		for j := range lenResults {
 			result := fmt.Sprintf("result-%s-%d", id, j)
 			jobs[id] = append(jobs[id], result)
 		}
 	}
 
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
 	numWorkers := 10
 	jobPerWorker := len(jobs) / numWorkers
 
+	// start pubsub receiver
 	var wgReceiverStart, wgReceiverFinish sync.WaitGroup
 	wgReceiverStart.Add(numWorkers * jobPerWorker)
 	wgReceiverFinish.Add(numWorkers * jobPerWorker)
@@ -195,6 +206,8 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	}
 	wgReceiverStart.Wait()
 
+	// simulate publish job result
+	var acks atomic.Int32
 	var wgJobs sync.WaitGroup
 	wgJobs.Add(len(jobs))
 	for id, results := range jobs {
@@ -206,8 +219,12 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 				basepubsub.jobQueue <- Job[string]{
 					ID:     jobID,
 					Result: result,
-					ACK:    func() {},
-					NACK:   func() {},
+					ACK: func() {
+						acks.Add(1)
+					},
+					NACK: func() {
+						t.Errorf("NACK should not be called for job %s", jobID)
+					},
 				}
 			}
 		}()
@@ -216,4 +233,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 
 	time.AfterFunc(5*time.Second, cancel)
 	wgReceiverFinish.Wait()
+
+	assert.Equal(t, acks.Load(), int32(len(jobs)*lenResults))
+	assert.Equal(t, acks.Load(), int32(len(jobs)*lenResults))
 }

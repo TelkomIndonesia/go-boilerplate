@@ -28,17 +28,17 @@ func newMemKV() *memKV {
 	return &memKV{m: cmap.New[string]()}
 }
 
-func (k *memKV) Register(ctx context.Context, key, value string) error {
+func (k *memKV) Set(ctx context.Context, key, value string) error {
 	k.m.Set(key, value)
 	return nil
 }
 
-func (k *memKV) UnRegister(ctx context.Context, key string) error {
+func (k *memKV) Remove(ctx context.Context, key string) error {
 	k.m.Remove(key)
 	return nil
 }
 
-func (k *memKV) Lookup(ctx context.Context, key string) (string, error) {
+func (k *memKV) Get(ctx context.Context, key string) (string, error) {
 	v, _ := k.m.Get(key)
 	return v, nil
 }
@@ -49,8 +49,8 @@ type memPubSub[T any] struct {
 	nacks *atomic.Int32
 
 	workerID string
-	jobQueue chan Job[T]
-	workers  cmap.ConcurrentMap[string, chan Job[T]]
+	jobQueue chan Message[T]
+	workers  cmap.ConcurrentMap[string, chan Message[T]]
 }
 
 func newMemPubSub[T any](t *testing.T, workerID string) *memPubSub[T] {
@@ -60,15 +60,15 @@ func newMemPubSub[T any](t *testing.T, workerID string) *memPubSub[T] {
 		nacks: &atomic.Int32{},
 
 		workerID: workerID,
-		jobQueue: make(chan Job[T]),
-		workers:  cmap.New[chan Job[T]](),
+		jobQueue: make(chan Message[T]),
+		workers:  cmap.New[chan Message[T]](),
 	}
-	ps.workers.Set(workerID, make(chan Job[T]))
+	ps.workers.Set(workerID, make(chan Message[T]))
 	return ps
 }
 
 func (m *memPubSub[T]) Clone(workerID string) PubSubSvc[T] {
-	m.workers.Set(workerID, make(chan Job[T]))
+	m.workers.Set(workerID, make(chan Message[T]))
 	return &memPubSub[T]{
 		t:        m.t,
 		acks:     m.acks,
@@ -78,11 +78,11 @@ func (m *memPubSub[T]) Clone(workerID string) PubSubSvc[T] {
 		workers:  m.workers,
 	}
 }
-func (m *memPubSub[T]) JobQueue(ctx context.Context) (<-chan Job[T], error) {
+func (m *memPubSub[T]) MessageQueue(ctx context.Context) (<-chan Message[T], error) {
 	return m.jobQueue, nil
 }
 
-func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (<-chan Job[T], error) {
+func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (<-chan Message[T], error) {
 	ch, ok := m.workers.Get(m.workerID)
 	if !ok {
 		return nil, fmt.Errorf("no channel for %s", m.workerID)
@@ -90,10 +90,10 @@ func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (<-chan Job[T], error)
 	return ch, nil
 }
 
-func (m *memPubSub[T]) PublishResult(
+func (m *memPubSub[T]) PublishWorkerMessage(
 	ctx context.Context,
 	workerID string,
-	jobID string,
+	channelID string,
 	result T,
 ) error {
 	ch, ok := m.workers.Get(workerID)
@@ -101,9 +101,9 @@ func (m *memPubSub[T]) PublishResult(
 		return fmt.Errorf("can't publish for %s", workerID)
 	}
 
-	ch <- Job[T]{
-		ID:     jobID,
-		Result: result,
+	ch <- Message[T]{
+		ChannelID: channelID,
+		Content:   result,
 		ACK: func() {
 			m.acks.Add(1)
 		},
@@ -121,17 +121,17 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 
 	workersNum := 10
 	workerJobsNum := 50
-	jobResultsNum := 50
+	channelMessage := 50
 
-	jobs := map[string][]string{}
-	jobIDFunc := func(i int) string {
+	channels := map[string][]string{}
+	channelIDFunc := func(i int) string {
 		return fmt.Sprintf("job-%d", i)
 	}
 	for i := range workersNum * workerJobsNum {
-		id := jobIDFunc(i)
-		for j := range jobResultsNum {
+		id := channelIDFunc(i)
+		for j := range channelMessage {
 			result := fmt.Sprintf("result-%s-%d", id, j)
-			jobs[id] = append(jobs[id], result)
+			channels[id] = append(channels[id], result)
 		}
 	}
 
@@ -153,40 +153,41 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 		}()
 
 		for j := range workerJobsNum {
-			jobID := jobIDFunc(i + (workersNum * j))
+			channelID := channelIDFunc(i + (workersNum * j))
 			go func() {
 				defer wgReceiverFinish.Done()
 
 				ctx, cancel := context.WithCancel(ctx)
 				defer cancel()
 
-				resultsChan, err := psw.ReceiveResults(ctx, jobID, 100)
+				resultsChan, err := psw.Subscribe(ctx, channelID, 100)
 				require.NoError(t, err)
 				defer func() { resultsChan.Close(t.Context()) }()
 				wgReceiverStart.Done()
 
-				expected := jobs[jobID]
-				results := []string{}
-				for len(results) < len(expected) {
-					var result string
+				expected := channels[channelID]
+				messages := []string{}
+				for len(messages) < len(expected) {
+					var message Message[string]
 					var cont bool
 
 					select {
 					case <-ctx.Done():
-					case result, cont = <-resultsChan.Chan():
+					case message, cont = <-resultsChan.Messages():
 					}
 
 					if !cont {
 						break
 					}
 
-					results = append(results, result)
+					messages = append(messages, message.Content)
+					message.ACK()
 
 					// simulate take over by another go routine
-					if len(results)%3 == 0 {
+					if len(messages)%3 == 0 {
 						oldChan := resultsChan
 
-						resultsChan, err = psw.ReceiveResults(ctx, jobID, 100)
+						resultsChan, err = psw.Subscribe(ctx, channelID, 100)
 						require.NoError(t, err)
 						defer func() { resultsChan.Close(t.Context()) }()
 
@@ -194,8 +195,9 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 						for {
 							select {
 							default:
-							case result := <-oldChan.Chan():
-								results = append(results, result)
+							case message := <-oldChan.Messages():
+								messages = append(messages, message.Content)
+								message.ACK()
 								continue
 							}
 							break
@@ -203,23 +205,23 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 					}
 				}
 
-				assert.ElementsMatch(t, expected, results, workerID, jobID)
-				logger.Debug(ctx, "receiver done", log.String("worker-id", workerID), log.String("job-id", jobID))
+				assert.ElementsMatch(t, expected, messages, workerID, channelID)
+				logger.Debug(ctx, "receiver done", log.String("worker-id", workerID), log.String("channel-id", channelID))
 			}()
 		}
 	}
 	wgReceiverStart.Wait()
 
-	// simulate publish job result
+	// simulate publish channel's messages
 	var acks, nacks atomic.Int32
-	for id, results := range jobs {
-		jobID := id
+	for id, channel := range channels {
+		channelID := id
 		go func() {
-			for _, result := range results {
-				logger.Debug(t.Context(), "publish", log.String("job-id", jobID), log.String("result", result))
-				basepubsub.jobQueue <- Job[string]{
-					ID:     jobID,
-					Result: result,
+			for _, content := range channel {
+				logger.Debug(t.Context(), "publish", log.String("channel-id", channelID), log.String("content", content))
+				basepubsub.jobQueue <- Message[string]{
+					ChannelID: channelID,
+					Content:   content,
 					ACK: func() {
 						acks.Add(1)
 					},
@@ -232,8 +234,8 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	}
 
 	wgReceiverFinish.Wait()
-	assert.Equal(t, int32(len(jobs)*jobResultsNum), acks.Load())
-	assert.Equal(t, int32(len(jobs)*jobResultsNum), basepubsub.acks.Load())
+	assert.Equal(t, int32(len(channels)*channelMessage), acks.Load())
+	assert.Equal(t, int32(len(channels)*channelMessage), basepubsub.acks.Load())
 	assert.Zero(t, nacks.Load())
 	assert.Zero(t, basepubsub.nacks.Load())
 }

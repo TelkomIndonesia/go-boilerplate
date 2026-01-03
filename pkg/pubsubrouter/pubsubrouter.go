@@ -10,16 +10,16 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
 
-type Job[T any] struct {
-	ID string
+type Message[T any] struct {
+	Content T
 
-	Result T
-	ACK    func()
-	NACK   func()
+	ChannelID string
+	ACK       func()
+	NACK      func()
 }
 
-type Results[T any] struct {
-	ch   chan T
+type Channel[T any] struct {
+	ch   chan Message[T]
 	done <-chan struct{}
 
 	close       func()
@@ -27,14 +27,14 @@ type Results[T any] struct {
 	Close       func(context.Context) error
 }
 
-func newResults[T any](buflen int, beforeClose func(context.Context) error) Results[T] {
-	ch := make(chan T, buflen)
+func newChannel[T any](buflen int, beforeClose func(context.Context) error) Channel[T] {
+	ch := make(chan Message[T], buflen)
 	done := make(chan struct{})
 	var once1, once2 sync.Once
 
 	finalClose := func() { once1.Do(func() { close(ch) }) }
 	signalClose := func() { once2.Do(func() { close(done) }) }
-	return Results[T]{
+	return Channel[T]{
 		ch:   ch,
 		done: done,
 
@@ -51,20 +51,20 @@ func newResults[T any](buflen int, beforeClose func(context.Context) error) Resu
 	}
 }
 
-func (c Results[T]) Chan() <-chan T {
+func (c Channel[T]) Messages() <-chan Message[T] {
 	return c.ch
 }
 
 type KeyValueSvc interface {
-	Register(ctx context.Context, key string, value string) error
-	UnRegister(ctx context.Context, key string) error
-	Lookup(ctx context.Context, key string) (value string, err error)
+	Set(ctx context.Context, key string, value string) error
+	Get(ctx context.Context, key string) (value string, err error)
+	Remove(ctx context.Context, key string) error
 }
 
 type PubSubSvc[T any] interface {
-	JobQueue(ctx context.Context) (<-chan Job[T], error)
-	WorkerChannel(ctx context.Context) (<-chan Job[T], error)
-	PublishResult(ctx context.Context, workerID string, jobID string, result T) error
+	MessageQueue(ctx context.Context) (<-chan Message[T], error)
+	PublishWorkerMessage(ctx context.Context, workerID string, channelID string, content T) error
+	WorkerChannel(ctx context.Context) (<-chan Message[T], error)
 }
 
 type PubSubRouter[T any] struct {
@@ -73,7 +73,7 @@ type PubSubRouter[T any] struct {
 	kvRepo KeyValueSvc
 	pubsub PubSubSvc[T]
 
-	chanmap cmap.ConcurrentMap[string, Results[T]]
+	chanmap cmap.ConcurrentMap[string, Channel[T]]
 
 	logger log.Logger
 }
@@ -88,7 +88,7 @@ func NewPubSubRouter[T any](
 		workerID: workerID,
 		kvRepo:   kvRepo,
 		pubsub:   pubsub,
-		chanmap:  cmap.New[Results[T]](),
+		chanmap:  cmap.New[Channel[T]](),
 		logger:   logger,
 	}
 }
@@ -106,7 +106,7 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 
 	go func() {
 		defer wg.Done()
-		errs <- p.ListenJobQueue(ctx)
+		errs <- p.ListenMessageQueue(ctx)
 	}()
 
 	for range 2 {
@@ -120,54 +120,54 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 
 	return
 }
-func (p *PubSubRouter[T]) ListenJobQueue(ctx context.Context) error {
-	chanJob, err := p.pubsub.JobQueue(ctx)
+func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
+	chanMessage, err := p.pubsub.MessageQueue(ctx)
 	if err != nil {
 		return err
 	}
 
 	for {
-		var job Job[T]
+		var msg Message[T]
 		var ok bool
 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 
-		case job, ok = <-chanJob:
+		case msg, ok = <-chanMessage:
 		}
 
 		if !ok {
-			p.logger.Debug(ctx, "job queue closed", log.String("worker-id", p.workerID))
+			p.logger.Debug(ctx, "message queue closed", log.String("worker-id", p.workerID))
 			return nil
 		}
 
-		p.logger.Debug(ctx, "receive job queue",
-			log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
+		p.logger.Debug(ctx, "receive message queue",
+			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		workerID, err := p.kvRepo.Lookup(ctx, job.ID)
+		workerID, err := p.kvRepo.Get(ctx, msg.ChannelID)
 		if err != nil {
-			p.logger.Warn(ctx, "failed to lookup worker for job",
-				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			job.NACK()
+			p.logger.Warn(ctx, "failed to lookup worker for message",
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
+			msg.NACK()
 			continue
 		}
 		if workerID == "" {
 			p.logger.Warn(ctx, "no worker found",
-				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			job.ACK()
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
+			msg.ACK()
 			continue
 		}
 
-		err = p.pubsub.PublishResult(ctx, workerID, job.ID, job.Result)
+		err = p.pubsub.PublishWorkerMessage(ctx, workerID, msg.ChannelID, msg.Content)
 		if err != nil {
-			p.logger.Warn(ctx, "failed to publish result",
-				log.String("worker-id", workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			job.NACK()
+			p.logger.Warn(ctx, "failed to publish message",
+				log.String("worker-id", workerID), log.String("channel-id", msg.ChannelID))
+			msg.NACK()
 			continue
 		}
 
-		job.ACK()
+		msg.ACK()
 	}
 }
 
@@ -178,14 +178,14 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 	}
 
 	for {
-		var job Job[T]
+		var msg Message[T]
 		var ok bool
 
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 
-		case job, ok = <-chanJob:
+		case msg, ok = <-chanJob:
 		}
 
 		if !ok {
@@ -193,47 +193,46 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		}
 
 		p.logger.Debug(ctx, "receive worker queue",
-			log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
+			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		resChan, ok := p.chanmap.Get(job.ID)
+		channel, ok := p.chanmap.Get(msg.ChannelID)
 		if !ok {
 			p.logger.Warn(ctx, "no receiver",
-				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			job.ACK()
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
+			msg.ACK()
 			continue
 		}
 
 		select {
 		case <-ctx.Done():
-			job.NACK()
+			msg.NACK()
 			return ctx.Err()
 
-		case resChan.ch <- job.Result:
+		case channel.ch <- msg:
 			p.logger.Debug(ctx, "sent worker queue",
-				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			job.ACK()
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		case <-resChan.done:
+		case <-channel.done:
 			p.logger.Debug(ctx, "closed worker queue",
-				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			resChan.close()
-			job.ACK()
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
+			channel.close()
+			msg.ACK()
 
 		default:
-			p.logger.Warn(ctx, "unresponsive receiver",
-				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
-			job.ACK()
+			p.logger.Warn(ctx, "unresponsive subscriber",
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
+			msg.ACK()
 		}
 	}
 }
 
-func (p *PubSubRouter[T]) ReceiveResults(ctx context.Context, jobID string, buflen int) (results Results[T], err error) {
-	rc := newResults[T](buflen, func(ctx context.Context) error {
-		return p.doneRouting(ctx, jobID)
+func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
+	rc := newChannel[T](buflen, func(ctx context.Context) error {
+		return p.doneRouting(ctx, channelID)
 	})
 
 	updated := false
-	p.chanmap.Upsert(jobID, rc, func(exist bool, old, new Results[T]) Results[T] {
+	p.chanmap.Upsert(channelID, rc, func(exist bool, old, new Channel[T]) Channel[T] {
 		if exist {
 			old.signalClose()
 			updated = true
@@ -244,9 +243,9 @@ func (p *PubSubRouter[T]) ReceiveResults(ctx context.Context, jobID string, bufl
 		return rc, nil
 	}
 
-	err = p.kvRepo.Register(ctx, jobID, p.workerID)
+	err = p.kvRepo.Set(ctx, channelID, p.workerID)
 	if err != nil {
-		p.chanmap.Remove(jobID)
+		p.chanmap.Remove(channelID)
 		err = fmt.Errorf("failed to register to key value service")
 		return
 	}
@@ -254,11 +253,11 @@ func (p *PubSubRouter[T]) ReceiveResults(ctx context.Context, jobID string, bufl
 	return rc, nil
 }
 
-func (p *PubSubRouter[T]) doneRouting(ctx context.Context, jobID string) (err error) {
-	if err := p.kvRepo.UnRegister(ctx, jobID); err != nil {
+func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channelID string) (err error) {
+	if err := p.kvRepo.Remove(ctx, channelID); err != nil {
 		return fmt.Errorf("failed to unregister to key value service")
 	}
 
-	p.chanmap.Remove(jobID)
+	p.chanmap.Remove(channelID)
 	return
 }

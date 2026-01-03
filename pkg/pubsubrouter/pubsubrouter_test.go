@@ -144,7 +144,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	wgReceiverFinish.Add(workersNum * workerJobsNum)
 	for i := range workersNum {
 		workerID := fmt.Sprintf("worker-%d", i)
-		psw := NewPubSubRouter(workerID, kv, basepubsub.Clone(workerID), logger)
+		psw := New(workerID, kv, basepubsub.Clone(workerID), logger)
 		go func() {
 			err := psw.Listen(ctx)
 			if err != nil && err != ctx.Err() {

@@ -78,7 +78,7 @@ type PubSubRouter[T any] struct {
 	logger log.Logger
 }
 
-func NewPubSubRouter[T any](
+func New[T any](
 	workerID string,
 	kvRepo KeyValueSvc,
 	pubsub PubSubSvc[T],

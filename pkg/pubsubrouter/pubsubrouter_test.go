@@ -167,6 +167,25 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 					}
 
 					results = append(results, result)
+
+					if len(results)%3 == 0 {
+						oldChan := resultsChan
+
+						resultsChan, err = psw.ReceiveResults(ctx, jobID, 100)
+						require.NoError(t, err)
+						defer func() { resultsChan.Close(t.Context()) }()
+
+						// exhaust
+						for {
+							select {
+							default:
+							case result := <-oldChan.Chan():
+								results = append(results, result)
+								continue
+							}
+							break
+						}
+					}
 				}
 
 				assert.ElementsMatch(t, expected, results, workerID, jobID)

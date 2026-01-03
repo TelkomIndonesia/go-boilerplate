@@ -257,14 +257,17 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
 	results ResultChan[T],
 	err error,
 ) {
-	p.wmu.Lock()
-	defer p.wmu.Unlock()
 
 	rc := newResultChan[T](func(ctx context.Context) error {
 		return p.doneWaiting(ctx, jobID)
 	})
 
-	p.chanmap.Set(jobID, rc)
+	ok := p.chanmap.SetIfAbsent(jobID, rc)
+	if !ok {
+		err = fmt.Errorf("job id already exists")
+		return
+	}
+
 	err = p.kvRepo.Register(ctx, jobID, p.workerID)
 	if err != nil {
 		err = fmt.Errorf("failed to register to key value service")
@@ -275,9 +278,6 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
 }
 
 func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string) (err error) {
-	p.wmu.Lock()
-	defer p.wmu.Unlock()
-
 	if err := p.kvRepo.UnRegister(ctx, jobID); err != nil {
 		return fmt.Errorf("failed to unregister to key value service")
 	}

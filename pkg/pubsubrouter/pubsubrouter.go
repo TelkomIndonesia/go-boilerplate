@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
@@ -20,8 +19,8 @@ type ResultChan[T any] struct {
 	Close       func(context.Context) error
 }
 
-func newResultChan[T any](beforeClose func(context.Context) error) ResultChan[T] {
-	ch := make(chan T)
+func newResultChan[T any](buflen int, beforeClose func(context.Context) error) ResultChan[T] {
+	ch := make(chan T, buflen)
 	done := make(chan struct{})
 	var once1, once2 sync.Once
 
@@ -190,7 +189,6 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		}
 
 		if !ok {
-			p.logger.Debug(ctx, "worker channel closed", log.String("worker-id", p.workerID))
 			return nil
 		}
 
@@ -199,13 +197,12 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		resChan, ok := p.chanmap.Get(job.ID)
 		if !ok {
-			p.logger.Debug(ctx, "no waiter",
+			p.logger.Warn(ctx, "no waiter",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 			continue
 		}
 
-		t := time.NewTimer(time.Second)
 		select {
 		case <-ctx.Done():
 			p.logger.Debug(ctx, "ctx done",
@@ -224,20 +221,19 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			resChan.close()
 			job.ACK()
 
-		case <-t.C:
-			p.logger.Warn(ctx, "timeout waiting for waiter",
+		default:
+			p.logger.Warn(ctx, "unresponsive waiter",
 				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 		}
-		t.Stop()
 	}
 }
 
-func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
+func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string, buflen int) (
 	results ResultChan[T],
 	err error,
 ) {
-	rc := newResultChan[T](func(ctx context.Context) error {
+	rc := newResultChan[T](buflen, func(ctx context.Context) error {
 		return p.doneWaiting(ctx, jobID)
 	})
 
@@ -250,7 +246,7 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
 		return new
 	})
 	if updated {
-		return
+		return rc, nil
 	}
 
 	err = p.kvRepo.Register(ctx, jobID, p.workerID)

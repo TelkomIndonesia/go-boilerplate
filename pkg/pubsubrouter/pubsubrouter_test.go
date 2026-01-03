@@ -112,7 +112,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	}
 	for i := range 100 {
 		id := jobIDFunc(i)
-		for j := range 10 {
+		for j := range 50 {
 			result := fmt.Sprintf("result-%s-%d", id, j)
 			jobs[id] = append(jobs[id], result)
 		}
@@ -121,10 +121,13 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
+	numWorkers := 10
+	step := len(jobs) / numWorkers
+
 	var wgWorkerStart, wgWorkerFinish sync.WaitGroup
-	wgWorkerStart.Add(100)
-	wgWorkerFinish.Add(100)
-	for i := range 10 {
+	wgWorkerStart.Add(numWorkers * step)
+	wgWorkerFinish.Add(numWorkers * step)
+	for i := range numWorkers {
 		workerID := fmt.Sprintf("worker-%d", i)
 		psw := NewPubSubRouter(workerID, kv, pubsub.Clone(workerID), logger)
 		go func() {
@@ -134,15 +137,15 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 			}
 		}()
 
-		for j := range 10 {
-			jobID := jobIDFunc(i + (10 * j))
+		for j := range step {
+			jobID := jobIDFunc(i + (step * j))
 			go func() {
 				defer wgWorkerFinish.Done()
 
 				ctx, cancel := context.WithCancel(ctx)
 				defer cancel()
 
-				resultsChan, err := psw.WaitResult(ctx, jobID)
+				resultsChan, err := psw.WaitResult(ctx, jobID, 100)
 				require.NoError(t, err)
 				defer func() { resultsChan.Close(t.Context()) }()
 				wgWorkerStart.Done()

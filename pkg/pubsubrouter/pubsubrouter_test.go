@@ -104,7 +104,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	logger := logtest.NewLogger(t)
 
 	kv := newMemKV()
-	pubsub := newMemPubSub[string]("_")
+	pubsub := newMemPubSub[string]("")
 
 	jobs := map[string][]string{}
 	jobIDFunc := func(i int) string {

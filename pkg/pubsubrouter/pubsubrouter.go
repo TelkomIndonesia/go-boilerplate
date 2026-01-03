@@ -205,8 +205,6 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		select {
 		case <-ctx.Done():
-			p.logger.Debug(ctx, "ctx done",
-				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.NACK()
 			return ctx.Err()
 

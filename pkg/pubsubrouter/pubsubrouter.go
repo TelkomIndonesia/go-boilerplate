@@ -74,8 +74,6 @@ type PubSubRouter[T any] struct {
 	stop    chan struct{}
 
 	logger log.Logger
-
-	wmu sync.Mutex
 }
 
 func NewPubSubRouter[T any](

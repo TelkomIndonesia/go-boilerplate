@@ -104,7 +104,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	logger := logtest.NewLogger(t)
 
 	kv := newMemKV()
-	pubsub := newMemPubSub[string]("")
+	basepubsub := newMemPubSub[string]("")
 
 	jobs := map[string][]string{}
 	jobIDFunc := func(i int) string {
@@ -129,7 +129,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	wgReceiverFinish.Add(numWorkers * jobPerWorker)
 	for i := range numWorkers {
 		workerID := fmt.Sprintf("worker-%d", i)
-		psw := NewPubSubRouter(workerID, kv, pubsub.Clone(workerID), logger)
+		psw := NewPubSubRouter(workerID, kv, basepubsub.Clone(workerID), logger)
 		go func() {
 			err := psw.Listen(ctx)
 			if err != nil && err != ctx.Err() {
@@ -203,7 +203,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 			defer wgJobs.Done()
 			for _, result := range results {
 				logger.Debug(t.Context(), "publish", log.String("job-id", jobID), log.String("result", result))
-				pubsub.jobQueue <- Job[string]{
+				basepubsub.jobQueue <- Job[string]{
 					ID:     jobID,
 					Result: result,
 					ACK:    func() {},

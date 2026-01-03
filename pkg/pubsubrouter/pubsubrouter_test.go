@@ -119,68 +119,59 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
 
-	var wgWorker, wgWorkerStarted, wgWorkerDone sync.WaitGroup
-	defer wgWorker.Wait()
-	wgWorker.Add(10)
-	wgWorkerStarted.Add(100)
-	wgWorkerDone.Add(100)
+	var wgWorkerStart, wgWorkerFinish sync.WaitGroup
+	wgWorkerStart.Add(100)
+	wgWorkerFinish.Add(100)
 	for i := range 10 {
 		workerID := fmt.Sprintf("worker-%d", i)
+		psw := NewPubSubRouter(workerID, kv, pubsub.Clone(workerID), logger)
 		go func() {
-			defer wgWorker.Done()
-
-			psw := NewPubSubRouter(workerID, kv, pubsub.Clone(workerID), logger)
-			defer psw.Close()
-			go psw.Listen(ctx)
-
-			wg := sync.WaitGroup{}
-			defer wg.Wait()
-			wg.Add(10)
-			for j := range 10 {
-				jobID := jobIDFunc(i + (10 * j))
-				go func() {
-					defer wg.Done()
-
-					resultsChan, done, err := psw.WaitResult(ctx, jobID)
-					require.NoError(t, err)
-					defer done(ctx)
-					wgWorkerStarted.Done()
-					logger.Debug(ctx, "start", log.String("worker-id", workerID), log.String("job-id", jobID))
-
-					expected := jobs[jobID]
-					results := []string{}
-					for {
-						stop := false
-
-						select {
-						case <-ctx.Done():
-							t.Errorf("timeout waiting for result %s %s", workerID, jobID)
-							stop = true
-
-						case res, ok := <-resultsChan:
-							if ok {
-								logger.Debug(ctx, "result", log.String("worker-id", workerID), log.String("job-id", jobID), log.String("result", res))
-								results = append(results, res)
-							} else {
-								logger.Debug(ctx, "channel closed", log.String("worker-id", workerID), log.String("job-id", jobID))
-							}
-							stop = !ok || len(results) == len(expected)
-						}
-
-						if stop {
-							break
-						}
-					}
-					assert.ElementsMatch(t, expected, results, workerID, jobID)
-					wgWorkerDone.Done()
-					logger.Debug(ctx, "done", log.String("worker-id", workerID), log.String("job-id", jobID))
-				}()
+			err := psw.Listen(ctx)
+			if err != nil && err != ctx.Err() {
+				assert.NoError(t, err)
 			}
 		}()
-	}
 
-	wgWorkerStarted.Wait()
+		for j := range 10 {
+			jobID := jobIDFunc(i + (10 * j))
+			go func() {
+				defer wgWorkerFinish.Done()
+
+				ctx, cancel := context.WithCancel(ctx)
+				defer cancel()
+
+				resultsChan, err := psw.WaitResult(ctx, jobID)
+				require.NoError(t, err)
+				defer func() { resultsChan.Close(t.Context()) }()
+				wgWorkerStart.Done()
+				logger.Debug(ctx, "waiting started", log.String("worker-id", workerID), log.String("job-id", jobID))
+
+				expected := jobs[jobID]
+				results := []string{}
+				for len(results) < len(expected) {
+					var result string
+					var cont bool
+
+					select {
+					case <-ctx.Done():
+					case result, cont = <-resultsChan.Chan():
+					}
+
+					if !cont {
+						break
+					}
+
+					results = append(results, result)
+				}
+
+				assert.ElementsMatch(t, expected, results, workerID, jobID)
+				logger.Debug(ctx, "waiting done", log.String("worker-id", workerID), log.String("job-id", jobID))
+			}()
+		}
+	}
+	wgWorkerStart.Wait()
 
 	var wgJobs sync.WaitGroup
 	wgJobs.Add(len(jobs))
@@ -201,6 +192,6 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	}
 	wgJobs.Wait()
 
-	time.AfterFunc(10*time.Second, cancel)
-	wgWorkerDone.Wait()
+	time.AfterFunc(5*time.Second, cancel)
+	wgWorkerFinish.Wait()
 }

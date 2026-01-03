@@ -34,27 +34,27 @@ func (l *logger) Enabled(context.Context, log.Level) bool {
 
 func (l *logger) Debug(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Debug, context.Background(), message, attrs...)
+	l.log(l.l.Debug, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Info(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Info, context.Background(), message, attrs...)
+	l.log(l.l.Info, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Warn(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Warn, context.Background(), message, attrs...)
+	l.log(l.l.Warn, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Error(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Error, context.Background(), message, attrs...)
+	l.log(l.l.Error, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Fatal(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Error, context.Background(), message, attrs...)
+	l.log(l.l.Error, l.t.Context(), message, attrs...)
 	l.t.FailNow()
 }
 

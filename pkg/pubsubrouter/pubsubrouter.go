@@ -3,15 +3,42 @@ package pubsubrouter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
 
-type chanWCloseSignal[T any] struct {
+type ResultChan[T any] struct {
 	ch   chan T
 	done chan struct{}
+
+	Close func(context.Context) error
+}
+
+func newResultChan[T any](beforeClose func(context.Context) error) ResultChan[T] {
+	ch := make(chan T)
+	done := make(chan struct{})
+	close := func(ctx context.Context) error {
+		if err := beforeClose(ctx); err != nil {
+			return err
+
+		}
+
+		close(done)
+		return nil
+	}
+
+	return ResultChan[T]{
+		ch:    ch,
+		done:  done,
+		Close: close,
+	}
+}
+
+func (c ResultChan[T]) Chan() <-chan T {
+	return c.ch
 }
 
 type Job[T any] struct {
@@ -40,10 +67,12 @@ type PubSubRouter[T any] struct {
 	kvRepo KeyValueSvc
 	pubsub PubSubSvc[T]
 
-	chanmap cmap.ConcurrentMap[string, chanWCloseSignal[T]]
+	chanmap cmap.ConcurrentMap[string, ResultChan[T]]
 	stop    chan struct{}
 
 	logger log.Logger
+
+	wmu sync.Mutex
 }
 
 func NewPubSubRouter[T any](
@@ -56,7 +85,7 @@ func NewPubSubRouter[T any](
 		workerID: workerID,
 		kvRepo:   kvRepo,
 		pubsub:   pubsub,
-		chanmap:  cmap.New[chanWCloseSignal[T]](),
+		chanmap:  cmap.New[ResultChan[T]](),
 		stop:     make(chan struct{}),
 		logger:   logger,
 	}
@@ -71,12 +100,15 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	go func() {
 		select {
+		case <-ctx.Done():
 		case <-p.stop:
 			cancel()
-		case <-ctx.Done():
-			return
 		}
 	}()
+
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
+	wg.Add(2)
 
 	errs := make(chan error, 2)
 	go func() {
@@ -90,22 +122,18 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 		}
 	}()
 
-	pswWg := sync.WaitGroup{}
-	defer pswWg.Wait()
-	pswWg.Add(2)
-
 	go func() {
-		defer pswWg.Done()
+		defer wg.Done()
 		err1 := p.ListenWorkerChannel(ctx)
-		if err1 != nil && err1 != ctx.Err() {
+		if err1 != nil {
 			errs <- err1
 		}
 	}()
 
 	go func() {
-		defer pswWg.Done()
+		defer wg.Done()
 		err2 := p.ListenJobQueue(ctx)
-		if err2 != nil && err2 != ctx.Err() {
+		if err2 != nil {
 			errs <- err2
 		}
 	}()
@@ -223,34 +251,35 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 }
 
 func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
-	results <-chan T,
-	done func(ctx context.Context) error,
+	results ResultChan[T],
 	err error,
 ) {
-	resChan := chanWCloseSignal[T]{
-		ch:   make(chan T),
-		done: make(chan struct{}),
+	p.wmu.Lock()
+	defer p.wmu.Unlock()
+
+	r := newResultChan[T](func(ctx context.Context) error {
+		return p.doneWaiting(ctx, jobID)
+	})
+	p.chanmap.Set(jobID, r)
+
+	err = p.kvRepo.Register(ctx, jobID, p.workerID)
+	if err != nil {
+		err = fmt.Errorf("failed to register to key value service")
+		return
 	}
 
-	p.chanmap.Set(jobID, resChan)
-	done = func(ctx context.Context) error {
-		return p.doneWaiting(ctx, jobID, resChan)
-	}
-
-	if err := p.kvRepo.Register(ctx, jobID, p.workerID); err != nil {
-		return nil, nil, err
-	}
-
-	return resChan.ch, done, nil
+	return r, nil
 }
 
-func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string, resChan chanWCloseSignal[T]) (err error) {
+func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string) (err error) {
+	p.wmu.Lock()
+	defer p.wmu.Unlock()
+
 	if err := p.kvRepo.UnRegister(ctx, jobID); err != nil {
-		return err
+		return fmt.Errorf("failed to unregister to key value service")
 	}
 
 	p.logger.Debug(ctx, "done waiting", log.String("worker-id", p.workerID), log.String("job-id", jobID))
 	p.chanmap.Remove(jobID)
-	close(resChan.done)
 	return
 }

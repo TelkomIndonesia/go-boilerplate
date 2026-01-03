@@ -44,8 +44,9 @@ func (k *memKV) Lookup(ctx context.Context, key string) (string, error) {
 }
 
 type memPubSub[T any] struct {
-	t    *testing.T
-	acks atomic.Int32
+	t     *testing.T
+	acks  *atomic.Int32
+	nacks *atomic.Int32
 
 	workerID string
 	jobQueue chan Job[T]
@@ -54,12 +55,13 @@ type memPubSub[T any] struct {
 
 func newMemPubSub[T any](t *testing.T, workerID string) *memPubSub[T] {
 	ps := &memPubSub[T]{
-		t: t,
+		t:     t,
+		acks:  &atomic.Int32{},
+		nacks: &atomic.Int32{},
 
 		workerID: workerID,
 		jobQueue: make(chan Job[T]),
-
-		workers: cmap.New[chan Job[T]](),
+		workers:  cmap.New[chan Job[T]](),
 	}
 	ps.workers.Set(workerID, make(chan Job[T]))
 	return ps
@@ -68,6 +70,9 @@ func newMemPubSub[T any](t *testing.T, workerID string) *memPubSub[T] {
 func (m *memPubSub[T]) Clone(workerID string) PubSubSvc[T] {
 	m.workers.Set(workerID, make(chan Job[T]))
 	return &memPubSub[T]{
+		t:        m.t,
+		acks:     m.acks,
+		nacks:    m.nacks,
 		workerID: workerID,
 		jobQueue: m.jobQueue,
 		workers:  m.workers,
@@ -103,7 +108,7 @@ func (m *memPubSub[T]) PublishResult(
 			m.acks.Add(1)
 		},
 		NACK: func() {
-			m.t.Errorf("NACK should not be called for job %s", jobID)
+			m.nacks.Add(1)
 		},
 	}
 	return nil
@@ -206,7 +211,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	wgReceiverStart.Wait()
 
 	// simulate publish job result
-	var acks atomic.Int32
+	var acks, nacks atomic.Int32
 	for id, results := range jobs {
 		jobID := id
 		go func() {
@@ -219,7 +224,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 						acks.Add(1)
 					},
 					NACK: func() {
-						t.Errorf("NACK should not be called for job %s", jobID)
+						nacks.Add(1)
 					},
 				}
 			}
@@ -227,6 +232,8 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	}
 
 	wgReceiverFinish.Wait()
-	assert.Equal(t, acks.Load(), int32(len(jobs)*jobResultsNum))
-	assert.Equal(t, acks.Load(), int32(len(jobs)*jobResultsNum))
+	assert.Equal(t, int32(len(jobs)*jobResultsNum), acks.Load())
+	assert.Equal(t, int32(len(jobs)*jobResultsNum), basepubsub.acks.Load())
+	assert.Zero(t, nacks.Load())
+	assert.Zero(t, basepubsub.nacks.Load())
 }

@@ -3,12 +3,16 @@ package pubsubrouter
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log/slog"
 	"sync"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
+
+type chanWCloseSignal[T any] struct {
+	ch   chan T
+	done chan struct{}
+}
 
 type Job[T any] struct {
 	ID string
@@ -36,22 +40,25 @@ type PubSubRouter[T any] struct {
 	kvRepo KeyValueSvc
 	pubsub PubSubSvc[T]
 
-	chanmap cmap.ConcurrentMap[string, chan T]
+	chanmap cmap.ConcurrentMap[string, chanWCloseSignal[T]]
+	stop    chan struct{}
 
-	stop chan struct{}
+	logger log.Logger
 }
 
 func NewPubSubRouter[T any](
 	workerID string,
 	kvRepo KeyValueSvc,
 	pubsub PubSubSvc[T],
+	logger log.Logger,
 ) *PubSubRouter[T] {
 	return &PubSubRouter[T]{
 		workerID: workerID,
 		kvRepo:   kvRepo,
 		pubsub:   pubsub,
-		chanmap:  cmap.New[chan T](),
+		chanmap:  cmap.New[chanWCloseSignal[T]](),
 		stop:     make(chan struct{}),
+		logger:   logger,
 	}
 }
 
@@ -61,33 +68,45 @@ func (p *PubSubRouter[T]) Close() error {
 }
 
 func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
-	pswWg := sync.WaitGroup{}
-	defer pswWg.Wait()
-	pswWg.Add(2)
-
 	ctx, cancel := context.WithCancel(ctx)
 	go func() {
 		select {
-		case <-ctx.Done():
 		case <-p.stop:
 			cancel()
+		case <-ctx.Done():
+			return
 		}
 	}()
+
+	errs := make(chan error, 2)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case errx := <-errs:
+				err = errors.Join(err, errx)
+			}
+		}
+	}()
+
+	pswWg := sync.WaitGroup{}
+	defer pswWg.Wait()
+	pswWg.Add(2)
 
 	go func() {
 		defer pswWg.Done()
 		err1 := p.ListenWorkerChannel(ctx)
 		if err1 != nil && err1 != ctx.Err() {
-			err = errors.Join(err, err1)
+			errs <- err1
 		}
 	}()
 
-	// Job queue router
 	go func() {
 		defer pswWg.Done()
 		err2 := p.ListenJobQueue(ctx)
 		if err2 != nil && err2 != ctx.Err() {
-			err = errors.Join(err, err2)
+			errs <- err2
 		}
 	}()
 
@@ -109,29 +128,29 @@ func (p *PubSubRouter[T]) ListenJobQueue(ctx context.Context) error {
 		case job = <-chanJob:
 		}
 
-		slog.Default().Info("receive job queue : ", "jobID", job.ID, "result", job.Result)
+		p.logger.Debug(ctx, "receive job queue",
+			log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 
 		workerID, err := p.kvRepo.Lookup(ctx, job.ID)
 		if err != nil {
-			slog.Default().WarnContext(ctx, "failed to lookup worker for job",
-				"jobID", job.ID,
-				"error", err,
-			)
+			p.logger.Warn(ctx, "failed to lookup worker for job",
+				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.NACK()
 			continue
 		}
 		if workerID == "" {
-			slog.Default().Info("no worker found ", "jobID", job.ID, "result", job.Result)
+			p.logger.Warn(ctx, "no worker found",
+				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 			continue
 		}
 
-		slog.Default().Info("matched job queue : ", "workerID", workerID, "jobID", job.ID, "result", job.Result)
-
 		err = p.pubsub.PublishResult(ctx, workerID, job.ID, job.Result)
 		if err != nil {
+			p.logger.Warn(ctx, "failed to publish result",
+				log.String("worker-id", workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.NACK()
-			return fmt.Errorf("publish worker channel failed: %w", err)
+			continue
 		}
 
 		job.ACK()
@@ -154,26 +173,38 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		case job = <-chanJob:
 		}
 
-		slog.Default().Info("receive worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
+		p.logger.Debug(ctx, "receive worker queue",
+			log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 
 		resChan, ok := p.chanmap.Get(job.ID)
 		if !ok {
+			p.logger.Debug(context.Background(), "no waiter",
+				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 			continue
 		}
 
 		select {
 		case <-ctx.Done():
-			slog.Default().Info("ctx done : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
+			p.logger.Debug(context.Background(), "ctx done",
+				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.NACK()
 			return ctx.Err()
 
-		case resChan <- job.Result:
-			slog.Default().Info("sent worker queue : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
+		case resChan.ch <- job.Result:
+			p.logger.Debug(ctx, "sent worker queue",
+				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
+			job.ACK()
+
+		case <-resChan.done:
+			p.logger.Debug(ctx, "closed worker queue",
+				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
+			close(resChan.ch)
 			job.ACK()
 
 		default:
-			slog.Default().Info("buffer full : ", "workerID", p.workerID, "jobID", job.ID, "result", job.Result)
+			p.logger.Warn(ctx, "no waiter",
+				log.String("worker-id", p.workerID), log.String("job-id", job.ID), log.Any("result", job.Result))
 			job.ACK()
 		}
 	}
@@ -184,7 +215,11 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
 	done func(ctx context.Context) error,
 	err error,
 ) {
-	resChan := make(chan T)
+	resChan := chanWCloseSignal[T]{
+		ch:   make(chan T),
+		done: make(chan struct{}),
+	}
+
 	p.chanmap.Set(jobID, resChan)
 	done = func(ctx context.Context) error {
 		return p.doneWaiting(ctx, jobID, resChan)
@@ -194,15 +229,16 @@ func (p *PubSubRouter[T]) WaitResult(ctx context.Context, jobID string) (
 		return nil, nil, err
 	}
 
-	return resChan, done, nil
+	return resChan.ch, done, nil
 }
 
-func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string, resChan chan T) (err error) {
+func (p *PubSubRouter[T]) doneWaiting(ctx context.Context, jobID string, resChan chanWCloseSignal[T]) (err error) {
 	if err := p.kvRepo.UnRegister(ctx, jobID); err != nil {
 		return err
 	}
 
-	// close(resChan)
+	p.logger.Debug(ctx, "done waiting", log.String("worker-id", p.workerID), log.String("job-id", jobID))
 	p.chanmap.Remove(jobID)
+	close(resChan.done)
 	return
 }

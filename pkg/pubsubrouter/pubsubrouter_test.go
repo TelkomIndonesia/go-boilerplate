@@ -6,7 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/stretchr/testify/assert"
@@ -208,12 +207,9 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 
 	// simulate publish job result
 	var acks atomic.Int32
-	var wgJobs sync.WaitGroup
-	wgJobs.Add(len(jobs))
 	for id, results := range jobs {
 		jobID := id
 		go func() {
-			defer wgJobs.Done()
 			for _, result := range results {
 				logger.Debug(t.Context(), "publish", log.String("job-id", jobID), log.String("result", result))
 				basepubsub.jobQueue <- Job[string]{
@@ -229,11 +225,8 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 			}
 		}()
 	}
-	wgJobs.Wait()
 
-	time.AfterFunc(5*time.Second, cancel)
 	wgReceiverFinish.Wait()
-
 	assert.Equal(t, acks.Load(), int32(len(jobs)*jobResultsNum))
 	assert.Equal(t, acks.Load(), int32(len(jobs)*jobResultsNum))
 }

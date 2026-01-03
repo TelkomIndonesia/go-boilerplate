@@ -111,34 +111,34 @@ func (m *memPubSub[T]) PublishResult(
 }
 
 func TestMultipleWaitersReceiveResults(t *testing.T) {
-	logger := logtest.NewLogger(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
+	logger := logtest.NewLogger(t)
 
-	kv := newMemKV()
-	basepubsub := newMemPubSub[string](t, "")
+	workersNum := 10
+	workerJobsNum := 50
+	jobResultsNum := 50
 
 	jobs := map[string][]string{}
 	jobIDFunc := func(i int) string {
 		return fmt.Sprintf("job-%d", i)
 	}
-	lenResults := 50
-	for i := range 200 {
+	for i := range workersNum * workerJobsNum {
 		id := jobIDFunc(i)
-		for j := range lenResults {
+		for j := range jobResultsNum {
 			result := fmt.Sprintf("result-%s-%d", id, j)
 			jobs[id] = append(jobs[id], result)
 		}
 	}
 
-	numWorkers := 10
-	jobPerWorker := len(jobs) / numWorkers
+	kv := newMemKV()
+	basepubsub := newMemPubSub[string](t, "")
 
 	// start pubsub receiver
 	var wgReceiverStart, wgReceiverFinish sync.WaitGroup
-	wgReceiverStart.Add(numWorkers * jobPerWorker)
-	wgReceiverFinish.Add(numWorkers * jobPerWorker)
-	for i := range numWorkers {
+	wgReceiverStart.Add(workersNum * workerJobsNum)
+	wgReceiverFinish.Add(workersNum * workerJobsNum)
+	for i := range workersNum {
 		workerID := fmt.Sprintf("worker-%d", i)
 		psw := NewPubSubRouter(workerID, kv, basepubsub.Clone(workerID), logger)
 		go func() {
@@ -148,8 +148,8 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 			}
 		}()
 
-		for j := range jobPerWorker {
-			jobID := jobIDFunc(i + (numWorkers * j))
+		for j := range workerJobsNum {
+			jobID := jobIDFunc(i + (workersNum * j))
 			go func() {
 				defer wgReceiverFinish.Done()
 
@@ -234,6 +234,6 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	time.AfterFunc(5*time.Second, cancel)
 	wgReceiverFinish.Wait()
 
-	assert.Equal(t, acks.Load(), int32(len(jobs)*lenResults))
-	assert.Equal(t, acks.Load(), int32(len(jobs)*lenResults))
+	assert.Equal(t, acks.Load(), int32(len(jobs)*jobResultsNum))
+	assert.Equal(t, acks.Load(), int32(len(jobs)*jobResultsNum))
 }

@@ -24,25 +24,25 @@ type Channel[T any] struct {
 	ch         chan Message[T]
 	finalClose func()
 
-	done        <-chan struct{}
+	chDone      <-chan struct{}
 	signalClose func()
 
-	Close func(context.Context) error
+	close func(context.Context) error
 }
 
 func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
 	ch := make(chan Message[T], buflen)
-	done := make(chan struct{})
-	var once1, once2 sync.Once
+	chDone := make(chan struct{})
 
+	var once1, once2 sync.Once
 	finalClose := func() { once1.Do(func() { close(ch) }) }
-	signalClose := func() { once2.Do(func() { close(done) }) }
+	signalClose := func() { once2.Do(func() { close(chDone) }) }
 
 	channel := Channel[T]{
 		initiated: true,
 
-		ch:   ch,
-		done: done,
+		ch:     ch,
+		chDone: chDone,
 
 		finalClose:  finalClose,
 		signalClose: signalClose,
@@ -51,15 +51,20 @@ func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T])
 		if err := beforeClose(ctx, channel); err != nil {
 			return err
 		}
+
 		signalClose()
 		return nil
 	}
-	channel.Close = Close
+	channel.close = Close
 
 	return channel
 }
 
 func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
+	if !c.initiated {
+		return errors.New("channel not initiated")
+	}
+
 	select {
 	default:
 		log.FromContext(ctx).Warn(ctx, "NACK due to unresponsive subscriber",
@@ -72,7 +77,7 @@ func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
 		msg.NACK()
 		return ctx.Err()
 
-	case <-c.done:
+	case <-c.chDone:
 		log.FromContext(ctx).Warn(ctx, "NACK due to channel closed",
 			log.String("channel-id", msg.ChannelID))
 		c.finalClose()
@@ -88,6 +93,14 @@ func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
 
 func (c Channel[T]) Messages() <-chan Message[T] {
 	return c.ch
+}
+
+func (c Channel[T]) Close(ctx context.Context) (err error) {
+	if !c.initiated {
+		return errors.New("channel not initiated")
+	}
+
+	return c.close(ctx)
 }
 
 type KeyValueSvc interface {
@@ -258,8 +271,9 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 
 		err = p.kvRepo.Set(ctx, channelID, p.workerID)
 		if err != nil {
+			channel = Channel[T]{}
 			err = fmt.Errorf("failed to register to key value service")
-			return Channel[T]{}
+			return channel
 		}
 
 		return new

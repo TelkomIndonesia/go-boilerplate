@@ -147,19 +147,8 @@ func New[T any](
 
 func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 	errs := make(chan error, 2)
-	wg := sync.WaitGroup{}
-	defer wg.Wait()
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		errs <- p.ListenWorkerChannel(ctx)
-	}()
-
-	go func() {
-		defer wg.Done()
-		errs <- p.ListenMessageQueue(ctx)
-	}()
+	go func() { errs <- p.ListenWorkerChannel(ctx) }()
+	go func() { errs <- p.ListenMessageQueue(ctx) }()
 
 	for range 2 {
 		select {

@@ -62,7 +62,7 @@ func newMemPubSub[T any](t *testing.T) *memPubSub[T] {
 }
 
 func (m *memPubSub[T]) Clone(workerID string) PubSubSvc[T] {
-	m.workers.Set(workerID, make(chan Message[T], 1000))
+	m.workers.Set(workerID, make(chan Message[T]))
 	return &memPubSub[T]{
 		t:        m.t,
 		acks:     m.acks,

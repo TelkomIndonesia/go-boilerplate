@@ -19,15 +19,13 @@ type Message[T any] struct {
 }
 
 type Channel[T any] struct {
-	initiated bool
+	ch             chan Message[T]
+	finalCloseFunc func()
 
-	ch         chan Message[T]
-	finalClose func()
+	chClosed        <-chan struct{}
+	signalCloseFunc func()
 
-	chDone      <-chan struct{}
-	signalClose func()
-
-	close func(context.Context) error
+	closeFunc func(context.Context) error
 }
 
 func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
@@ -35,33 +33,39 @@ func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T])
 	chDone := make(chan struct{})
 
 	var once1, once2 sync.Once
-	finalClose := func() { once1.Do(func() { close(ch) }) }
-	signalClose := func() { once2.Do(func() { close(chDone) }) }
+	finalCloseFunc := func() { once1.Do(func() { close(ch) }) }
+	signalCloseFunc := func() { once2.Do(func() { close(chDone) }) }
 
 	channel := Channel[T]{
-		initiated: true,
+		ch:       ch,
+		chClosed: chDone,
 
-		ch:     ch,
-		chDone: chDone,
-
-		finalClose:  finalClose,
-		signalClose: signalClose,
+		finalCloseFunc:  finalCloseFunc,
+		signalCloseFunc: signalCloseFunc,
 	}
-	Close := func(ctx context.Context) error {
+
+	channel.closeFunc = func(ctx context.Context) error {
 		if err := beforeClose(ctx, channel); err != nil {
 			return err
 		}
 
-		signalClose()
+		signalCloseFunc()
 		return nil
 	}
-	channel.close = Close
 
 	return channel
 }
 
+func (c Channel[T]) equal(other Channel[T]) bool {
+	return c.ch == other.ch
+}
+
+func (c Channel[T]) initiated() bool {
+	return c.ch != nil
+}
+
 func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
-	if !c.initiated {
+	if !c.initiated() {
 		return errors.New("channel not initiated")
 	}
 
@@ -77,10 +81,10 @@ func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
 		msg.NACK()
 		return ctx.Err()
 
-	case <-c.chDone:
+	case <-c.chClosed:
 		log.FromContext(ctx).Warn(ctx, "NACK due to channel closed",
 			log.String("channel-id", msg.ChannelID))
-		c.finalClose()
+		c.finalCloseFunc()
 		msg.NACK()
 
 	case c.ch <- msg:
@@ -96,11 +100,11 @@ func (c Channel[T]) Messages() <-chan Message[T] {
 }
 
 func (c Channel[T]) Close(ctx context.Context) (err error) {
-	if !c.initiated {
-		return errors.New("channel not initiated")
+	if c.closeFunc != nil {
+		return nil
 	}
 
-	return c.close(ctx)
+	return c.closeFunc(ctx)
 }
 
 type KeyValueSvc interface {
@@ -244,7 +248,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
 		channel, ok := p.chanmap.Get(msg.ChannelID)
-		if !ok || !channel.initiated {
+		if !ok || !channel.initiated() {
 			p.logger.Warn(ctx, "dropping data due to no receiver",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.ACK()
@@ -264,8 +268,8 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 	})
 
 	p.chanmap.Upsert(channelID, channel, func(exist bool, old, new Channel[T]) Channel[T] {
-		if exist && old.initiated {
-			old.signalClose()
+		if exist && old.initiated() {
+			old.signalCloseFunc()
 			return new
 		}
 
@@ -284,11 +288,11 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 
 func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channelID string, channel Channel[T]) (err error) {
 	p.chanmap.RemoveCb(channelID, func(key string, v Channel[T], exists bool) bool {
-		if !exists || !v.initiated {
+		if !exists || !v.initiated() {
 			return true
 		}
 
-		if v.ch != channel.ch {
+		if !v.equal(channel) {
 			return false
 		}
 

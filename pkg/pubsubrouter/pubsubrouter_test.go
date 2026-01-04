@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/stretchr/testify/assert"
@@ -193,7 +194,6 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 
 							messages = append(messages, message.Content)
 							message.ACK()
-							continue
 						}
 					}
 				}
@@ -241,7 +241,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 			}
 		}()
 	}
-
+	time.AfterFunc(5*time.Second, cancel)
 	wgReceiverFinish.Wait()
 	assert.Equal(t, int32(len(channels)*channelMessage), acks.Load())
 	assert.Equal(t, int32(len(channels)*channelMessage), basepubsub.acks.Load())

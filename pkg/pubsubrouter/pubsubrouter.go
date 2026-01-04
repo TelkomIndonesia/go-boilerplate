@@ -78,6 +78,7 @@ type PubSubRouter[T any] struct {
 	pubsub PubSubSvc[T]
 
 	chanmap cmap.ConcurrentMap[string, Channel[T]]
+	mu      sync.Mutex
 
 	logger log.Logger
 }
@@ -231,6 +232,9 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 }
 
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	rc := newChannel(buflen, func(ctx context.Context, rc Channel[T]) error {
 		return p.doneRouting(ctx, channelID, rc)
 	})
@@ -258,12 +262,14 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 }
 
 func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channelID string, channel Channel[T]) (err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	removed := false
 	p.chanmap.RemoveCb(channelID, func(key string, v Channel[T], exists bool) bool {
 		removed = v.ch == channel.ch
 		return removed
 	})
-
 	if !removed {
 		return
 	}

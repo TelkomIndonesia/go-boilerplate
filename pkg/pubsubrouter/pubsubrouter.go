@@ -19,36 +19,40 @@ type Message[T any] struct {
 }
 
 type Channel[T any] struct {
-	ch   chan Message[T]
-	done <-chan struct{}
+	ch    chan Message[T]
+	close func()
 
-	close       func()
+	done        <-chan struct{}
 	signalClose func()
-	Close       func(context.Context) error
+
+	Close func(context.Context) error
 }
 
-func newChannel[T any](buflen int, beforeClose func(context.Context) error) Channel[T] {
+func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
 	ch := make(chan Message[T], buflen)
 	done := make(chan struct{})
 	var once1, once2 sync.Once
 
 	finalClose := func() { once1.Do(func() { close(ch) }) }
 	signalClose := func() { once2.Do(func() { close(done) }) }
-	return Channel[T]{
+
+	channel := Channel[T]{
 		ch:   ch,
 		done: done,
 
 		close:       finalClose,
 		signalClose: signalClose,
-
-		Close: func(ctx context.Context) error {
-			if err := beforeClose(ctx); err != nil {
-				return err
-			}
-			signalClose()
-			return nil
-		},
 	}
+	Close := func(ctx context.Context) error {
+		if err := beforeClose(ctx, channel); err != nil {
+			return err
+		}
+		signalClose()
+		return nil
+	}
+	channel.Close = Close
+
+	return channel
 }
 
 func (c Channel[T]) Messages() <-chan Message[T] {
@@ -227,8 +231,8 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 }
 
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
-	rc := newChannel[T](buflen, func(ctx context.Context) error {
-		return p.doneRouting(ctx, channelID)
+	rc := newChannel[T](buflen, func(ctx context.Context, rc Channel[T]) error {
+		return p.doneRouting(ctx, channelID, rc)
 	})
 
 	updated := false
@@ -253,11 +257,19 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 	return rc, nil
 }
 
-func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channelID string) (err error) {
+func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channelID string, channel Channel[T]) (err error) {
+	removed := false
+	p.chanmap.RemoveCb(channelID, func(key string, v Channel[T], exists bool) bool {
+		removed = v.ch == channel.ch
+		return removed
+	})
+
+	if !removed {
+		return
+	}
+
 	if err := p.kvRepo.Remove(ctx, channelID); err != nil {
 		return fmt.Errorf("failed to unregister to key value service")
 	}
-
-	p.chanmap.Remove(channelID)
 	return
 }

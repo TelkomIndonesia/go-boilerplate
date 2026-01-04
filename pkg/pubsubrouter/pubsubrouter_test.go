@@ -3,6 +3,7 @@ package pubsubrouter
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -167,42 +168,50 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 
 				expected := channels[channelID]
 				messages := []string{}
-				for len(messages) < len(expected) {
-					var message Message[string]
-					var cont bool
 
-					select {
-					case <-ctx.Done():
-					case message, cont = <-resultsChan.Messages():
+				randomTakeOver := func() {
+					if rand.Int()%3 != 0 {
+						return
 					}
 
-					if !cont {
-						break
-					}
+					oldChan := resultsChan
+					defer oldChan.Close(t.Context())
 
-					messages = append(messages, message.Content)
-					message.ACK()
+					resultsChan, err = psw.Subscribe(ctx, channelID, 100)
+					require.NoError(t, err)
 
-					// simulate take over by another go routine
-					if len(messages)%3 == 0 {
-						oldChan := resultsChan
+					// exhaust
+					for {
+						select {
+						default:
+							return
 
-						resultsChan, err = psw.Subscribe(ctx, channelID, 100)
-						require.NoError(t, err)
-						defer func() { resultsChan.Close(t.Context()) }()
-
-						// exhaust
-						for {
-							select {
-							default:
-							case message := <-oldChan.Messages():
-								messages = append(messages, message.Content)
-								message.ACK()
-								continue
+						case message, ok := <-oldChan.Messages():
+							if !ok {
+								return
 							}
-							break
+
+							messages = append(messages, message.Content)
+							message.ACK()
+							continue
 						}
 					}
+				}
+
+				for len(messages) < len(expected) {
+					select {
+					case <-ctx.Done():
+					case message, cont := <-resultsChan.Messages():
+						if !cont {
+							break
+						}
+
+						messages = append(messages, message.Content)
+						message.ACK()
+						randomTakeOver()
+						continue
+					}
+					break
 				}
 
 				assert.ElementsMatch(t, expected, messages, workerID, channelID)

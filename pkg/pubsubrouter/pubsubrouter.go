@@ -231,7 +231,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 }
 
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
-	rc := newChannel[T](buflen, func(ctx context.Context, rc Channel[T]) error {
+	rc := newChannel(buflen, func(ctx context.Context, rc Channel[T]) error {
 		return p.doneRouting(ctx, channelID, rc)
 	})
 

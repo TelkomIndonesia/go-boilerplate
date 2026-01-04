@@ -16,12 +16,6 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/logtest"
 )
 
-//
-// --------------------
-// In-memory KV repo
-// --------------------
-//
-
 type memKV struct {
 	m cmap.ConcurrentMap[string, string]
 }
@@ -55,22 +49,20 @@ type memPubSub[T any] struct {
 	workers  cmap.ConcurrentMap[string, chan Message[T]]
 }
 
-func newMemPubSub[T any](t *testing.T, workerID string) *memPubSub[T] {
+func newMemPubSub[T any](t *testing.T) *memPubSub[T] {
 	ps := &memPubSub[T]{
 		t:     t,
 		acks:  &atomic.Int32{},
 		nacks: &atomic.Int32{},
 
-		workerID: workerID,
 		jobQueue: make(chan Message[T]),
 		workers:  cmap.New[chan Message[T]](),
 	}
-	ps.workers.Set(workerID, make(chan Message[T]))
 	return ps
 }
 
 func (m *memPubSub[T]) Clone(workerID string) PubSubSvc[T] {
-	m.workers.Set(workerID, make(chan Message[T]))
+	m.workers.Set(workerID, make(chan Message[T], 1000))
 	return &memPubSub[T]{
 		t:        m.t,
 		acks:     m.acks,
@@ -103,16 +95,19 @@ func (m *memPubSub[T]) PublishWorkerMessage(
 		return fmt.Errorf("can't publish for %s", workerID)
 	}
 
-	ch <- Message[T]{
+	msg := Message[T]{
 		ChannelID: channelID,
 		Content:   result,
 		ACK: func() {
 			m.acks.Add(1)
 		},
-		NACK: func() {
-			m.nacks.Add(1)
-		},
 	}
+	msg.NACK = func() {
+		m.nacks.Add(1)
+		go func() { ch <- msg }()
+	}
+
+	ch <- msg
 	return nil
 }
 
@@ -138,7 +133,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	}
 
 	kv := newMemKV()
-	basepubsub := newMemPubSub[string](t, "")
+	basepubsub := newMemPubSub[string](t)
 
 	// start pubsub receiver
 	var wgReceiverStart, wgReceiverFinish sync.WaitGroup
@@ -170,7 +165,9 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 				expected := channels[channelID]
 				messages := []string{}
 
-				randomTakeOver := func() {
+				randomTakeOver := func(m []string) (messages []string) {
+					messages = m
+
 					if rand.Int()%3 != 0 {
 						return
 					}
@@ -181,10 +178,9 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 					resultsChan, err = psw.Subscribe(ctx, channelID, 100)
 					require.NoError(t, err)
 
-					// exhaust
 					for {
 						select {
-						default:
+						case <-time.After(10 * time.Millisecond):
 							return
 
 						case message, ok := <-oldChan.Messages():
@@ -201,14 +197,15 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 				for len(messages) < len(expected) {
 					select {
 					case <-ctx.Done():
-					case message, cont := <-resultsChan.Messages():
-						if !cont {
+					case message, ok := <-resultsChan.Messages():
+						if !ok {
 							break
 						}
 
 						messages = append(messages, message.Content)
 						message.ACK()
-						randomTakeOver()
+
+						messages = randomTakeOver(messages)
 						continue
 					}
 					break
@@ -228,16 +225,16 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 		go func() {
 			for _, content := range channel {
 				logger.Debug(t.Context(), "publish", log.String("channel-id", channelID), log.String("content", content))
-				basepubsub.jobQueue <- Message[string]{
+				msg := Message[string]{
 					ChannelID: channelID,
 					Content:   content,
-					ACK: func() {
-						acks.Add(1)
-					},
-					NACK: func() {
-						nacks.Add(1)
-					},
+					ACK:       func() { acks.Add(1) },
 				}
+				msg.NACK = func() {
+					nacks.Add(1)
+					go func() { basepubsub.jobQueue <- msg }()
+				}
+				basepubsub.jobQueue <- msg
 			}
 		}()
 	}
@@ -245,6 +242,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	wgReceiverFinish.Wait()
 	assert.Equal(t, int32(len(channels)*channelMessage), acks.Load())
 	assert.Equal(t, int32(len(channels)*channelMessage), basepubsub.acks.Load())
-	assert.Zero(t, nacks.Load())
-	assert.Zero(t, basepubsub.nacks.Load())
+	if a, b := nacks.Load(), basepubsub.nacks.Load(); a > 0 || b > 0 {
+		logger.Warn(t.Context(), "non zero nacks", log.Int("message-queue", int(a)), log.Int("worker-channel", int(b)))
+	}
 }

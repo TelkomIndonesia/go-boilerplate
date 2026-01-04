@@ -74,8 +74,24 @@ func (l *logger) log(fn func(context.Context, string, ...log.Attr), ctx context.
 
 func (l *logger) WithAttrs(attrs ...log.Attr) log.Logger {
 	l.t.Helper()
-	l.l = l.l.WithAttrs(attrs...)
-	return l
+
+	l.mux.Lock()
+	defer l.mux.Unlock()
+
+	bc := make([]byte, l.b.Len())
+	copy(bc, l.b.Bytes())
+	b := bytes.NewBuffer(bc)
+	h := slog.NewTextHandler(b, &slog.HandlerOptions{})
+	s := slog.New(slog.NewTextHandler(b, &slog.HandlerOptions{}))
+
+	nl := &logger{
+		t: l.t,
+		l: log.NewLogger(log.WithHandlers(h)).WithAttrs(attrs...),
+		b: b,
+		s: s,
+	}
+
+	return nl
 }
 
 func (l *logger) WithTrace() log.Logger {

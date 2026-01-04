@@ -19,8 +19,10 @@ type Message[T any] struct {
 }
 
 type Channel[T any] struct {
-	ch    chan Message[T]
-	close func()
+	initiated bool
+
+	ch         chan Message[T]
+	finalClose func()
 
 	done        <-chan struct{}
 	signalClose func()
@@ -37,10 +39,12 @@ func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T])
 	signalClose := func() { once2.Do(func() { close(done) }) }
 
 	channel := Channel[T]{
+		initiated: true,
+
 		ch:   ch,
 		done: done,
 
-		close:       finalClose,
+		finalClose:  finalClose,
 		signalClose: signalClose,
 	}
 	Close := func(ctx context.Context) error {
@@ -53,6 +57,33 @@ func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T])
 	channel.Close = Close
 
 	return channel
+}
+
+func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
+	select {
+	default:
+		log.FromContext(ctx).Warn(ctx, "NACK due to unresponsive subscriber",
+			log.String("channel-id", msg.ChannelID))
+		msg.NACK()
+
+	case <-ctx.Done():
+		log.FromContext(ctx).Warn(ctx, "NACK due to context cancellation",
+			log.String("channel-id", msg.ChannelID))
+		msg.NACK()
+		return ctx.Err()
+
+	case <-c.done:
+		log.FromContext(ctx).Warn(ctx, "NACK due to channel closed",
+			log.String("channel-id", msg.ChannelID))
+		c.finalClose()
+		msg.NACK()
+
+	case c.ch <- msg:
+		log.FromContext(ctx).Debug(ctx, "sent worker queue",
+			log.String("channel-id", msg.ChannelID))
+	}
+
+	return
 }
 
 func (c Channel[T]) Messages() <-chan Message[T] {
@@ -78,7 +109,6 @@ type PubSubRouter[T any] struct {
 	pubsub PubSubSvc[T]
 
 	chanmap cmap.ConcurrentMap[string, Channel[T]]
-	mu      sync.Mutex
 
 	logger log.Logger
 }
@@ -152,13 +182,13 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 
 		workerID, err := p.kvRepo.Get(ctx, msg.ChannelID)
 		if err != nil {
-			p.logger.Warn(ctx, "failed to lookup worker for message",
+			p.logger.Warn(ctx, "NACK due to failure to lookup worker for message",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK()
 			continue
 		}
 		if workerID == "" {
-			p.logger.Warn(ctx, "no worker found",
+			p.logger.Warn(ctx, "dropping data due to inexistent worker",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.ACK()
 			continue
@@ -166,7 +196,7 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 
 		err = p.pubsub.PublishWorkerMessage(ctx, workerID, msg.ChannelID, msg.Content)
 		if err != nil {
-			p.logger.Warn(ctx, "failed to publish message",
+			p.logger.Warn(ctx, "NACK due to failure to publish message",
 				log.String("worker-id", workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK()
 			continue
@@ -201,81 +231,60 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
 		channel, ok := p.chanmap.Get(msg.ChannelID)
-		if !ok {
-			p.logger.Warn(ctx, "no receiver",
+		if !ok || !channel.initiated {
+			p.logger.Warn(ctx, "dropping data due to no receiver",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.ACK()
 			continue
 		}
 
-		select {
-		case <-ctx.Done():
-			msg.NACK()
-			return ctx.Err()
-
-		case channel.ch <- msg:
-			p.logger.Debug(ctx, "sent worker queue",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
-
-		case <-channel.done:
-			p.logger.Debug(ctx, "closed worker queue",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
-			channel.close()
-			msg.ACK()
-
-		default:
-			p.logger.Warn(ctx, "unresponsive subscriber",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
-			msg.ACK()
+		ctx := log.ContextWithLog(ctx, p.logger.WithAttrs(log.String("worker-id", p.workerID)))
+		if err := channel.write(ctx, msg); err != nil {
+			return err
 		}
 	}
 }
 
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	rc := newChannel(buflen, func(ctx context.Context, rc Channel[T]) error {
+	channel = newChannel(buflen, func(ctx context.Context, rc Channel[T]) error {
 		return p.doneRouting(ctx, channelID, rc)
 	})
 
-	updated := false
-	p.chanmap.Upsert(channelID, rc, func(exist bool, old, new Channel[T]) Channel[T] {
-		if exist {
+	p.chanmap.Upsert(channelID, channel, func(exist bool, old, new Channel[T]) Channel[T] {
+		if exist && old.initiated {
 			old.signalClose()
-			updated = true
+			return new
 		}
+
+		err = p.kvRepo.Set(ctx, channelID, p.workerID)
+		if err != nil {
+			err = fmt.Errorf("failed to register to key value service")
+			return Channel[T]{}
+		}
+
 		return new
 	})
-	if updated {
-		return rc, nil
-	}
 
-	err = p.kvRepo.Set(ctx, channelID, p.workerID)
-	if err != nil {
-		p.chanmap.Remove(channelID)
-		err = fmt.Errorf("failed to register to key value service")
-		return
-	}
-
-	return rc, nil
+	return
 }
 
 func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channelID string, channel Channel[T]) (err error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	removed := false
 	p.chanmap.RemoveCb(channelID, func(key string, v Channel[T], exists bool) bool {
-		removed = v.ch == channel.ch
-		return removed
-	})
-	if !removed {
-		return
-	}
+		if !exists || !v.initiated {
+			return true
+		}
 
-	if err := p.kvRepo.Remove(ctx, channelID); err != nil {
-		return fmt.Errorf("failed to unregister to key value service")
-	}
+		if v.ch != channel.ch {
+			return false
+		}
+
+		err = p.kvRepo.Remove(ctx, channelID)
+		if err != nil {
+			err = fmt.Errorf("failed to unregister to key value service")
+			return false
+		}
+
+		return true
+	})
 	return
 }

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 
@@ -19,8 +21,9 @@ type logger struct {
 }
 
 func NewLogger(t *testing.T) log.Logger {
+	lvl := log.Level(os.Getenv("TEST_LOG_LEVEL"))
 	b := &bytes.Buffer{}
-	h := slog.NewTextHandler(b, &slog.HandlerOptions{Level: slog.LevelDebug})
+	h := slog.NewTextHandler(b, &slog.HandlerOptions{Level: lvl})
 	s := slog.New(h)
 	return &logger{t: t, l: log.NewLogger(log.WithHandlers(h)), b: b, s: s}
 }
@@ -31,45 +34,64 @@ func (l *logger) Enabled(context.Context, log.Level) bool {
 
 func (l *logger) Debug(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Debug, ctx, slog.LevelWarn, message, attrs...)
+	l.log(l.l.Debug, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Info(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Info, ctx, slog.LevelWarn, message, attrs...)
+	l.log(l.l.Info, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Warn(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Warn, ctx, slog.LevelWarn, message, attrs...)
+	l.log(l.l.Warn, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Error(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Error, ctx, slog.LevelWarn, message, attrs...)
+	l.log(l.l.Error, l.t.Context(), message, attrs...)
 }
 
 func (l *logger) Fatal(ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
-	l.log(l.l.Error, ctx, slog.LevelWarn, message, attrs...)
+	l.log(l.l.Error, l.t.Context(), message, attrs...)
 	l.t.FailNow()
 }
 
-func (l *logger) log(fn func(context.Context, string, ...log.Attr), ctx context.Context, level slog.Level, message string, attrs ...log.Attr) {
+func (l *logger) log(fn func(context.Context, string, ...log.Attr), ctx context.Context, message string, attrs ...log.Attr) {
 	l.t.Helper()
 
 	l.mux.Lock()
 	defer l.mux.Unlock()
 
 	fn(ctx, message, attrs...)
-	l.t.Log(l.b.String())
+	s := l.b.String()
+	if s != "" {
+		l.t.Log(strings.TrimSpace(s))
+	}
 	l.b.Reset()
 }
 
 func (l *logger) WithAttrs(attrs ...log.Attr) log.Logger {
 	l.t.Helper()
-	l.l = l.l.WithAttrs(attrs...)
-	return l
+
+	l.mux.Lock()
+	defer l.mux.Unlock()
+
+	bc := make([]byte, l.b.Len())
+	copy(bc, l.b.Bytes())
+	b := bytes.NewBuffer(bc)
+	h := slog.NewTextHandler(b, &slog.HandlerOptions{})
+	s := slog.New(slog.NewTextHandler(b, &slog.HandlerOptions{}))
+
+	nl := &logger{
+		t: l.t,
+		l: log.NewLogger(log.WithHandlers(h)).WithAttrs(attrs...),
+		b: b,
+		s: s,
+	}
+
+	return nl
 }
 
 func (l *logger) WithTrace() log.Logger {

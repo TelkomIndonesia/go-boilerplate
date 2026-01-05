@@ -30,6 +30,10 @@ func WithLoggerExt(l LoggerBase) Logger {
 }
 
 func (l loggerExt) WithAttrs(fns ...Attr) Logger {
+	l.attrs = make([]Attr, 0, len(l.attrs)+len(fns))
+	for _, attr := range l.attrs {
+		l.attrs = append(l.attrs, attr)
+	}
 	l.attrs = append(l.attrs, fns...)
 	return l
 }

@@ -41,7 +41,7 @@ func TestBlindIndexes(t *testing.T) {
 	handle, err = mgr.Handle()
 	require.NoError(t, err, "should obtain new mac handle")
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		bidx, err := NewBIDX(handle, length)
 		require.NoError(t, err)
 

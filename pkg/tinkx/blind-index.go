@@ -53,7 +53,13 @@ func NewBIDX(h *keyset.Handle, length int) (BIDX, error) {
 			return nil, fmt.Errorf("failed to clone handler :%w", err)
 		}
 
-		keyset.NewManagerFromHandle(h).SetPrimary(k.GetKeyId())
+		mgr := keyset.NewManagerFromHandle(h)
+		mgr.SetPrimary(k.GetKeyId())
+		h, err = mgr.Handle()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get handle for key id %d: %w", k.GetKeyId(), err)
+		}
+
 		m, err := mac.New(h)
 		if err != nil {
 			return nil, fmt.Errorf("failed to instantiate primitive from key id %d: %w", k.GetKeyId(), err)
@@ -101,8 +107,8 @@ func (b bidx) ComputePrimary(data []byte) (idx []byte, err error) {
 
 func (b bidx) ComputeAll(data []byte) (idxs [][]byte, err error) {
 	idxs = make([][]byte, 0, len(b.hs))
-	for i, m := range b.ms {
-		idx, err := bidx{m: m, h: b.h, len: b.len}.ComputePrimary(data)
+	for i := range b.hs {
+		idx, err := bidx{m: b.ms[i], h: b.hs[i], len: b.len}.ComputePrimary(data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compute mac from key id %d: %w", b.hs[i].KeysetInfo().GetPrimaryKeyId(), err)
 		}

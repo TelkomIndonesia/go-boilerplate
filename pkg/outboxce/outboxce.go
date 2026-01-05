@@ -25,10 +25,11 @@ type OutboxCE struct {
 	ID       uuid.UUID
 	Time     time.Time
 
-	EventType string
-	Source    string
-	Subject   string
-	Content   proto.Message
+	EventType     string
+	Source        string
+	Subject       string
+	Content       proto.Message
+	ContentSchema string
 
 	AEADFunc AEADFunc
 
@@ -61,6 +62,11 @@ func (o OutboxCE) WithSubject(sub string) OutboxCE {
 	return o
 }
 
+func (o OutboxCE) WithContentSchema(schema string) OutboxCE {
+	o.ContentSchema = schema
+	return o
+}
+
 func (o OutboxCE) WithEncryptor(fn func(event.Event) (tink.AEAD, error)) OutboxCE {
 	o.AEADFunc = fn
 	return o
@@ -81,10 +87,15 @@ func (o OutboxCE) Build() (ce event.Event, err error) {
 		id = o.TenantID.String() + "/" + id
 	}
 	ce.SetID(id)
-	ce.SetSource(o.Source)
-	ce.SetSubject(o.TenantID.String())
 	ce.SetType(o.EventType)
+	ce.SetSource(o.Source)
+	if o.Subject != "" {
+		ce.SetSubject(o.Subject)
+	}
 	ce.SetTime(o.Time)
+	if o.ContentSchema != "" {
+		ce.SetDataSchema(o.ContentSchema)
+	}
 
 	dct := ContentTypeProtobuf
 	data, err := proto.Marshal(o.Content)
@@ -113,21 +124,25 @@ func FromEvent(e event.Event, aeadFunc AEADFunc, Unmarshaller func([]byte) (prot
 		if err != nil {
 			return o, fmt.Errorf("failed to parse id : %w", err)
 		}
+
 	case 2:
 		tid, err := uuid.Parse(parts[0])
 		if err != nil {
 			return o, fmt.Errorf("failed to parse tenant id: %w", err)
 		}
+
 		o.TenantID = &tid
 		o.ID, err = uuid.Parse(parts[1])
 		if err != nil {
 			return o, fmt.Errorf("failed to parse id : %w", err)
 		}
+
 	default:
 		return o, fmt.Errorf("invalid id")
 	}
 
 	o.Subject = e.Subject()
+	o.ContentSchema = e.DataSchema()
 	o.Source = e.Source()
 	o.EventType = e.Type()
 	o.Time = e.Time()

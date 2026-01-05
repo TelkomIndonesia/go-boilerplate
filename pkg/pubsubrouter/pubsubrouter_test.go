@@ -157,7 +157,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 				ctx, cancel := context.WithCancel(ctx)
 				defer cancel()
 
-				resultsChan, err := psw.Subscribe(ctx, channelID, 0)
+				resultsChan, err := psw.Subscribe(ctx, channelID, 100)
 				require.NoError(t, err)
 				defer func() { resultsChan.Close(t.Context()) }()
 				wgReceiverStart.Done()
@@ -175,12 +175,12 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 					oldChan := resultsChan
 					defer oldChan.Close(t.Context())
 
-					resultsChan, err = psw.Subscribe(ctx, channelID, 0)
+					resultsChan, err = psw.Subscribe(ctx, channelID, 100)
 					require.NoError(t, err)
 
 					for {
 						select {
-						default:
+						case <-time.After(10 * time.Millisecond):
 							return
 
 						case message, ok := <-oldChan.Messages():

@@ -4,98 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
-
-type Message[T any] struct {
-	Content T
-
-	ChannelID string
-	ACK       func()
-	NACK      func()
-}
-
-type Channel[T any] struct {
-	ch        chan Message[T]
-	terminate func()
-
-	chWriteStop <-chan struct{}
-	stopWrite   func()
-
-	close func(context.Context) error
-}
-
-func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
-	ch := make(chan Message[T], buflen)
-	chWriteStop := make(chan struct{})
-
-	var once1, once2 sync.Once
-
-	channel := Channel[T]{
-		ch:          ch,
-		chWriteStop: chWriteStop,
-	}
-
-	channel.terminate = func() {
-		once1.Do(func() { close(ch) })
-		channel.ch = nil
-	}
-	channel.stopWrite = func() {
-		once2.Do(func() { close(chWriteStop) })
-	}
-	channel.close = func(ctx context.Context) (err error) {
-		if err := beforeClose(ctx, channel); err != nil {
-			return err
-		}
-
-		channel.stopWrite()
-		return
-	}
-
-	return channel
-}
-
-func (c Channel[T]) equal(other Channel[T]) bool {
-	return c.ch == other.ch
-}
-
-func (c Channel[T]) initiated() bool {
-	return c.ch != nil
-}
-
-func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
-	if !c.initiated() {
-		return fmt.Errorf("uninitialized channel")
-	}
-
-	select {
-	default:
-		return fmt.Errorf("unresponsive channel subscriber")
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-c.chWriteStop:
-		c.terminate()
-		return fmt.Errorf("channel has been closed")
-	case c.ch <- msg:
-	}
-
-	return
-}
-
-func (c Channel[T]) Messages() <-chan Message[T] {
-	return c.ch
-}
-
-func (c Channel[T]) Close(ctx context.Context) (err error) {
-	if c.close != nil {
-		return nil
-	}
-
-	return c.close(ctx)
-}
 
 type KeyValueSvc interface {
 	Set(ctx context.Context, key string, value string) error
@@ -120,19 +32,36 @@ type PubSubRouter[T any] struct {
 	logger log.Logger
 }
 
+type PubSubRouterOptFunc[T any] func(*PubSubRouter[T]) error
+
+func WithLogger[T any](logger log.Logger) PubSubRouterOptFunc[T] {
+	return func(p *PubSubRouter[T]) error {
+		p.logger = logger
+		return nil
+	}
+}
+
 func New[T any](
 	workerID string,
-	kvRepo KeyValueSvc,
-	pubsub PubSubSvc[T],
-	logger log.Logger,
-) *PubSubRouter[T] {
-	return &PubSubRouter[T]{
+	kvRepo func() KeyValueSvc,
+	pubsub func(workerID string) PubSubSvc[T],
+	opts ...PubSubRouterOptFunc[T],
+) (*PubSubRouter[T], error) {
+	p := &PubSubRouter[T]{
 		workerID: workerID,
-		kvRepo:   kvRepo,
-		pubsub:   pubsub,
+		kvRepo:   kvRepo(),
+		pubsub:   pubsub(workerID),
 		chanmap:  cmap.New[Channel[T]](),
-		logger:   logger,
+		logger:   log.Global(),
 	}
+
+	for _, opt := range opts {
+		if err := opt(p); err != nil {
+			return nil, fmt.Errorf("failed to apply options: %w", err)
+		}
+	}
+
+	return p, nil
 }
 
 func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
@@ -180,7 +109,10 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		if err != nil {
 			p.logger.Warn(ctx, "NACK due to failure to lookup worker for message",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
-			msg.NACK()
+			msg.NACK(NACKReason{
+				Code:    NACKReasonKVError,
+				Message: err.Error(),
+			})
 			continue
 		}
 		if workerID == "" {
@@ -194,7 +126,10 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		if err != nil {
 			p.logger.Warn(ctx, "NACK due to failure to publish message",
 				log.String("worker-id", workerID), log.String("channel-id", msg.ChannelID))
-			msg.NACK()
+			msg.NACK(NACKReason{
+				Code:    NACKReasonPubSubWorkerQueueError,
+				Message: err.Error(),
+			})
 			continue
 		}
 
@@ -227,20 +162,24 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
 		channel, ok := p.chanmap.Get(msg.ChannelID)
-		if !ok || !channel.initiated() {
+		if !ok {
 			p.logger.Warn(ctx, "dropping data due to no receiver",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
-			msg.ACK()
+			msg.NACK(NACKReason{
+				Code:    NACKReasonNoSubscriber,
+				Message: "no receiver",
+			})
 			continue
 		}
 
 		if err := channel.write(ctx, msg); err != nil {
 			p.logger.Warn(ctx, "channel write failed",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
-			msg.NACK()
+			continue
 		}
 
-		p.logger.Debug(ctx, "channel successfully written", log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
+		p.logger.Debug(ctx, "channel successfully written",
+			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 	}
 }
 
@@ -257,7 +196,6 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 
 		err = p.kvRepo.Set(ctx, channelID, p.workerID)
 		if err != nil {
-			channel = Channel[T]{}
 			err = fmt.Errorf("failed to register to key value service")
 			return channel
 		}

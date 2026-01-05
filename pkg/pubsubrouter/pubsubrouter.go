@@ -19,13 +19,13 @@ type Message[T any] struct {
 }
 
 type Channel[T any] struct {
-	ch          chan Message[T]
-	chCloseFunc func()
+	ch        chan Message[T]
+	terminate func()
 
 	chWriteStop <-chan struct{}
 	stopWrite   func()
 
-	closeFunc func(context.Context) error
+	close func(context.Context) error
 }
 
 func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
@@ -33,24 +33,26 @@ func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T])
 	chWriteStop := make(chan struct{})
 
 	var once1, once2 sync.Once
-	chCloseFunc := func() { once1.Do(func() { close(ch) }) }
-	stopWrite := func() { once2.Do(func() { close(chWriteStop) }) }
 
 	channel := Channel[T]{
 		ch:          ch,
 		chWriteStop: chWriteStop,
-
-		chCloseFunc: chCloseFunc,
-		stopWrite:   stopWrite,
 	}
 
-	channel.closeFunc = func(ctx context.Context) error {
+	channel.terminate = func() {
+		once1.Do(func() { close(ch) })
+		channel.ch = nil
+	}
+	channel.stopWrite = func() {
+		once2.Do(func() { close(chWriteStop) })
+	}
+	channel.close = func(ctx context.Context) (err error) {
 		if err := beforeClose(ctx, channel); err != nil {
 			return err
 		}
 
-		stopWrite()
-		return nil
+		channel.stopWrite()
+		return
 	}
 
 	return channel
@@ -75,7 +77,7 @@ func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-c.chWriteStop:
-		c.chCloseFunc()
+		c.terminate()
 		return fmt.Errorf("channel has been closed")
 	case c.ch <- msg:
 	}
@@ -88,11 +90,11 @@ func (c Channel[T]) Messages() <-chan Message[T] {
 }
 
 func (c Channel[T]) Close(ctx context.Context) (err error) {
-	if c.closeFunc != nil {
+	if c.close != nil {
 		return nil
 	}
 
-	return c.closeFunc(ctx)
+	return c.close(ctx)
 }
 
 type KeyValueSvc interface {

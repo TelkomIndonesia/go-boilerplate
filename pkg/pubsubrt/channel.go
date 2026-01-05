@@ -1,4 +1,4 @@
-package pubsubrouter
+package pubsubrt
 
 import (
 	"context"

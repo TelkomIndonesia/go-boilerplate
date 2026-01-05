@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/logtest"
-	"github.com/telkomindonesia/go-boilerplate/pkg/pubsubrouter"
+	"github.com/telkomindonesia/go-boilerplate/pkg/pubsubrt"
 )
 
 type TestSuiteNormal struct {
-	KVFactory     func() pubsubrouter.KeyValueSvc
-	PubSubFactory func(workerID string) pubsubrouter.PubSubSvc[string]
+	KVFactory     func() pubsubrt.KeyValueSvc
+	PubSubFactory func(workerID string) pubsubrt.PubSubSvc[string]
 
-	PublishToMessageQueue func(msg pubsubrouter.Message[string])
+	PublishToMessageQueue func(msg pubsubrt.Message[string])
 
 	Logger log.Logger
 }
@@ -48,7 +48,7 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 	wgReceiverFinish.Add(workersNum * workerJobsNum)
 	for i := range workersNum {
 		workerID := fmt.Sprintf("worker-%d", i)
-		psw, err := pubsubrouter.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrouter.WithLogger[string](logger))
+		psw, err := pubsubrt.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrt.WithLogger[string](logger))
 		require.NoError(t, err)
 		go func() {
 			err := psw.Listen(ctx)
@@ -104,12 +104,12 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 		go func() {
 			for _, content := range channel {
 				logger.Debug(t.Context(), "publish", log.String("channel-id", channelID), log.String("content", content))
-				msg := pubsubrouter.Message[string]{
+				msg := pubsubrt.Message[string]{
 					ChannelID: channelID,
 					Content:   content,
 					ACK:       func() { acks.Add(1) },
 				}
-				msg.NACK = func(pubsubrouter.NACKReason) {
+				msg.NACK = func(pubsubrt.NACKReason) {
 					nacks.Add(1)
 					go func() { ts.PublishToMessageQueue(msg) }()
 				}
@@ -129,12 +129,12 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 func (ts *TestSuiteNormal) randomTakeOverfunc(
 	t *testing.T,
 	ctx context.Context,
-	psw pubsubrouter.PubSubRouter[string],
-	oldChannel pubsubrouter.Channel[string],
+	psw pubsubrt.PubSubRouter[string],
+	oldChannel pubsubrt.Channel[string],
 	channelID string,
 	msgs []string,
 ) (
-	channel pubsubrouter.Channel[string],
+	channel pubsubrt.Channel[string],
 	messages []string,
 ) {
 	messages = msgs

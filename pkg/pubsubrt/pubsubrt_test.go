@@ -1,4 +1,4 @@
-package pubsubrouter_test
+package pubsubrt_test
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log/logtest"
-	"github.com/telkomindonesia/go-boilerplate/pkg/pubsubrouter"
-	"github.com/telkomindonesia/go-boilerplate/pkg/pubsubrouter/testsuite"
+	"github.com/telkomindonesia/go-boilerplate/pkg/pubsubrt"
+	"github.com/telkomindonesia/go-boilerplate/pkg/pubsubrt/testsuite"
 )
 
 type memKV struct {
@@ -41,8 +41,8 @@ type memPubSub[T any] struct {
 	nacks *atomic.Int32
 
 	workerID string
-	jobQueue chan pubsubrouter.Message[T]
-	workers  cmap.ConcurrentMap[string, chan pubsubrouter.Message[T]]
+	jobQueue chan pubsubrt.Message[T]
+	workers  cmap.ConcurrentMap[string, chan pubsubrt.Message[T]]
 }
 
 func newMemPubSub[T any](t *testing.T) *memPubSub[T] {
@@ -51,14 +51,14 @@ func newMemPubSub[T any](t *testing.T) *memPubSub[T] {
 		acks:  &atomic.Int32{},
 		nacks: &atomic.Int32{},
 
-		jobQueue: make(chan pubsubrouter.Message[T]),
-		workers:  cmap.New[chan pubsubrouter.Message[T]](),
+		jobQueue: make(chan pubsubrt.Message[T]),
+		workers:  cmap.New[chan pubsubrt.Message[T]](),
 	}
 	return ps
 }
 
-func (m *memPubSub[T]) Clone(workerID string) pubsubrouter.PubSubSvc[T] {
-	m.workers.Set(workerID, make(chan pubsubrouter.Message[T]))
+func (m *memPubSub[T]) Clone(workerID string) pubsubrt.PubSubSvc[T] {
+	m.workers.Set(workerID, make(chan pubsubrt.Message[T]))
 	return &memPubSub[T]{
 		t:        m.t,
 		acks:     m.acks,
@@ -68,11 +68,11 @@ func (m *memPubSub[T]) Clone(workerID string) pubsubrouter.PubSubSvc[T] {
 		workers:  m.workers,
 	}
 }
-func (m *memPubSub[T]) MessageQueue(ctx context.Context) (<-chan pubsubrouter.Message[T], error) {
+func (m *memPubSub[T]) MessageQueue(ctx context.Context) (<-chan pubsubrt.Message[T], error) {
 	return m.jobQueue, nil
 }
 
-func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (<-chan pubsubrouter.Message[T], error) {
+func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (<-chan pubsubrt.Message[T], error) {
 	ch, ok := m.workers.Get(m.workerID)
 	if !ok {
 		return nil, fmt.Errorf("no channel for %s", m.workerID)
@@ -91,14 +91,14 @@ func (m *memPubSub[T]) PublishWorkerMessage(
 		return fmt.Errorf("can't publish for %s", workerID)
 	}
 
-	msg := pubsubrouter.Message[T]{
+	msg := pubsubrt.Message[T]{
 		ChannelID: channelID,
 		Content:   message,
 		ACK: func() {
 			m.acks.Add(1)
 		},
 	}
-	msg.NACK = func(pubsubrouter.NACKReason) {
+	msg.NACK = func(pubsubrt.NACKReason) {
 		m.nacks.Add(1)
 		go func() { ch <- msg }()
 	}
@@ -112,10 +112,10 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	basepubsub := newMemPubSub[string](t)
 
 	ts := &testsuite.TestSuiteNormal{
-		KVFactory:     func() pubsubrouter.KeyValueSvc { return kv },
-		PubSubFactory: func(workerID string) pubsubrouter.PubSubSvc[string] { return basepubsub.Clone(workerID) },
+		KVFactory:     func() pubsubrt.KeyValueSvc { return kv },
+		PubSubFactory: func(workerID string) pubsubrt.PubSubSvc[string] { return basepubsub.Clone(workerID) },
 		Logger:        logtest.NewLogger(t),
-		PublishToMessageQueue: func(msg pubsubrouter.Message[string]) {
+		PublishToMessageQueue: func(msg pubsubrt.Message[string]) {
 			basepubsub.jobQueue <- msg
 		},
 	}

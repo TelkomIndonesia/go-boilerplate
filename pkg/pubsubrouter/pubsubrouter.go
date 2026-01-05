@@ -19,29 +19,29 @@ type Message[T any] struct {
 }
 
 type Channel[T any] struct {
-	ch             chan Message[T]
-	finalCloseFunc func()
+	ch          chan Message[T]
+	chCloseFunc func()
 
-	chClosed        <-chan struct{}
-	signalCloseFunc func()
+	chWriteStop <-chan struct{}
+	stopWrite   func()
 
 	closeFunc func(context.Context) error
 }
 
 func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
 	ch := make(chan Message[T], buflen)
-	chDone := make(chan struct{})
+	chWriteStop := make(chan struct{})
 
 	var once1, once2 sync.Once
-	finalCloseFunc := func() { once1.Do(func() { close(ch) }) }
-	signalCloseFunc := func() { once2.Do(func() { close(chDone) }) }
+	chCloseFunc := func() { once1.Do(func() { close(ch) }) }
+	stopWrite := func() { once2.Do(func() { close(chWriteStop) }) }
 
 	channel := Channel[T]{
-		ch:       ch,
-		chClosed: chDone,
+		ch:          ch,
+		chWriteStop: chWriteStop,
 
-		finalCloseFunc:  finalCloseFunc,
-		signalCloseFunc: signalCloseFunc,
+		chCloseFunc: chCloseFunc,
+		stopWrite:   stopWrite,
 	}
 
 	channel.closeFunc = func(ctx context.Context) error {
@@ -49,7 +49,7 @@ func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T])
 			return err
 		}
 
-		signalCloseFunc()
+		stopWrite()
 		return nil
 	}
 
@@ -66,30 +66,18 @@ func (c Channel[T]) initiated() bool {
 
 func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
 	if !c.initiated() {
-		return errors.New("channel not initiated")
+		return fmt.Errorf("uninitialized channel")
 	}
 
 	select {
 	default:
-		log.FromContext(ctx).Warn(ctx, "NACK due to unresponsive subscriber",
-			log.String("channel-id", msg.ChannelID))
-		msg.NACK()
-
+		return fmt.Errorf("unresponsive channel subscriber")
 	case <-ctx.Done():
-		log.FromContext(ctx).Warn(ctx, "NACK due to context cancellation",
-			log.String("channel-id", msg.ChannelID))
-		msg.NACK()
 		return ctx.Err()
-
-	case <-c.chClosed:
-		log.FromContext(ctx).Warn(ctx, "NACK due to channel closed",
-			log.String("channel-id", msg.ChannelID))
-		c.finalCloseFunc()
-		msg.NACK()
-
+	case <-c.chWriteStop:
+		c.chCloseFunc()
+		return fmt.Errorf("channel has been closed")
 	case c.ch <- msg:
-		log.FromContext(ctx).Debug(ctx, "sent worker queue",
-			log.String("channel-id", msg.ChannelID))
 	}
 
 	return
@@ -150,7 +138,7 @@ func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
 	go func() { errs <- p.ListenWorkerChannel(ctx) }()
 	go func() { errs <- p.ListenMessageQueue(ctx) }()
 
-	for range 2 {
+	for range len(errs) {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -244,10 +232,13 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			continue
 		}
 
-		ctx := log.ContextWithLog(ctx, p.logger.WithAttrs(log.String("worker-id", p.workerID)))
 		if err := channel.write(ctx, msg); err != nil {
-			return err
+			p.logger.Warn(ctx, "channel write failed",
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
+			msg.NACK()
 		}
+
+		p.logger.Debug(ctx, "channel successfully written", log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 	}
 }
 
@@ -258,7 +249,7 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 
 	p.chanmap.Upsert(channelID, channel, func(exist bool, old, new Channel[T]) Channel[T] {
 		if exist && old.initiated() {
-			old.signalCloseFunc()
+			old.stopWrite()
 			return new
 		}
 

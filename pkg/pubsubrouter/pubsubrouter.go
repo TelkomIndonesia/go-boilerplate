@@ -66,19 +66,19 @@ func (c Channel[T]) initiated() bool {
 	return c.ch != nil
 }
 
-func (c Channel[T]) write(ctx context.Context, msg Message[T]) (shouldDrop bool, err error) {
+func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
 	if !c.initiated() {
-		return false, fmt.Errorf("uninitialized channel")
+		return fmt.Errorf("uninitialized channel")
 	}
 
 	select {
 	default:
-		return true, fmt.Errorf("unresponsive channel subscriber")
+		return fmt.Errorf("unresponsive channel subscriber")
 	case <-ctx.Done():
-		return false, ctx.Err()
+		return ctx.Err()
 	case <-c.chWriteStop:
 		c.terminate()
-		return false, fmt.Errorf("channel has been closed")
+		return fmt.Errorf("channel has been closed")
 	case c.ch <- msg:
 	}
 
@@ -234,18 +234,10 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			continue
 		}
 
-		shouldDrop, err := channel.write(ctx, msg)
-		if err != nil && shouldDrop {
-			p.logger.Warn(ctx, "dropping data due to channel write failure",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
-			msg.ACK()
-			continue
-		}
-		if err != nil {
+		if err := channel.write(ctx, msg); err != nil {
 			p.logger.Warn(ctx, "channel write failed",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
 			msg.NACK()
-			continue
 		}
 
 		p.logger.Debug(ctx, "channel successfully written", log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))

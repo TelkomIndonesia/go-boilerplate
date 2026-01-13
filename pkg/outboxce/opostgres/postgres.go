@@ -52,6 +52,13 @@ func WithLogger(l log.Logger) OptFunc {
 	}
 }
 
+func WithoutDeliveryTracking() OptFunc {
+	return func(p *postgres) error {
+		p.trackDelivery = false
+		return nil
+	}
+}
+
 type postgres struct {
 	dbUrl string
 	db    *sql.DB
@@ -63,16 +70,19 @@ type postgres struct {
 	lockID      int64
 	tracer      trace.Tracer
 	logger      log.Logger
+
+	trackDelivery bool
 }
 
 func NewManager(opts ...OptFunc) (outboxce.Manager, error) {
 	p := &postgres{
-		maxWaitNotif: time.Minute,
-		maxRelaySize: 100,
-		channelName:  "outboxce",
-		lockID:       keyNameAsHash64("outboxce"),
-		logger:       log.Global(),
-		tracer:       otel.Tracer("postgres-outboxce"),
+		maxWaitNotif:  time.Minute,
+		maxRelaySize:  100,
+		channelName:   "outboxce",
+		lockID:        keyNameAsHash64("outboxce"),
+		logger:        log.Global(),
+		tracer:        otel.Tracer("postgres-outboxce"),
+		trackDelivery: true,
 	}
 
 	for _, opt := range opts {
@@ -97,19 +107,22 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 		return fmt.Errorf("failed to build cloudevent :%w", err)
 	}
 
-	cejson, err := json.Marshal(ce)
+	data := ce.Data()
+
+	ce.SetData(ce.DataContentType(), []byte{})
+	cejson, err := ce.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("failed to marshal cloudevent from outbox: %w", err)
 	}
 
 	outboxQ := `
 		INSERT INTO outboxce 
-		(id, tenant_id, cloud_event, created_at, is_delivered)
+		(id, attributes, data, created_at, is_delivered)
 		VALUES
 		($1, $2, $3, $4, $5)
 	`
 	_, err = tx.ExecContext(ctx, outboxQ,
-		ob.ID, ob.TenantID, cejson, ob.Time, false,
+		ob.ID, cejson, data, ob.Time, p.deliveryStatus(),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert to outbox: %w", err)
@@ -121,6 +134,15 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 	}
 
 	return
+}
+
+func (p *postgres) deliveryStatus() (status *bool) {
+	if !p.trackDelivery {
+		return
+	}
+
+	t := false
+	return &t
 }
 
 func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) (err error) {
@@ -226,7 +248,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 		SET is_delivered = true 
 		FROM cte
 		WHERE o.id = cte.id
-		RETURNING o.id, o.tenant_id, o.cloud_event, o.created_at
+		RETURNING o.id, o.attributes, o.data, o.created_at
 	`
 	rows, err := tx.QueryContext(ctx, q, p.maxRelaySize)
 	if err != nil {
@@ -237,16 +259,17 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	events, outboxes := []event.Event{}, map[string]outboxce.OutboxCE{}
 	for rows.Next() {
 		var o outboxce.OutboxCE
-		var data []byte
-		err = rows.Scan(&o.ID, &o.TenantID, &data, &o.Time)
+		var attributes, data []byte
+		err = rows.Scan(&o.ID, &attributes, &data, &o.Time)
 		if err != nil {
 			return last, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		var e event.Event
-		if err = json.Unmarshal(data, &e); err != nil {
+		if err = json.Unmarshal(attributes, &e); err != nil {
 			return last, fmt.Errorf("failed to unmarshal cloud event: %w", err)
 		}
+		e.SetData(e.DataContentType(), data)
 
 		last = o
 		events = append(events, e)
@@ -257,7 +280,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 		return last, tx.Rollback()
 	}
 
-	if err = p.relayWithRelayErrorsHandler(ctx, tx, relayFunc, events, outboxes); err != nil {
+	if err = p.relayWithRelayErrorsHandler(ctx, tx, relayFunc, events); err != nil {
 		return last, fmt.Errorf("failed to relay outboxes with handler: %w", err)
 	}
 
@@ -268,7 +291,7 @@ func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFu
 	return
 }
 
-func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, relayFunc outboxce.RelayFunc, events []event.Event, outboxes map[string]outboxce.OutboxCE) (err error) {
+func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, relayFunc outboxce.RelayFunc, events []event.Event) (err error) {
 	err = relayFunc(ctx, events)
 
 	var errRelay = &outboxce.RelayErrors{}
@@ -283,7 +306,8 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 
 	ids := []uuid.UUID{}
 	for _, e := range *errRelay {
-		ids = append(ids, outboxes[e.Event.ID()].ID)
+		id, _ := uuid.Parse(e.Event.ID())
+		ids = append(ids, id)
 	}
 	q := `
 		UPDATE outboxce

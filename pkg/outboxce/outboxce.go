@@ -2,7 +2,6 @@ package outboxce
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	protobufce "github.com/cloudevents/sdk-go/binding/format/protobuf/v2"
@@ -16,6 +15,8 @@ import (
 const (
 	ContentTypeProtobufEncrypted = protobufce.ContentTypeProtobuf + "-encrypted"
 	ContentTypeProtobuf          = protobufce.ContentTypeProtobuf
+
+	CEExtensionTenantID = "tenantid"
 )
 
 type AEADFunc func(event.Event) (tink.AEAD, error)
@@ -25,11 +26,11 @@ type OutboxCE struct {
 	ID       uuid.UUID
 	Time     time.Time
 
-	EventType     string
-	Source        string
-	Subject       string
-	Content       proto.Message
-	ContentSchema string
+	EventType  string
+	Source     string
+	Subject    string
+	Data       proto.Message
+	DataSchema string
 
 	AEADFunc AEADFunc
 
@@ -40,8 +41,7 @@ func New(source string, eventType string, content proto.Message) OutboxCE {
 	o := OutboxCE{
 		Source:    source,
 		EventType: eventType,
-		Content:   content,
-		Time:      time.Now(),
+		Data:      content,
 	}
 
 	var err error
@@ -49,6 +49,7 @@ func New(source string, eventType string, content proto.Message) OutboxCE {
 	if err != nil {
 		o.err = fmt.Errorf("failed to generate ID: %w", err)
 	}
+	o.Time = time.Unix(o.ID.Time().UnixTime())
 	return o
 }
 
@@ -62,8 +63,8 @@ func (o OutboxCE) WithSubject(sub string) OutboxCE {
 	return o
 }
 
-func (o OutboxCE) WithContentSchema(schema string) OutboxCE {
-	o.ContentSchema = schema
+func (o OutboxCE) WithDataSchema(schema string) OutboxCE {
+	o.DataSchema = schema
 	return o
 }
 
@@ -76,29 +77,35 @@ func (o OutboxCE) WithModifier(fn func(o OutboxCE) OutboxCE) OutboxCE {
 	return fn(o)
 }
 
+var emptyData = []byte{}
+
 func (o OutboxCE) Build() (ce event.Event, err error) {
 	if o.err != nil {
 		return ce, fmt.Errorf("failed to build: %w", err)
 	}
 
 	ce = cloudevents.NewEvent()
-	id := o.ID.String()
-	if o.TenantID != nil {
-		id = o.TenantID.String() + "/" + id
-	}
-	ce.SetID(id)
+	ce.SetID(o.ID.String())
 	ce.SetType(o.EventType)
 	ce.SetSource(o.Source)
+	ce.SetTime(o.Time)
 	if o.Subject != "" {
 		ce.SetSubject(o.Subject)
 	}
-	ce.SetTime(o.Time)
-	if o.ContentSchema != "" {
-		ce.SetDataSchema(o.ContentSchema)
+	if o.DataSchema != "" {
+		ce.SetDataSchema(o.DataSchema)
+	}
+	if o.TenantID != nil {
+		ce.SetExtension(CEExtensionTenantID, o.TenantID.String())
 	}
 
 	dct := ContentTypeProtobuf
-	data, err := proto.Marshal(o.Content)
+	if o.Data == nil {
+		ce.SetData(dct, emptyData)
+		return
+	}
+
+	data, err := proto.Marshal(o.Data)
 	if err != nil {
 		return ce, fmt.Errorf("failed to marshal content: %w", err)
 	}
@@ -118,31 +125,25 @@ func (o OutboxCE) Build() (ce event.Event, err error) {
 }
 
 func FromEvent(e event.Event, aeadFunc AEADFunc, Unmarshaller func([]byte) (proto.Message, error)) (o OutboxCE, err error) {
-	switch parts := strings.SplitN(e.ID(), "/", 2); len(parts) {
-	case 1:
-		o.ID, err = uuid.Parse(parts[0])
-		if err != nil {
-			return o, fmt.Errorf("failed to parse id : %w", err)
-		}
 
-	case 2:
-		tid, err := uuid.Parse(parts[0])
-		if err != nil {
-			return o, fmt.Errorf("failed to parse tenant id: %w", err)
-		}
+	o.ID, err = uuid.Parse(e.ID())
+	if err != nil {
+		return o, fmt.Errorf("failed to parse id : %w", err)
+	}
 
-		o.TenantID = &tid
-		o.ID, err = uuid.Parse(parts[1])
-		if err != nil {
-			return o, fmt.Errorf("failed to parse id : %w", err)
+	if v, ok := e.Extensions()[CEExtensionTenantID]; ok {
+		tidstr, ok := v.(string)
+		if ok {
+			tid, err := uuid.Parse(tidstr)
+			if err != nil {
+				return o, fmt.Errorf("failed to parse tenant id: %w", err)
+			}
+			o.TenantID = &tid
 		}
-
-	default:
-		return o, fmt.Errorf("invalid id")
 	}
 
 	o.Subject = e.Subject()
-	o.ContentSchema = e.DataSchema()
+	o.DataSchema = e.DataSchema()
 	o.Source = e.Source()
 	o.EventType = e.Type()
 	o.Time = e.Time()
@@ -159,6 +160,6 @@ func FromEvent(e event.Event, aeadFunc AEADFunc, Unmarshaller func([]byte) (prot
 		}
 		o.AEADFunc = aeadFunc
 	}
-	o.Content, err = Unmarshaller(d)
+	o.Data, err = Unmarshaller(d)
 	return
 }

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Toa8a6L7YNZvn15s6XKH59wmGcU4WFYfuaVWqfqn75aKKR0t8SU4iPrR6fjfMh6
+\restrict bIHYBnOSnVdnl2bPUMkIISPOEwn5jwpx5T5nRZzCjLf9KRTijkjk7BBge3esfnY
 
 -- Dumped from database version 16.11 (Debian 16.11-1.pgdg13+1)
 -- Dumped by pg_dump version 16.11 (Debian 16.11-1.pgdg13+1)
@@ -28,10 +28,10 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.outboxce (
     id uuid NOT NULL,
-    tenant_id uuid,
-    cloud_event json NOT NULL,
-    is_delivered boolean,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    attributes json NOT NULL,
+    data bytea NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    is_delivered boolean
 );
 
 
@@ -54,5 +54,5 @@ CREATE INDEX outboxce_by_created_at ON public.outboxce USING btree (created_at) 
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Toa8a6L7YNZvn15s6XKH59wmGcU4WFYfuaVWqfqn75aKKR0t8SU4iPrR6fjfMh6
+\unrestrict bIHYBnOSnVdnl2bPUMkIISPOEwn5jwpx5T5nRZzCjLf9KRTijkjk7BBge3esfnY
 

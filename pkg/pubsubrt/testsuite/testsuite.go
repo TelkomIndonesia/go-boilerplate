@@ -3,7 +3,6 @@ package testsuite
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,11 +29,11 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 	t.Cleanup(cancel)
 	logger := logtest.NewLogger(t)
 
-	workersNum, workerJobsNum, channelMessageNum := 10, 30, 50
-
+	// prepare data
+	workerGroupNum, workerGroupReplica, workerChannelNum, workerChannelRequests, channelMessageNum := 10, 7, 8, 5, 50
 	channels := map[string][]string{}
 	channelIDFunc := func(i int) string { return fmt.Sprintf("job-%d", i) }
-	for i := range workersNum * workerJobsNum {
+	for i := range workerGroupNum * workerChannelNum {
 		id := channelIDFunc(i)
 		for j := range channelMessageNum {
 			result := fmt.Sprintf("result-%s-%d", id, j)
@@ -44,55 +43,59 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 
 	// start pubsub receiver
 	var wgReceiverStart, wgReceiverFinish sync.WaitGroup
-	wgReceiverStart.Add(workersNum * workerJobsNum)
-	wgReceiverFinish.Add(workersNum * workerJobsNum)
-	for i := range workersNum {
-		workerID := fmt.Sprintf("worker-%d", i)
-		psw, err := pubsubrt.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrt.WithLogger[string](logger))
-		require.NoError(t, err)
-		go func() {
-			err := psw.Listen(ctx)
-			if err != nil && err != ctx.Err() {
-				assert.NoError(t, err)
-			}
-		}()
+	wgReceiverStart.Add(workerGroupNum * workerGroupReplica * workerChannelNum * workerChannelRequests)
+	wgReceiverFinish.Add(workerGroupNum * workerGroupReplica * workerChannelNum * workerChannelRequests)
+	for i := range workerGroupNum {
+		for j := range workerGroupReplica {
+			workerID := fmt.Sprintf("worker-%d-%d", i, j)
+			psr, err := pubsubrt.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrt.WithLogger[string](logger))
+			require.NoError(t, err)
 
-		for j := range workerJobsNum {
-			channelID := channelIDFunc(i + (workersNum * j))
 			go func() {
-				defer wgReceiverFinish.Done()
+				err := psr.Listen(ctx)
+				if err != nil && err != ctx.Err() {
+					assert.NoError(t, err)
+				}
+			}()
 
-				ctx, cancel := context.WithCancel(ctx)
-				defer cancel()
+			for k := range workerChannelNum {
+				channelID := channelIDFunc(i + (workerGroupNum * k))
 
-				resultsChan, err := psw.Subscribe(ctx, channelID, 0)
-				require.NoError(t, err)
-				defer func() { resultsChan.Close(t.Context()) }()
-				wgReceiverStart.Done()
+				for range workerChannelRequests {
+					go func() {
+						defer wgReceiverFinish.Done()
 
-				expected := channels[channelID]
-				messages := []string{}
+						ctx, cancel := context.WithCancel(ctx)
+						defer cancel()
 
-				for len(messages) < len(expected) {
-					select {
-					case <-ctx.Done():
-					case message, ok := <-resultsChan.Messages():
-						if !ok {
-							break
+						resultsChan, err := psr.Subscribe(ctx, channelID, channelMessageNum)
+						require.NoError(t, err)
+						defer func() { resultsChan.Close(t.Context()) }()
+						wgReceiverStart.Done()
+
+						expected := channels[channelID]
+						actual := []string{}
+						for len(actual) < len(expected) {
+							var message pubsubrt.Message[string]
+							var ok bool
+
+							select {
+							case <-ctx.Done():
+							case message, ok = <-resultsChan.Messages():
+							}
+
+							if !ok {
+								break
+							}
+							actual = append(actual, message.Content)
+							message.ACK()
 						}
 
-						messages = append(messages, message.Content)
-						message.ACK()
-
-						resultsChan, messages = ts.randomTakeOverfunc(t, ctx, *psw, resultsChan, channelID, messages)
-						continue
-					}
-					break
+						assert.ElementsMatch(t, expected, actual, workerID, channelID)
+						logger.Debug(ctx, "receiver done", log.String("worker-id", workerID), log.String("channel-id", channelID))
+					}()
 				}
-
-				assert.ElementsMatch(t, expected, messages, workerID, channelID)
-				logger.Debug(ctx, "receiver done", log.String("worker-id", workerID), log.String("channel-id", channelID))
-			}()
+			}
 		}
 	}
 	wgReceiverStart.Wait()
@@ -123,43 +126,5 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 	assert.Equal(t, int32(len(channels)*channelMessageNum), acks.Load())
 	if a := nacks.Load(); a > 0 {
 		logger.Warn(t.Context(), "non zero nacks", log.Int("message-queue", int(a)))
-	}
-}
-
-func (ts *TestSuiteNormal) randomTakeOverfunc(
-	t *testing.T,
-	ctx context.Context,
-	psw pubsubrt.PubSubRouter[string],
-	oldChannel pubsubrt.Channel[string],
-	channelID string,
-	msgs []string,
-) (
-	channel pubsubrt.Channel[string],
-	messages []string,
-) {
-	messages = msgs
-	channel = oldChannel
-
-	if rand.Int()%3 != 0 {
-		return
-	}
-
-	defer oldChannel.Close(t.Context())
-
-	channel, err := psw.Subscribe(ctx, channelID, 0)
-	require.NoError(t, err)
-	for {
-		select {
-		default:
-			return
-
-		case message, ok := <-oldChannel.Messages():
-			if !ok {
-				return
-			}
-
-			messages = append(messages, message.Content)
-			message.ACK()
-		}
 	}
 }

@@ -31,6 +31,8 @@ const (
 )
 
 type Channel[T any] struct {
+	id string
+
 	ch        chan Message[T]
 	terminate func()
 
@@ -40,11 +42,12 @@ type Channel[T any] struct {
 	close func(context.Context) error
 }
 
-func newChannel[T any](buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
+func newChannel[T any](channelID string, buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
 
 	var once1, once2 sync.Once
 
 	channel := Channel[T]{
+		id:          channelID,
 		ch:          make(chan Message[T], buflen),
 		chWriteStop: make(chan struct{}),
 	}

@@ -13,15 +13,22 @@ import (
 )
 
 type memKV struct {
-	m cmap.ConcurrentMap[string, string]
+	m cmap.ConcurrentMap[string, []string]
 }
 
 func newMemKV() *memKV {
-	return &memKV{m: cmap.New[string]()}
+	return &memKV{m: cmap.New[[]string]()}
 }
 
-func (k *memKV) Set(ctx context.Context, key, value string) error {
-	k.m.Set(key, value)
+func (k *memKV) Append(ctx context.Context, key, value string) error {
+	k.m.Upsert(key, []string{value}, func(exist bool, valueInMap, newValue []string) []string {
+		if exist {
+			valueInMap = append(valueInMap, newValue...)
+		} else {
+			valueInMap = newValue
+		}
+		return valueInMap
+	})
 	return nil
 }
 
@@ -30,7 +37,7 @@ func (k *memKV) Remove(ctx context.Context, key string) error {
 	return nil
 }
 
-func (k *memKV) Get(ctx context.Context, key string) (string, error) {
+func (k *memKV) Get(ctx context.Context, key string) ([]string, error) {
 	v, _ := k.m.Get(key)
 	return v, nil
 }

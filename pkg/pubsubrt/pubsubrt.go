@@ -10,8 +10,8 @@ import (
 )
 
 type KeyValueSvc interface {
-	Set(ctx context.Context, key string, value string) error
-	Get(ctx context.Context, key string) (value string, err error)
+	Append(ctx context.Context, key string, value string) error
+	Get(ctx context.Context, key string) (value []string, err error)
 	Remove(ctx context.Context, key string) error
 }
 
@@ -27,7 +27,7 @@ type PubSubRouter[T any] struct {
 	kvRepo KeyValueSvc
 	pubsub PubSubSvc[T]
 
-	chanmap cmap.ConcurrentMap[string, Channel[T]]
+	chanmap cmap.ConcurrentMap[string, []Channel[T]]
 
 	logger log.Logger
 }
@@ -51,7 +51,7 @@ func New[T any](
 		workerID: workerID,
 		kvRepo:   kvRepo(),
 		pubsub:   pubsub(workerID),
-		chanmap:  cmap.New[Channel[T]](),
+		chanmap:  cmap.New[[]Channel[T]](),
 		logger:   log.Global(),
 	}
 
@@ -105,7 +105,7 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		p.logger.Debug(ctx, "receive message queue",
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		workerID, err := p.kvRepo.Get(ctx, msg.ChannelID)
+		workers, err := p.kvRepo.Get(ctx, msg.ChannelID)
 		if err != nil {
 			p.logger.Warn(ctx, "NACK due to failure to lookup worker for message",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
@@ -115,22 +115,34 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 			})
 			continue
 		}
-		if workerID == "" {
+		if len(workers) == 0 {
 			p.logger.Warn(ctx, "dropping data due to inexistent worker",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.ACK()
 			continue
 		}
 
-		err = p.pubsub.PublishWorkerMessage(ctx, workerID, msg.ChannelID, msg.Content)
-		if err != nil {
-			p.logger.Warn(ctx, "NACK due to failure to publish message",
-				log.String("worker-id", workerID), log.String("channel-id", msg.ChannelID))
+		failed := map[string]error{}
+		for _, worker := range workers {
+			errx := p.pubsub.PublishWorkerMessage(ctx, worker, msg.ChannelID, msg.Content)
+			if errx != nil {
+				err = errors.Join(err, errx)
+				failed[worker] = errx
+				continue
+			}
+		}
+		if len(failed) == len(workers) {
+			p.logger.Warn(ctx, "NACK due to failure to publish message to all workers",
+				log.Any("worker-id", workers), log.String("channel-id", msg.ChannelID))
 			msg.NACK(NACKReason{
 				Code:    NACKReasonPubSubWorkerQueueError,
 				Message: err.Error(),
 			})
 			continue
+		}
+		if len(failed) > 0 {
+			p.logger.Warn(ctx, "failed to publish message to some workers",
+				log.Any("workers", failed), log.String("channel-id", msg.ChannelID))
 		}
 
 		msg.ACK()
@@ -161,7 +173,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		p.logger.Debug(ctx, "receive worker queue",
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		channel, ok := p.chanmap.Get(msg.ChannelID)
+		channels, ok := p.chanmap.Get(msg.ChannelID)
 		if !ok {
 			p.logger.Warn(ctx, "dropping data due to no receiver",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
@@ -172,51 +184,59 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			continue
 		}
 
-		if err := channel.write(ctx, msg); err != nil {
-			p.logger.Warn(ctx, "channel write failed",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
-			continue
+		for _, channel := range channels {
+			if err := channel.write(ctx, msg); err != nil {
+				p.logger.Warn(ctx, "channel write failed",
+					log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
+				continue
+			}
+
+			p.logger.Debug(ctx, "channel successfully written",
+				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 		}
 
-		p.logger.Debug(ctx, "channel successfully written",
-			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 	}
 }
 
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
-	channel = newChannel(buflen, func(ctx context.Context, rc Channel[T]) error {
-		return p.doneRouting(ctx, channelID, rc)
-	})
+	channel = newChannel(channelID, buflen, p.doneRouting)
 
-	p.chanmap.Upsert(channelID, channel, func(exist bool, old, new Channel[T]) Channel[T] {
-		if exist && old.initiated() {
-			old.stopWrite()
-			return new
+	p.chanmap.Upsert(channelID, nil, func(exist bool, old, new []Channel[T]) []Channel[T] {
+		if exist {
+			return append(old, channel)
 		}
 
-		err = p.kvRepo.Set(ctx, channelID, p.workerID)
+		err = p.kvRepo.Append(ctx, channelID, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to register to key value service")
-			return channel
+			return old
 		}
 
-		return new
+		return []Channel[T]{channel}
 	})
 
 	return
 }
 
-func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channelID string, channel Channel[T]) (err error) {
-	p.chanmap.RemoveCb(channelID, func(key string, v Channel[T], exists bool) bool {
-		if !exists || !v.initiated() {
+func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (err error) {
+	p.chanmap.RemoveCb(channel.id, func(key string, channels []Channel[T], exists bool) bool {
+		if !exists {
 			return true
 		}
 
-		if !v.equal(channel) {
+		for i, c := range channels {
+			if !c.equal(channel) {
+				continue
+			}
+
+			channels = append(channels[:i], channels[i+1:]...)
+			break
+		}
+		if len(channels) > 0 {
 			return false
 		}
 
-		err = p.kvRepo.Remove(ctx, channelID)
+		err = p.kvRepo.Remove(ctx, channel.id)
 		if err != nil {
 			err = fmt.Errorf("failed to unregister to key value service")
 			return false

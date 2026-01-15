@@ -27,7 +27,7 @@ type PubSubRouter[T any] struct {
 	kvRepo KeyValueSvc
 	pubsub PubSubSvc[T]
 
-	chanmap cmap.ConcurrentMap[string, []Channel[T]]
+	chanmap cmap.ConcurrentMap[string, *[]Channel[T]]
 
 	logger log.Logger
 }
@@ -51,7 +51,7 @@ func New[T any](
 		workerID: workerID,
 		kvRepo:   kvRepo(),
 		pubsub:   pubsub(workerID),
-		chanmap:  cmap.New[[]Channel[T]](),
+		chanmap:  cmap.New[*[]Channel[T]](),
 		logger:   log.Global(),
 	}
 
@@ -174,7 +174,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
 		channels, ok := p.chanmap.Get(msg.ChannelID)
-		if !ok {
+		if !ok || channels == nil {
 			p.logger.Warn(ctx, "dropping data due to no receiver",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK(NACKReason{
@@ -184,7 +184,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			continue
 		}
 
-		for _, channel := range channels {
+		for _, channel := range *channels {
 			if err := channel.write(ctx, msg); err != nil {
 				p.logger.Warn(ctx, "channel write failed",
 					log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
@@ -201,9 +201,10 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
 	channel = newChannel(channelID, buflen, p.doneRouting)
 
-	p.chanmap.Upsert(channelID, nil, func(exist bool, old, new []Channel[T]) []Channel[T] {
-		if exist {
-			return append(old, channel)
+	p.chanmap.Upsert(channelID, nil, func(exist bool, old, new *[]Channel[T]) *[]Channel[T] {
+		if exist && old != nil {
+			*old = append(*old, channel)
+			return old
 		}
 
 		err = p.kvRepo.SAdd(ctx, channelID, p.workerID)
@@ -212,27 +213,24 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 			return old
 		}
 
-		return []Channel[T]{channel}
+		return &[]Channel[T]{channel}
 	})
 
 	return
 }
 
 func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (err error) {
-	p.chanmap.RemoveCb(channel.id, func(key string, channels []Channel[T], exists bool) bool {
-		if !exists {
+	p.chanmap.RemoveCb(channel.id, func(key string, existing *[]Channel[T], exists bool) bool {
+		if !exists || existing == nil || len(*existing) == 0 {
 			return true
 		}
 
-		for i, c := range channels {
-			if !c.equal(channel) {
-				continue
+		for i, v := range *existing {
+			if v.id == channel.id {
+				*existing = append((*existing)[:i], (*existing)[i+1:]...)
 			}
-
-			channels = append(channels[:i], channels[i+1:]...)
-			break
 		}
-		if len(channels) > 0 {
+		if len(*existing) != 0 {
 			return false
 		}
 
@@ -243,6 +241,8 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 		}
 
 		return true
+
 	})
+
 	return
 }

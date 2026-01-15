@@ -3,6 +3,7 @@ package pubsubrt_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -13,43 +14,47 @@ import (
 )
 
 type memKV struct {
-	m cmap.ConcurrentMap[string, []string]
+	m cmap.ConcurrentMap[string, *[]string]
 }
 
 func newMemKV() *memKV {
-	return &memKV{m: cmap.New[[]string]()}
+	return &memKV{m: cmap.New[*[]string]()}
 }
 
 func (k *memKV) SAdd(ctx context.Context, key, value string) error {
-	k.m.Upsert(key, []string{value}, func(exist bool, valueInMap, newValue []string) []string {
-		if exist {
-			valueInMap = append(valueInMap, newValue...)
-		} else {
-			valueInMap = newValue
+	k.m.Upsert(key, nil, func(exist bool, valueInMap, newValue *[]string) *[]string {
+		if !exist || valueInMap == nil || len(*valueInMap) == 0 {
+			return &[]string{value}
 		}
+
+		if slices.Contains(*valueInMap, value) {
+			return valueInMap
+		}
+
+		*valueInMap = append(*valueInMap, value)
 		return valueInMap
 	})
 	return nil
 }
 
 func (k *memKV) SRem(ctx context.Context, key string, value string) error {
-	k.m.RemoveCb(key, func(key string, v []string, exists bool) bool {
-		if !exists {
+	k.m.RemoveCb(key, func(key string, current *[]string, exists bool) bool {
+		if !exists || current == nil || len(*current) == 0 {
 			return true
 		}
-		for i, v := range v {
+		for i, v := range *current {
 			if v == value {
-				v = v[:i]
+				*current = append((*current)[:i], (*current)[i+1:]...)
 			}
 		}
-		return len(v) == 0
+		return len(*current) == 0
 	})
 	return nil
 }
 
 func (k *memKV) SGet(ctx context.Context, key string) ([]string, error) {
 	v, _ := k.m.Get(key)
-	return v, nil
+	return *v, nil
 }
 
 type memPubSub[T any] struct {

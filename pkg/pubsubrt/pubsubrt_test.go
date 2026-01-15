@@ -20,7 +20,7 @@ func newMemKV() *memKV {
 	return &memKV{m: cmap.New[[]string]()}
 }
 
-func (k *memKV) Append(ctx context.Context, key, value string) error {
+func (k *memKV) SAdd(ctx context.Context, key, value string) error {
 	k.m.Upsert(key, []string{value}, func(exist bool, valueInMap, newValue []string) []string {
 		if exist {
 			valueInMap = append(valueInMap, newValue...)
@@ -32,12 +32,22 @@ func (k *memKV) Append(ctx context.Context, key, value string) error {
 	return nil
 }
 
-func (k *memKV) Remove(ctx context.Context, key string) error {
-	k.m.Remove(key)
+func (k *memKV) SRem(ctx context.Context, key string, value string) error {
+	k.m.RemoveCb(key, func(key string, v []string, exists bool) bool {
+		if !exists {
+			return true
+		}
+		for i, v := range v {
+			if v == value {
+				v = v[:i]
+			}
+		}
+		return len(v) == 0
+	})
 	return nil
 }
 
-func (k *memKV) Get(ctx context.Context, key string) ([]string, error) {
+func (k *memKV) SGet(ctx context.Context, key string) ([]string, error) {
 	v, _ := k.m.Get(key)
 	return v, nil
 }

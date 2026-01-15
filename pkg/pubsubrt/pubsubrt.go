@@ -10,9 +10,9 @@ import (
 )
 
 type KeyValueSvc interface {
-	Append(ctx context.Context, key string, value string) error
-	Get(ctx context.Context, key string) (value []string, err error)
-	Remove(ctx context.Context, key string) error
+	SAdd(ctx context.Context, key string, value string) error
+	SGet(ctx context.Context, key string) (value []string, err error)
+	SRem(ctx context.Context, key string, value string) error
 }
 
 type PubSubSvc[T any] interface {
@@ -105,7 +105,7 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		p.logger.Debug(ctx, "receive message queue",
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		workers, err := p.kvRepo.Get(ctx, msg.ChannelID)
+		workers, err := p.kvRepo.SGet(ctx, msg.ChannelID)
 		if err != nil {
 			p.logger.Warn(ctx, "NACK due to failure to lookup worker for message",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
@@ -206,7 +206,7 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 			return append(old, channel)
 		}
 
-		err = p.kvRepo.Append(ctx, channelID, p.workerID)
+		err = p.kvRepo.SAdd(ctx, channelID, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to register to key value service")
 			return old
@@ -236,7 +236,7 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 			return false
 		}
 
-		err = p.kvRepo.Remove(ctx, channel.id)
+		err = p.kvRepo.SRem(ctx, channel.id, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to unregister to key value service")
 			return false

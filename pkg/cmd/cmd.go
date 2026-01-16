@@ -13,7 +13,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd/env"
 	"github.com/telkomindonesia/go-boilerplate/pkg/cmd/version"
 	"github.com/telkomindonesia/go-boilerplate/pkg/ctxutil"
-	"github.com/telkomindonesia/go-boilerplate/pkg/httpclient"
+	"github.com/telkomindonesia/go-boilerplate/pkg/httpx"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/oteloader"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx"
@@ -61,7 +61,7 @@ type CMD struct {
 	AEADDerivableKeysetE func() (*tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], error)
 	MacDerivableKeysetE  func() (*tinkx.DerivableKeyset[tinkx.PrimitiveMAC], error)
 	BIDXDerivableKeysetE func() (*tinkx.DerivableKeyset[tinkx.PrimitiveBIDX], error)
-	HTTPClientE          func() (httpclient.HTTPClient, error)
+	HTTPClientE          func() (httpx.Client, error)
 
 	closers []func(context.Context) error
 }
@@ -233,16 +233,16 @@ func (c *CMD) BIDXDerivableKeyset() *tinkx.DerivableKeyset[tinkx.PrimitiveBIDX] 
 }
 
 func (c *CMD) initHTTPClient() {
-	opts := []httpclient.OptFunc{}
+	opts := []httpx.ClientOptFunc{}
 	if tlswrapper, err := c.TLSWrapE(); err == nil && tlswrapper != nil {
 		d := tlswrapper.Dialer(&net.Dialer{Timeout: 10 * time.Second})
-		opts = append(opts, httpclient.WithDialTLS(d.DialContext))
+		opts = append(opts, httpx.ClientWithDialTLS(d.DialContext))
 	}
-	h, err := httpclient.New(opts...)
-	c.HTTPClientE = func() (httpclient.HTTPClient, error) { return h, err }
+	h, err := httpx.NewClient(opts...)
+	c.HTTPClientE = func() (httpx.Client, error) { return h, err }
 }
 
-func (c *CMD) HTTPClient() httpclient.HTTPClient {
+func (c *CMD) HTTPClient() httpx.Client {
 	return require(c.HTTPClientE, c.loggerOrGlobal())
 }
 

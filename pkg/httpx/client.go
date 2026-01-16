@@ -1,4 +1,4 @@
-package httpclient
+package httpx
 
 import (
 	"context"
@@ -10,30 +10,30 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-type OptFunc func(*HTTPClient) error
+type ClientOptFunc func(*Client) error
 
 type Dialer func(ctx context.Context, network string, addr string) (net.Conn, error)
 
-func WithDialTLS(f Dialer) OptFunc {
-	return func(h *HTTPClient) error {
+func ClientWithDialTLS(f Dialer) ClientOptFunc {
+	return func(h *Client) error {
 		h.tr.DialTLSContext = f
 		return nil
 	}
 }
 
-func WithDial(f Dialer) OptFunc {
-	return func(h *HTTPClient) error {
+func ClientWithDial(f Dialer) ClientOptFunc {
+	return func(h *Client) error {
 		h.tr.DialContext = f
 		return nil
 	}
 }
 
-type HTTPClient struct {
+type Client struct {
 	*http.Client
 	tr *http.Transport
 }
 
-func New(opts ...OptFunc) (h HTTPClient, err error) {
+func NewClient(opts ...ClientOptFunc) (h Client, err error) {
 	h.tr = &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout: 5 * time.Second,
@@ -53,7 +53,7 @@ func New(opts ...OptFunc) (h HTTPClient, err error) {
 	return
 }
 
-func (h HTTPClient) Close(ctx context.Context) error {
+func (h Client) Close(ctx context.Context) error {
 	h.Client.CloseIdleConnections()
 	return nil
 }

@@ -1,4 +1,4 @@
-package httpclient
+package httpx
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func TestOtel(t *testing.T) {
 
 	req, err := http.NewRequest("GET", svr.URL, nil)
 	require.NoError(t, err)
-	h, err := New()
+	h, err := NewClient()
 	require.NoError(t, err)
 	res, err := h.Do(req.WithContext(ctx))
 	require.NoError(t, err)

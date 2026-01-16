@@ -31,8 +31,9 @@ func (k *memKV) SAdd(ctx context.Context, key, value string) error {
 			return valueInMap
 		}
 
-		*valueInMap = append(*valueInMap, value)
-		return valueInMap
+		a := append(make([]string, 0, len(*valueInMap)+1), *valueInMap...)
+		a = append(a, value)
+		return &a
 	})
 	return nil
 }
@@ -44,7 +45,9 @@ func (k *memKV) SRem(ctx context.Context, key string, value string) error {
 		}
 		for i, v := range *current {
 			if v == value {
-				*current = append((*current)[:i], (*current)[i+1:]...)
+				a := append(make([]string, len(*current)-1), (*current)[:i]...)
+				*current = append(a, (*current)[i+1:]...)
+				break
 			}
 		}
 		return len(*current) == 0
@@ -79,14 +82,14 @@ func newMemPubSub[T any](t *testing.T) *memPubSub[T] {
 		acks:  &atomic.Int32{},
 		nacks: &atomic.Int32{},
 
-		jobQueue: make(chan pubsubrt.Message[T]),
+		jobQueue: make(chan pubsubrt.Message[T], 1000),
 		workers:  cmap.New[chan pubsubrt.Message[T]](),
 	}
 	return ps
 }
 
 func (m *memPubSub[T]) Clone(workerID string) pubsubrt.PubSubSvc[T] {
-	m.workers.Set(workerID, make(chan pubsubrt.Message[T]))
+	m.workers.Set(workerID, make(chan pubsubrt.Message[T], 1000))
 	return &memPubSub[T]{
 		t:        m.t,
 		acks:     m.acks,

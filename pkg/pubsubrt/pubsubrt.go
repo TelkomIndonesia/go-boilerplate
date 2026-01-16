@@ -210,8 +210,9 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 
 	p.chanmap.Upsert(channelID, nil, func(exist bool, old, new *[]Channel[T]) *[]Channel[T] {
 		if exist && old != nil {
-			*old = append(*old, channel)
-			return old
+			a := append(make([]Channel[T], 0, len(*old)+1), *old...)
+			a = append(a, channel)
+			return &a
 		}
 
 		err = p.kvRepo.SAdd(ctx, channelID, p.workerID)
@@ -234,7 +235,8 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 
 		for i, v := range *existing {
 			if v.equal(channel) {
-				*existing = append((*existing)[:i], (*existing)[i+1:]...)
+				a := append(make([]Channel[T], len(*existing)-1), (*existing)[:i]...)
+				*existing = append(a, (*existing)[i+1:]...)
 			}
 		}
 		if len(*existing) != 0 {

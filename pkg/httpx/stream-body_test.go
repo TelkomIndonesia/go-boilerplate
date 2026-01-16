@@ -39,7 +39,7 @@ func TestStreamBodySSERead(t *testing.T) {
 	expectedParts := []string{
 		"id: 123\n",
 		"event: update\n",
-		"data: {\"status\":\"ok\"}\n\n", // json.Encoder adds a newline
+		"data: {\"status\":\"ok\"}\n\n",
 	}
 
 	for _, part := range expectedParts {

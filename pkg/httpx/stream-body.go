@@ -20,7 +20,6 @@ func NewStreamBody(stream <-chan io.WriterTo) *StreamBody {
 	}
 }
 
-// Read implements [io.Reader].
 func (s *StreamBody) Read(p []byte) (n int, err error) {
 	if s.buf.Len() == 0 {
 		event, ok := <-s.source

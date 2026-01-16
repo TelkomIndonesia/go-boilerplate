@@ -173,7 +173,14 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		p.logger.Debug(ctx, "receive worker queue",
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		channels, ok := p.chanmap.Get(msg.ChannelID)
+		var channels []Channel[T]
+		// can't use get here because we are storing pointer
+		p.chanmap.RemoveCb(msg.ChannelID, func(key string, v *[]Channel[T], exists bool) bool {
+			if exists {
+				channels = *v
+			}
+			return false
+		})
 		if !ok || channels == nil {
 			p.logger.Warn(ctx, "dropping data due to no receiver",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
@@ -184,7 +191,7 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			continue
 		}
 
-		for _, channel := range *channels {
+		for _, channel := range channels {
 			if err := channel.write(ctx, msg); err != nil {
 				p.logger.Warn(ctx, "channel write failed",
 					log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
@@ -226,7 +233,7 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 		}
 
 		for i, v := range *existing {
-			if v.id == channel.id {
+			if v.equal(channel) {
 				*existing = append((*existing)[:i], (*existing)[i+1:]...)
 			}
 		}

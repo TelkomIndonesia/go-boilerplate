@@ -26,79 +26,38 @@ type TestSuiteNormal struct {
 
 func (ts *TestSuiteNormal) Run(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
 	logger := logtest.NewLogger(t)
 
 	// prepare data
-	workerGroupNum, workerGroupReplica, workerChannelNum, workerChannelRequests, channelMessageNum := 10, 7, 8, 5, 50
+	workerGroupNum, workerGroupReplica, workerChannelNum, workerChannelRequests, channelMsgNum := 10, 7, 8, 5, 50
 	channels := map[string][]string{}
 	channelIDFunc := func(i int) string { return fmt.Sprintf("job-%d", i) }
 	for i := range workerGroupNum * workerChannelNum {
 		id := channelIDFunc(i)
-		for j := range channelMessageNum {
+		for j := range channelMsgNum {
 			result := fmt.Sprintf("result-%s-%d", id, j)
 			channels[id] = append(channels[id], result)
 		}
 	}
 
 	// start pubsub receiver
-	var wgReceiverStart, wgReceiverFinish sync.WaitGroup
-	wgReceiverStart.Add(workerGroupNum * workerGroupReplica * workerChannelNum * workerChannelRequests)
-	wgReceiverFinish.Add(workerGroupNum * workerGroupReplica * workerChannelNum * workerChannelRequests)
+	var wgStart, wgFinish sync.WaitGroup
+	wgStart.Add(workerGroupNum * workerGroupReplica * workerChannelNum * workerChannelRequests)
+	wgFinish.Add(workerGroupNum * workerGroupReplica * workerChannelNum * workerChannelRequests)
 	for i := range workerGroupNum {
 		for j := range workerGroupReplica {
-			workerID := fmt.Sprintf("worker-%d-%d", i, j)
-			psr, err := pubsubrt.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrt.WithLogger[string](logger))
-			require.NoError(t, err)
-
-			go func() {
-				err := psr.Listen(ctx)
-				if err != nil && err != ctx.Err() {
-					assert.NoError(t, err)
-				}
-			}()
-
+			worker := newWorker(t, *ts, fmt.Sprintf("worker-%d-%d", i, j), logger)
 			for k := range workerChannelNum {
 				channelID := channelIDFunc(i + (workerGroupNum * k))
-
 				for range workerChannelRequests {
 					go func() {
-						defer wgReceiverFinish.Done()
-
-						ctx, cancel := context.WithCancel(ctx)
-						defer cancel()
-
-						resultsChan, err := psr.Subscribe(ctx, channelID, channelMessageNum)
-						require.NoError(t, err)
-						defer func() { resultsChan.Close(t.Context()) }()
-						wgReceiverStart.Done()
-
-						expected := channels[channelID]
-						actual := []string{}
-						for len(actual) < len(expected) {
-							var message pubsubrt.Message[string]
-							var ok bool
-
-							select {
-							case <-ctx.Done():
-							case message, ok = <-resultsChan.Messages():
-							}
-
-							if !ok {
-								break
-							}
-							actual = append(actual, message.Content)
-							message.ACK()
-						}
-
-						assert.ElementsMatch(t, expected, actual, workerID, channelID)
-						logger.Debug(ctx, "receiver done", log.String("worker-id", workerID), log.String("channel-id", channelID))
+						defer wgFinish.Done()
+						worker.handle(t, ctx, channelID, channelMsgNum, &wgStart, channels)
 					}()
 				}
 			}
 		}
 	}
-	wgReceiverStart.Wait()
 
 	// simulate publish channel's messages
 	var acks, nacks atomic.Int32
@@ -121,10 +80,61 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 		}()
 	}
 	time.AfterFunc(5*time.Second, cancel)
-	wgReceiverFinish.Wait()
+	wgFinish.Wait()
 
-	assert.Equal(t, int32(len(channels)*channelMessageNum), acks.Load())
+	assert.Equal(t, int32(len(channels)*channelMsgNum), acks.Load())
 	if a := nacks.Load(); a > 0 {
 		logger.Warn(t.Context(), "non zero nacks", log.Int("message-queue", int(a)))
 	}
+}
+
+type worker struct {
+	workerID string
+	psrt     *pubsubrt.PubSubRouter[string]
+	logger   log.Logger
+}
+
+func newWorker(t *testing.T, ts TestSuiteNormal, workerID string, logger log.Logger) worker {
+	psrt, err := pubsubrt.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrt.WithLogger[string](logger))
+	require.NoError(t, err)
+
+	go func() {
+		err := psrt.Listen(t.Context())
+		if err != nil && err != t.Context().Err() {
+			assert.NoError(t, err)
+		}
+	}()
+
+	return worker{psrt: psrt, workerID: workerID, logger: logger}
+}
+
+func (w worker) handle(t *testing.T, ctx context.Context, channelID string, channelMessageNum int, wg *sync.WaitGroup, channels map[string][]string) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	resultsChan, err := w.psrt.Subscribe(ctx, channelID, channelMessageNum)
+	require.NoError(t, err)
+	defer func() { resultsChan.Close(ctx) }()
+	wg.Done()
+
+	expected := channels[channelID]
+	actual := []string{}
+	for len(actual) < len(expected) {
+		var message pubsubrt.Message[string]
+		var ok bool
+
+		select {
+		case <-ctx.Done():
+		case message, ok = <-resultsChan.Messages():
+		}
+
+		if !ok {
+			break
+		}
+		actual = append(actual, message.Content)
+		message.ACK()
+	}
+
+	assert.ElementsMatch(t, expected, actual, w.workerID, channelID)
+	w.logger.Debug(ctx, "receiver done", log.String("worker-id", w.workerID), log.String("channel-id", channelID))
 }

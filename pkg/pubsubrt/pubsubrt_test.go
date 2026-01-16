@@ -52,9 +52,15 @@ func (k *memKV) SRem(ctx context.Context, key string, value string) error {
 	return nil
 }
 
-func (k *memKV) SGet(ctx context.Context, key string) ([]string, error) {
-	v, _ := k.m.Get(key)
-	return *v, nil
+func (k *memKV) SGet(ctx context.Context, key string) (res []string, err error) {
+	k.m.RemoveCb(key, func(key string, v *[]string, exists bool) bool {
+		if exists {
+			res = *v
+		}
+		return false
+	})
+
+	return
 }
 
 type memPubSub[T any] struct {

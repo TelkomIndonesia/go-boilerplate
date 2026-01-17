@@ -1,26 +1,60 @@
 package httpx
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
 )
 
-var _ io.WriterTo = &SSEJSONEvent{}
+var _ io.WriterTo = &SSEEvent{}
 
-type SSEJSONEvent struct {
-	ID    string
-	Event string
-	Data  any
+type SSEEvent struct {
+	id         string
+	event      string
+	dataWriter func(w io.Writer) (n int, err error)
 }
 
-func (e SSEJSONEvent) WriteTo(w io.Writer) (n int64, err error) {
-	wn, err := writeField(w, "id: ", e.ID)
+func NewSSEEvent(id string, event string, data []byte) SSEEvent {
+	return SSEEvent{
+		id:    id,
+		event: event,
+		dataWriter: func(w io.Writer) (n int, err error) {
+			bw := bufio.NewWriter(w)
+			defer bw.Flush()
+
+			if n, err = bw.Write(data); err != nil {
+				return
+			}
+
+			if err = bw.WriteByte(byte('\n')); err != nil {
+				return
+			}
+
+			return n + 1, nil
+		},
+	}
+}
+
+func NewSSEEventJSON(id string, event string, data any) SSEEvent {
+	return SSEEvent{
+		id:    id,
+		event: event,
+		dataWriter: func(w io.Writer) (n int, err error) {
+			tw := &trackedWriter{Writer: w}
+			err = json.NewEncoder(tw).Encode(data)
+			return tw.n, err
+		},
+	}
+}
+
+func (e SSEEvent) WriteTo(w io.Writer) (n int64, err error) {
+	wn, err := writeField(w, "id: ", e.id)
 	n += int64(wn)
 	if err != nil {
 		return
 	}
 
-	wn, err = writeField(w, "event: ", e.Event)
+	wn, err = writeField(w, "event: ", e.event)
 	n += int64(wn)
 	if err != nil {
 		return
@@ -32,9 +66,8 @@ func (e SSEJSONEvent) WriteTo(w io.Writer) (n int64, err error) {
 		return
 	}
 
-	tw := &trackedWriter{Writer: w, n: 0}
-	err = json.NewEncoder(tw).Encode(e.Data)
-	n += int64(tw.n)
+	wn, err = e.dataWriter(w)
+	n += int64(wn)
 	if err != nil {
 		return
 	}

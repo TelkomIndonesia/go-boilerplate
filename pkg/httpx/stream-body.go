@@ -3,6 +3,7 @@ package httpx
 import (
 	"bytes"
 	"io"
+	"iter"
 	"net/http"
 )
 
@@ -10,11 +11,11 @@ var _ io.WriterTo = &StreamBody{}
 var _ io.Reader = &StreamBody{}
 
 type StreamBody struct {
-	source <-chan io.WriterTo
+	source iter.Seq[io.WriterTo]
 	buf    bytes.Buffer
 }
 
-func NewStreamBody(stream <-chan io.WriterTo) *StreamBody {
+func NewStreamBody(stream iter.Seq[io.WriterTo]) *StreamBody {
 	return &StreamBody{
 		source: stream,
 	}
@@ -22,15 +23,19 @@ func NewStreamBody(stream <-chan io.WriterTo) *StreamBody {
 
 func (s *StreamBody) Read(p []byte) (n int, err error) {
 	if s.buf.Len() == 0 {
-		event, ok := <-s.source
-		if !ok {
-			return 0, io.EOF
+		for event := range s.source {
+			_, err := event.WriteTo(&s.buf)
+			if err != nil {
+				return 0, err
+			}
+			if s.buf.Len() < len(p) {
+				break
+			}
 		}
+	}
 
-		_, err := event.WriteTo(&s.buf)
-		if err != nil {
-			return 0, err
-		}
+	if s.buf.Len() == 0 {
+		return 0, io.EOF
 	}
 
 	return s.buf.Read(p)

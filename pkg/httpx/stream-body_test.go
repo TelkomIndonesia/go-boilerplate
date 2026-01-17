@@ -3,6 +3,7 @@ package httpx
 import (
 	"bytes"
 	"io"
+	"iter"
 	"strings"
 	"testing"
 )
@@ -11,15 +12,11 @@ func TestStreamBodySSERead(t *testing.T) {
 	// 1. Setup the source channel and the stream
 	source := make(chan io.WriterTo, 1)
 	stream := &StreamBody{
-		source: source,
+		source: chanToSeq(source),
 	}
 
 	// 2. Define a test event with data that needs JSON encoding
-	event := SSEJSONEvent{
-		ID:    "123",
-		Event: "update",
-		Data:  map[string]string{"status": "ok"},
-	}
+	event := NewSSEEventJSON("123", "update", map[string]string{"status": "ok"})
 
 	// 3. Send the event
 	source <- event
@@ -58,9 +55,9 @@ func TestStreamBodySSERead(t *testing.T) {
 func TestStreamBodySSELargePayload(t *testing.T) {
 	// Tests if the internal buffer handles small reads correctly
 	source := make(chan io.WriterTo, 1)
-	stream := &StreamBody{source: source}
+	stream := &StreamBody{source: chanToSeq(source)}
 
-	source <- SSEJSONEvent{ID: "1", Data: "small"}
+	source <- NewSSEEvent("1", "", []byte("small"))
 	close(source)
 
 	// Read only 5 bytes at a time to force the stream to use its internal buffer
@@ -77,11 +74,22 @@ func TestStreamBodySSELargePayload(t *testing.T) {
 
 func TestStreamBodySSEProtocolTermination(t *testing.T) {
 	var buf bytes.Buffer
-	event := SSEJSONEvent{Data: "test"}
+	event := NewSSEEvent("", "", []byte("test"))
 
 	event.WriteTo(&buf)
 
 	if !strings.HasSuffix(buf.String(), "\n\n") {
 		t.Errorf("SSE event must end with double newline, got %q", buf.String())
+	}
+}
+
+func chanToSeq[T any](ch chan T) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for v := range ch {
+			ok := yield(v)
+			if !ok {
+				break
+			}
+		}
 	}
 }

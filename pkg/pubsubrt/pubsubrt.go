@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
@@ -16,9 +17,9 @@ type KeyValueSvc interface {
 }
 
 type PubSubSvc[T any] interface {
-	MessageQueue(ctx context.Context) (<-chan Message[T], error)
+	MessageQueue(ctx context.Context) (iter.Seq2[Message[T], error], error)
 	PublishWorkerMessage(ctx context.Context, workerID string, channelID string, content T) error
-	WorkerChannel(ctx context.Context) (<-chan Message[T], error)
+	WorkerChannel(ctx context.Context) (iter.Seq2[Message[T], error], error)
 }
 
 type PubSubRouter[T any] struct {
@@ -32,9 +33,9 @@ type PubSubRouter[T any] struct {
 	logger log.Logger
 }
 
-type PubSubRouterOptFunc[T any] func(*PubSubRouter[T]) error
+type OptFunc[T any] func(*PubSubRouter[T]) error
 
-func WithLogger[T any](logger log.Logger) PubSubRouterOptFunc[T] {
+func WithLogger[T any](logger log.Logger) OptFunc[T] {
 	return func(p *PubSubRouter[T]) error {
 		p.logger = logger
 		return nil
@@ -45,7 +46,7 @@ func New[T any](
 	workerID string,
 	kvRepo func() KeyValueSvc,
 	pubsub func(workerID string) PubSubSvc[T],
-	opts ...PubSubRouterOptFunc[T],
+	opts ...OptFunc[T],
 ) (*PubSubRouter[T], error) {
 	p := &PubSubRouter[T]{
 		workerID: workerID,
@@ -86,20 +87,10 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		return err
 	}
 
-	for {
-		var msg Message[T]
-		var ok bool
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-
-		case msg, ok = <-chanMessage:
-		}
-
-		if !ok {
-			p.logger.Debug(ctx, "message queue closed", log.String("worker-id", p.workerID))
-			return nil
+	for msg, err := range chanMessage {
+		if err != nil {
+			p.logger.Warn(ctx, "message queue errored", log.String("worker-id", p.workerID), log.Error("error", err))
+			continue
 		}
 
 		p.logger.Debug(ctx, "receive message queue",
@@ -147,6 +138,8 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 
 		msg.ACK()
 	}
+
+	return nil
 }
 
 func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
@@ -155,33 +148,27 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		return err
 	}
 
-	for {
-		var msg Message[T]
-		var ok bool
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-
-		case msg, ok = <-chanJob:
-		}
-
-		if !ok {
-			return nil
+	for msg, err := range chanJob {
+		if err != nil {
+			p.logger.Warn(ctx, "worker queue errored",
+				log.String("worker-id", p.workerID),
+				log.Error("error", err))
+			continue
 		}
 
 		p.logger.Debug(ctx, "receive worker queue",
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
 		var channels []Channel[T]
-		// can't use get here because we are storing pointer
+		// can't use get safely here because we are storing pointer
+		// and it might be modified when removing from chanmap
 		p.chanmap.RemoveCb(msg.ChannelID, func(key string, v *[]Channel[T], exists bool) bool {
 			if exists {
 				channels = *v
 			}
 			return false
 		})
-		if !ok || channels == nil {
+		if len(channels) == 0 {
 			p.logger.Warn(ctx, "dropping data due to no receiver",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK(NACKReason{
@@ -203,6 +190,8 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 		}
 
 	}
+
+	return nil
 }
 
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {

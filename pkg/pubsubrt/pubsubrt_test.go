@@ -3,6 +3,7 @@ package pubsubrt_test
 import (
 	"context"
 	"fmt"
+	"iter"
 	"slices"
 	"sync/atomic"
 	"testing"
@@ -99,16 +100,40 @@ func (m *memPubSub[T]) Clone(workerID string) pubsubrt.PubSubSvc[T] {
 		workers:  m.workers,
 	}
 }
-func (m *memPubSub[T]) MessageQueue(ctx context.Context) (<-chan pubsubrt.Message[T], error) {
-	return m.jobQueue, nil
+func (m *memPubSub[T]) MessageQueue(ctx context.Context) (iter.Seq2[pubsubrt.Message[T], error], error) {
+	return func(yield func(pubsubrt.Message[T], error) bool) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-m.jobQueue:
+				ok := yield(msg, nil)
+				if !ok {
+					return
+				}
+			}
+		}
+	}, nil
 }
 
-func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (<-chan pubsubrt.Message[T], error) {
+func (m *memPubSub[T]) WorkerChannel(ctx context.Context) (iter.Seq2[pubsubrt.Message[T], error], error) {
 	ch, ok := m.workers.Get(m.workerID)
 	if !ok {
 		return nil, fmt.Errorf("no channel for %s", m.workerID)
 	}
-	return ch, nil
+	return func(yield func(pubsubrt.Message[T], error) bool) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-ch:
+				ok := yield(msg, nil)
+				if !ok {
+					return
+				}
+			}
+		}
+	}, nil
 }
 
 func (m *memPubSub[T]) PublishWorkerMessage(

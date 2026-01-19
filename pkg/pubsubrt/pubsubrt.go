@@ -198,7 +198,7 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 	channel = newChannel(channelID, buflen, p.doneRouting)
 
 	p.chanmap.Upsert(channelID, nil, func(exist bool, old, new *[]Channel[T]) *[]Channel[T] {
-		if exist && old != nil {
+		if exist && old != nil && len(*old) > 0 {
 			a := append(make([]Channel[T], 0, len(*old)+1), *old...)
 			a = append(a, channel)
 			return &a
@@ -224,7 +224,7 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 
 		for i, v := range *existing {
 			if v.equal(channel) {
-				a := append(make([]Channel[T], len(*existing)-1), (*existing)[:i]...)
+				a := append(make([]Channel[T], 0, len(*existing)-1), (*existing)[:i]...)
 				*existing = append(a, (*existing)[i+1:]...)
 			}
 		}

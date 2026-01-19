@@ -197,17 +197,18 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
 	channel = newChannel(channelID, buflen, p.doneRouting)
 
-	p.chanmap.Upsert(channelID, nil, func(exist bool, old, new *[]Channel[T]) *[]Channel[T] {
-		if exist && old != nil && len(*old) > 0 {
-			a := append(make([]Channel[T], 0, len(*old)+1), *old...)
-			a = append(a, channel)
-			return &a
+	p.chanmap.Upsert(channelID, nil, func(exist bool, existing, _ *[]Channel[T]) *[]Channel[T] {
+		if exist && existing != nil && len(*existing) > 0 {
+			old := *existing
+			new := append(make([]Channel[T], 0, cap(old)+1), old...)
+			new = append(new, channel)
+			return &new
 		}
 
 		err = p.kvRepo.SAdd(ctx, channelID, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to register to key value service")
-			return old
+			return existing
 		}
 
 		return &[]Channel[T]{channel}
@@ -222,10 +223,11 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 			return true
 		}
 
+		old := *existing
 		for i, v := range *existing {
 			if v.equal(channel) {
-				a := append(make([]Channel[T], 0, len(*existing)-1), (*existing)[:i]...)
-				*existing = append(a, (*existing)[i+1:]...)
+				new := append(make([]Channel[T], 0, cap(old)), (old)[:i]...)
+				*existing = append(new, old[i+1:]...)
 			}
 		}
 		if len(*existing) != 0 {
@@ -235,6 +237,7 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 		err = p.kvRepo.SRem(ctx, channel.id, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to unregister to key value service")
+			*existing = old
 			return false
 		}
 

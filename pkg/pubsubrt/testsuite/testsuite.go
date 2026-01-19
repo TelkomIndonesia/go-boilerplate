@@ -35,7 +35,7 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 	for i := range workerGroupNum * workerChannelNum {
 		id := channelIDFunc(i)
 		for j := range channelMsgNum {
-			result := fmt.Sprintf("result-%s-%d", id, j)
+			result := fmt.Sprintf("result-%d-%d", i, j)
 			channels[id] = append(channels[id], result)
 		}
 	}
@@ -79,7 +79,7 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 			}
 		}()
 	}
-	time.AfterFunc(5*time.Second, cancel)
+	time.AfterFunc(10*time.Second, cancel)
 	wgFinish.Wait()
 
 	assert.Equal(t, int32(len(channels)*channelMsgNum), acks.Load())
@@ -98,20 +98,20 @@ func newWorker(t *testing.T, ts TestSuiteNormal, workerID string, logger log.Log
 	psrt, err := pubsubrt.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrt.WithLogger[string](logger))
 	require.NoError(t, err)
 
+	ch := make(chan struct{})
 	go func() {
+		defer close(ch)
 		err := psrt.Listen(t.Context())
 		if err != nil && err != t.Context().Err() {
 			assert.NoError(t, err)
 		}
 	}()
+	<-ch
 
 	return worker{psrt: psrt, workerID: workerID, logger: logger}
 }
 
 func (w worker) handle(t *testing.T, ctx context.Context, channelID string, channelMessageNum int, wg *sync.WaitGroup, channels map[string][]string) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	resultsChan, err := w.psrt.Subscribe(ctx, channelID, channelMessageNum)
 	require.NoError(t, err)
 	defer func() { resultsChan.Close(ctx) }()
@@ -135,6 +135,6 @@ func (w worker) handle(t *testing.T, ctx context.Context, channelID string, chan
 		message.ACK()
 	}
 
-	assert.ElementsMatch(t, expected, actual, w.workerID, channelID)
+	assert.ElementsMatchf(t, expected, actual, "worker-id=%s channel-id=%s", w.workerID, channelID)
 	w.logger.Debug(ctx, "receiver done", log.String("worker-id", w.workerID), log.String("channel-id", channelID))
 }

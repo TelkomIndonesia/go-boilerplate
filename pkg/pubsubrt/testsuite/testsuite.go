@@ -58,6 +58,7 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 			}
 		}
 	}
+	wgStart.Wait()
 
 	// simulate publish channel's messages
 	var acks, nacks atomic.Int32
@@ -98,15 +99,12 @@ func newWorker(t *testing.T, ts TestSuiteNormal, workerID string, logger log.Log
 	psrt, err := pubsubrt.New(workerID, ts.KVFactory, ts.PubSubFactory, pubsubrt.WithLogger[string](logger))
 	require.NoError(t, err)
 
-	ch := make(chan struct{})
 	go func() {
-		defer close(ch)
 		err := psrt.Listen(t.Context())
 		if err != nil && err != t.Context().Err() {
 			assert.NoError(t, err)
 		}
 	}()
-	<-ch
 
 	return worker{psrt: psrt, workerID: workerID, logger: logger}
 }

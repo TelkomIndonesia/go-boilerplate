@@ -22,7 +22,7 @@ func newMemKV() *memKV {
 	return &memKV{m: cmap.New[*[]string]()}
 }
 
-func (k *memKV) SAdd(ctx context.Context, key, value string) error {
+func (k *memKV) Add(ctx context.Context, key, value string) error {
 	k.m.Upsert(key, nil, func(exist bool, valueInMap, newValue *[]string) *[]string {
 		if !exist || valueInMap == nil || len(*valueInMap) == 0 {
 			return &[]string{value}
@@ -39,7 +39,7 @@ func (k *memKV) SAdd(ctx context.Context, key, value string) error {
 	return nil
 }
 
-func (k *memKV) SRem(ctx context.Context, key string, value string) error {
+func (k *memKV) Remove(ctx context.Context, key string, value string) error {
 	k.m.RemoveCb(key, func(key string, current *[]string, exists bool) bool {
 		if !exists || current == nil || len(*current) == 0 {
 			return true
@@ -56,7 +56,7 @@ func (k *memKV) SRem(ctx context.Context, key string, value string) error {
 	return nil
 }
 
-func (k *memKV) SGet(ctx context.Context, key string) (res []string, err error) {
+func (k *memKV) Members(ctx context.Context, key string) (res []string, err error) {
 	k.m.RemoveCb(key, func(key string, v *[]string, exists bool) bool {
 		if exists {
 			res = *v
@@ -67,7 +67,7 @@ func (k *memKV) SGet(ctx context.Context, key string) (res []string, err error) 
 	return
 }
 
-func (k *memKV) OnListen(ctx context.Context) error { return nil }
+func (k *memKV) Start(ctx context.Context) error { return nil }
 
 type memPubSub[T any] struct {
 	t     *testing.T
@@ -91,7 +91,7 @@ func newMemPubSub[T any](t *testing.T) *memPubSub[T] {
 	return ps
 }
 
-func (k *memPubSub[T]) OnListen(ctx context.Context) error { return nil }
+func (k *memPubSub[T]) Start(ctx context.Context) error { return nil }
 
 func (m *memPubSub[T]) Clone(workerID string) pubsubrt.PubSubSvc[T] {
 	m.workers.Set(workerID, make(chan pubsubrt.Message[T], 1000))

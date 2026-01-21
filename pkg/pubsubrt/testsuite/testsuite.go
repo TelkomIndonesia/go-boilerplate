@@ -102,7 +102,7 @@ func newWorker(t *testing.T, ts TestSuiteNormal, workerID string, logger log.Log
 	ch := make(chan struct{})
 	go func() {
 		close(ch)
-		err := psrt.Listen(t.Context())
+		err := psrt.Start(t.Context())
 		if err != nil && err != t.Context().Err() {
 			assert.NoError(t, err)
 		}

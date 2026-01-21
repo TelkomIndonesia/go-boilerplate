@@ -11,15 +11,15 @@ import (
 )
 
 type KeyValueSvc interface {
-	OnListen(ctx context.Context) error
+	Start(ctx context.Context) error
 
-	SAdd(ctx context.Context, key string, value string) error
-	SGet(ctx context.Context, key string) (value []string, err error)
-	SRem(ctx context.Context, key string, value string) error
+	Add(ctx context.Context, key string, value string) error
+	Members(ctx context.Context, key string) (value []string, err error)
+	Remove(ctx context.Context, key string, value string) error
 }
 
 type PubSubSvc[T any] interface {
-	OnListen(ctx context.Context) error
+	Start(ctx context.Context) error
 
 	MessageQueue(ctx context.Context) (iter.Seq2[Message[T], error], error)
 	PublishWorkerMessage(ctx context.Context, workerID string, channelID string, content T) error
@@ -69,30 +69,18 @@ func New[T any](
 	return p, nil
 }
 
-func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
-	err = p.pubsub.OnListen(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to invoce OnListen on pub sub service: %w", err)
-	}
-	err = p.keyval.OnListen(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to invoce OnListen on key value service: %w", err)
-	}
-
-	errs := make(chan error, 2)
+func (p *PubSubRouter[T]) Start(ctx context.Context) (err error) {
+	errs := make(chan error, 4)
+	go func() { errs <- p.pubsub.Start(ctx) }()
+	go func() { errs <- p.keyval.Start(ctx) }()
 	go func() { errs <- p.ListenWorkerChannel(ctx) }()
 	go func() { errs <- p.ListenMessageQueue(ctx) }()
-	for range len(errs) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case errx := <-errs:
-			err = errors.Join(err, errx)
-		}
+	for range cap(errs) {
+		err = errors.Join(err, <-errs)
 	}
-
 	return
 }
+
 func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 	chanMessage, err := p.pubsub.MessageQueue(ctx)
 	if err != nil {
@@ -108,7 +96,7 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		p.logger.Debug(ctx, "receive message queue",
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		workers, err := p.keyval.SGet(ctx, msg.ChannelID)
+		workers, err := p.keyval.Members(ctx, msg.ChannelID)
 		if err != nil {
 			p.logger.Warn(ctx, "NACK due to failure to lookup worker for message",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
@@ -217,7 +205,7 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 			return &new
 		}
 
-		err = p.keyval.SAdd(ctx, channelID, p.workerID)
+		err = p.keyval.Add(ctx, channelID, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to register to key value service")
 			return valueInMap
@@ -247,7 +235,7 @@ func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (
 			return false
 		}
 
-		err = p.keyval.SRem(ctx, channel.id, p.workerID)
+		err = p.keyval.Remove(ctx, channel.id, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to unregister to key value service")
 			*valueInMap = old

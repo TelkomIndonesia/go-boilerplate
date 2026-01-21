@@ -2,6 +2,7 @@ package testsuite
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -103,7 +104,7 @@ func newWorker(t *testing.T, ts TestSuiteNormal, workerID string, logger log.Log
 	go func() {
 		close(ch)
 		err := psrt.Start(t.Context())
-		if err != nil && err != t.Context().Err() {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			assert.NoError(t, err)
 		}
 	}()

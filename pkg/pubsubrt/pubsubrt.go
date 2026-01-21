@@ -11,12 +11,16 @@ import (
 )
 
 type KeyValueSvc interface {
+	OnListen(ctx context.Context) error
+
 	SAdd(ctx context.Context, key string, value string) error
 	SGet(ctx context.Context, key string) (value []string, err error)
 	SRem(ctx context.Context, key string, value string) error
 }
 
 type PubSubSvc[T any] interface {
+	OnListen(ctx context.Context) error
+
 	MessageQueue(ctx context.Context) (iter.Seq2[Message[T], error], error)
 	PublishWorkerMessage(ctx context.Context, workerID string, channelID string, content T) error
 	WorkerChannel(ctx context.Context) (iter.Seq2[Message[T], error], error)
@@ -25,7 +29,7 @@ type PubSubSvc[T any] interface {
 type PubSubRouter[T any] struct {
 	workerID string
 
-	kvRepo KeyValueSvc
+	keyval KeyValueSvc
 	pubsub PubSubSvc[T]
 
 	chanmap cmap.ConcurrentMap[string, *[]Channel[T]]
@@ -50,7 +54,7 @@ func New[T any](
 ) (*PubSubRouter[T], error) {
 	p := &PubSubRouter[T]{
 		workerID: workerID,
-		kvRepo:   kvRepo(),
+		keyval:   kvRepo(),
 		pubsub:   pubsub(workerID),
 		chanmap:  cmap.New[*[]Channel[T]](),
 		logger:   log.Global(),
@@ -66,10 +70,18 @@ func New[T any](
 }
 
 func (p *PubSubRouter[T]) Listen(ctx context.Context) (err error) {
+	err = p.pubsub.OnListen(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to invoce OnListen on pub sub service: %w", err)
+	}
+	err = p.keyval.OnListen(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to invoce OnListen on key value service: %w", err)
+	}
+
 	errs := make(chan error, 2)
 	go func() { errs <- p.ListenWorkerChannel(ctx) }()
 	go func() { errs <- p.ListenMessageQueue(ctx) }()
-
 	for range len(errs) {
 		select {
 		case <-ctx.Done():
@@ -96,7 +108,7 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		p.logger.Debug(ctx, "receive message queue",
 			log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 
-		workers, err := p.kvRepo.SGet(ctx, msg.ChannelID)
+		workers, err := p.keyval.SGet(ctx, msg.ChannelID)
 		if err != nil {
 			p.logger.Warn(ctx, "NACK due to failure to lookup worker for message",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
@@ -197,18 +209,18 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, buflen int) (channel Channel[T], err error) {
 	channel = newChannel(channelID, buflen, p.doneRouting)
 
-	p.chanmap.Upsert(channelID, nil, func(exist bool, existing, _ *[]Channel[T]) *[]Channel[T] {
-		if exist && existing != nil && len(*existing) > 0 {
-			old := *existing
+	p.chanmap.Upsert(channelID, nil, func(exist bool, valueInMap, _ *[]Channel[T]) *[]Channel[T] {
+		if exist && valueInMap != nil && len(*valueInMap) > 0 {
+			old := *valueInMap
 			new := append(make([]Channel[T], 0, cap(old)+1), old...)
 			new = append(new, channel)
 			return &new
 		}
 
-		err = p.kvRepo.SAdd(ctx, channelID, p.workerID)
+		err = p.keyval.SAdd(ctx, channelID, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to register to key value service")
-			return existing
+			return valueInMap
 		}
 
 		return &[]Channel[T]{channel}
@@ -218,26 +230,27 @@ func (p *PubSubRouter[T]) Subscribe(ctx context.Context, channelID string, bufle
 }
 
 func (p *PubSubRouter[T]) doneRouting(ctx context.Context, channel Channel[T]) (err error) {
-	p.chanmap.RemoveCb(channel.id, func(key string, existing *[]Channel[T], exists bool) bool {
-		if !exists || existing == nil || len(*existing) == 0 {
+	p.chanmap.RemoveCb(channel.id, func(key string, valueInMap *[]Channel[T], exists bool) bool {
+		if !exists || valueInMap == nil || len(*valueInMap) == 0 {
 			return true
 		}
 
-		old := *existing
-		for i, v := range *existing {
+		old := *valueInMap
+		for i, v := range *valueInMap {
 			if v.equal(channel) {
-				new := append(make([]Channel[T], 0, cap(old)), (old)[:i]...)
-				*existing = append(new, old[i+1:]...)
+				new := append(make([]Channel[T], 0, cap(old)-1), (old)[:i]...)
+				*valueInMap = append(new, old[i+1:]...)
+				break
 			}
 		}
-		if len(*existing) != 0 {
+		if len(*valueInMap) != 0 {
 			return false
 		}
 
-		err = p.kvRepo.SRem(ctx, channel.id, p.workerID)
+		err = p.keyval.SRem(ctx, channel.id, p.workerID)
 		if err != nil {
 			err = fmt.Errorf("failed to unregister to key value service")
-			*existing = old
+			*valueInMap = old
 			return false
 		}
 

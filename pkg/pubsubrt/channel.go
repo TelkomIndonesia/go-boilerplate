@@ -43,7 +43,6 @@ type Channel[T any] struct {
 }
 
 func newChannel[T any](channelID string, buflen int, beforeClose func(context.Context, Channel[T]) error) Channel[T] {
-
 	var once1, once2 sync.Once
 
 	channel := Channel[T]{
@@ -122,7 +121,7 @@ func (c Channel[T]) Messages() <-chan Message[T] {
 }
 
 func (c Channel[T]) Close(ctx context.Context) (err error) {
-	if c.close != nil {
+	if c.close == nil {
 		return nil
 	}
 

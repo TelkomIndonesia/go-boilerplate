@@ -113,6 +113,7 @@ func (w worker) handle(t *testing.T, ctx context.Context, channelID string, chan
 	resultsChan, err := w.psrt.Subscribe(ctx, channelID, channelMessageNum)
 	require.NoError(t, err)
 	defer func() { resultsChan.Close(ctx) }()
+	<-time.After(time.Second)
 	wg.Done()
 
 	expected := channels[channelID]

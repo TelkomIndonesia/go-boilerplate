@@ -67,6 +67,8 @@ func (k *memKV) SGet(ctx context.Context, key string) (res []string, err error) 
 	return
 }
 
+func (k *memKV) OnListen(ctx context.Context) error { return nil }
+
 type memPubSub[T any] struct {
 	t     *testing.T
 	acks  *atomic.Int32
@@ -89,6 +91,8 @@ func newMemPubSub[T any](t *testing.T) *memPubSub[T] {
 	return ps
 }
 
+func (k *memPubSub[T]) OnListen(ctx context.Context) error { return nil }
+
 func (m *memPubSub[T]) Clone(workerID string) pubsubrt.PubSubSvc[T] {
 	m.workers.Set(workerID, make(chan pubsubrt.Message[T], 1000))
 	return &memPubSub[T]{
@@ -100,6 +104,7 @@ func (m *memPubSub[T]) Clone(workerID string) pubsubrt.PubSubSvc[T] {
 		workers:  m.workers,
 	}
 }
+
 func (m *memPubSub[T]) MessageQueue(ctx context.Context) (iter.Seq2[pubsubrt.Message[T], error], error) {
 	return func(yield func(pubsubrt.Message[T], error) bool) {
 		for {

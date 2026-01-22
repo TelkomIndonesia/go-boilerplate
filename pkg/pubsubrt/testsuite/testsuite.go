@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
@@ -30,13 +31,14 @@ func (ts *TestSuiteNormal) Run(t *testing.T) {
 	logger := logtest.NewLogger(t)
 
 	// prepare data
+	tid := uuid.NewString()
 	workerGroupNum, workerGroupReplica, workerChannelNum, workerChannelRequests, channelMsgNum := 10, 7, 8, 5, 50
 	channels := map[string][]string{}
-	channelIDFunc := func(i int) string { return fmt.Sprintf("job-%d", i) }
+	channelIDFunc := func(i int) string { return fmt.Sprintf("job-%s-%d", tid, i) }
 	for i := range workerGroupNum * workerChannelNum {
 		id := channelIDFunc(i)
 		for j := range channelMsgNum {
-			result := fmt.Sprintf("result-%d-%d", i, j)
+			result := fmt.Sprintf("result-%s-%d-%d", tid, i, j)
 			channels[id] = append(channels[id], result)
 		}
 	}

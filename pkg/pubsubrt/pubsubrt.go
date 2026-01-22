@@ -169,11 +169,11 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			return false
 		})
 		if len(channels) == 0 {
-			p.logger.Warn(ctx, "dropping data due to no receiver",
+			p.logger.Warn(ctx, "NACK due to no subscriber",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK(NACKReason{
 				Code:    NACKReasonNoSubscriber,
-				Message: "no receiver",
+				Message: "no subscriber",
 			})
 			continue
 		}

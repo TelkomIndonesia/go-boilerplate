@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strconv"
 )
 
 var _ io.WriterTo = &SSEEvent{}
@@ -12,6 +13,7 @@ type SSEEvent struct {
 	id         string
 	event      string
 	dataWriter func(w io.Writer) (n int, err error)
+	retry      int
 }
 
 var newline = []byte{'\n'}
@@ -48,32 +50,60 @@ func NewSSEEventJSON(id string, event string, data any) SSEEvent {
 	}
 }
 
+func (e SSEEvent) WithRetry(retry int) SSEEvent {
+	return SSEEvent{e.id, e.event, e.dataWriter, retry}
+}
+
 func (e SSEEvent) WriteTo(w io.Writer) (n int64, err error) {
-	wn, err := writeField(w, "id: ", e.id)
-	n += int64(wn)
-	if err != nil {
-		return
+	written := false
+
+	if e.id != "" {
+		written = true
+		wn, err := writeField(w, "id: ", e.id)
+		n += int64(wn)
+		if err != nil {
+			return n, err
+		}
 	}
 
-	wn, err = writeField(w, "event: ", e.event)
-	n += int64(wn)
-	if err != nil {
-		return
+	if e.event != "" {
+		written = true
+		wn, err := writeField(w, "event: ", e.event)
+		n += int64(wn)
+		if err != nil {
+			return n, err
+		}
 	}
 
-	wn, err = io.WriteString(w, "data: ")
-	n += int64(wn)
-	if err != nil {
-		return
+	if e.dataWriter != nil {
+		written = true
+		wn, err := io.WriteString(w, "data: ")
+		n += int64(wn)
+		if err != nil {
+			return n, err
+		}
+
+		wn, err = e.dataWriter(w)
+		n += int64(wn)
+		if err != nil {
+			return n, err
+		}
 	}
 
-	wn, err = e.dataWriter(w)
-	n += int64(wn)
-	if err != nil {
-		return
+	if e.retry > 0 {
+		written = true
+		wn, err := writeField(w, "retry: ", strconv.Itoa(e.retry))
+		n += int64(wn)
+		if err != nil {
+			return n, err
+		}
 	}
 
-	wn, err = io.WriteString(w, "\n")
+	eol := "\n"
+	if !written {
+		eol = ":\n"
+	}
+	wn, err := io.WriteString(w, eol)
 	n += int64(wn)
 	if err != nil {
 		return n, err

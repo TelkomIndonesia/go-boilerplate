@@ -4,92 +4,93 @@ import (
 	"bytes"
 	"io"
 	"iter"
-	"strings"
+	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func TestStreamBodySSERead(t *testing.T) {
-	// 1. Setup the source channel and the stream
-	source := make(chan io.WriterTo, 1)
-	stream := &StreamBody{
-		source: chanToSeq(source),
-	}
-
-	// 2. Define a test event with data that needs JSON encoding
-	event := NewSSEEventJSON("123", "update", map[string]string{"status": "ok"})
-
-	// 3. Send the event
-	source <- event
-	close(source)
-
-	// 4. Read from the stream using the io.Reader interface
-	// We'll use a small buffer to test the internal buffering logic
-	buf := make([]byte, 1024)
-	n, err := stream.Read(buf)
-	if err != nil && err != io.EOF {
-		t.Fatalf("failed to read from stream: %v", err)
-	}
-
-	output := string(buf[:n])
-
-	// 5. Assertions
-	expectedParts := []string{
-		"id: 123\n",
-		"event: update\n",
-		"data: {\"status\":\"ok\"}\n\n",
-	}
-
-	for _, part := range expectedParts {
-		if !strings.Contains(output, part) {
-			t.Errorf("expected output to contain %q, but got %q", part, output)
-		}
-	}
-
-	// 6. Verify EOF
-	_, err = stream.Read(buf)
-	if err != io.EOF {
-		t.Errorf("expected EOF after channel close, got %v", err)
-	}
+type fakeFlusher struct {
+	bytes.Buffer
+	flushes int
 }
 
-func TestStreamBodySSELargePayload(t *testing.T) {
-	// Tests if the internal buffer handles small reads correctly
-	source := make(chan io.WriterTo, 1)
-	stream := &StreamBody{source: chanToSeq(source)}
+func (f *fakeFlusher) Flush() { f.flushes++ }
 
-	source <- NewSSEEvent("1", "", []byte("small"))
-	close(source)
+var _ http.Flusher = (*fakeFlusher)(nil)
 
-	// Read only 5 bytes at a time to force the stream to use its internal buffer
-	p := make([]byte, 5)
-	n, err := stream.Read(p)
-	if err != nil || n != 5 {
-		t.Fatalf("first read failed: n=%d, err=%v", n, err)
-	}
+func TestStreamBodyRead(t *testing.T) {
+	events := make(chan SSEEvent, 2)
+	events <- NewSSEEvent("1", "msg", []byte("hello"))
+	events <- NewSSEEvent("2", "msg", []byte("world"))
+	close(events)
 
-	if stream.buf.Len() == 0 {
-		t.Error("expected remaining data to be held in internal buffer")
-	}
-}
-
-func TestStreamBodySSEProtocolTermination(t *testing.T) {
-	var buf bytes.Buffer
-	event := NewSSEEvent("", "", []byte("test"))
-
-	event.WriteTo(&buf)
-
-	if !strings.HasSuffix(buf.String(), "\n\n") {
-		t.Errorf("SSE event must end with double newline, got %q", buf.String())
-	}
-}
-
-func chanToSeq[T any](ch chan T) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		for v := range ch {
-			ok := yield(v)
-			if !ok {
-				break
+	seq := func(yield func(io.WriterTo) bool) {
+		for e := range events {
+			if !yield(e) {
+				return
 			}
 		}
 	}
+	body := NewStreamBody(seq)
+
+	expected := "id: 1\nevent: msg\ndata: hello\n\n" + "id: 2\nevent: msg\ndata: world\n\n"
+
+	b, err := io.ReadAll(body)
+	require.NoError(t, err)
+	require.Equal(t, expected, string(b))
+
+}
+
+func TestStreamBodyWriteTo(t *testing.T) {
+	events := make(chan SSEEvent, 2)
+	events <- NewSSEEvent("1", "msg", []byte("foo"))
+	events <- NewSSEEvent("2", "msg", []byte("bar"))
+	close(events)
+
+	seq := func(yield func(io.WriterTo) bool) {
+		for e := range events {
+			if !yield(e) {
+				return
+			}
+		}
+	}
+	body := NewStreamBody(iter.Seq[io.WriterTo](seq))
+
+	f := &fakeFlusher{}
+	n, err := body.WriteTo(f)
+	require.NoError(t, err)
+
+	expected := "" +
+		"id: 1\nevent: msg\ndata: foo\n\n" +
+		"id: 2\nevent: msg\ndata: bar\n\n"
+	require.Equal(t, expected, f.String())
+	require.Equal(t, cap(events), f.flushes)
+	require.Equal(t, int64(len(expected)), n)
+}
+
+func TestStreamBodyWriteToNoFlush(t *testing.T) {
+	events := make(chan SSEEvent, 2)
+	events <- NewSSEEvent("1", "msg", []byte("foo"))
+	events <- NewSSEEvent("2", "msg", []byte("bar"))
+	close(events)
+
+	seq := func(yield func(io.WriterTo) bool) {
+		for e := range events {
+			if !yield(e) {
+				return
+			}
+		}
+	}
+	body := NewStreamBody(iter.Seq[io.WriterTo](seq))
+
+	var buf bytes.Buffer
+	n, err := body.WriteTo(&buf)
+	require.NoError(t, err)
+
+	expected := "" +
+		"id: 1\nevent: msg\ndata: foo\n\n" +
+		"id: 2\nevent: msg\ndata: bar\n\n"
+	require.Equal(t, expected, buf.String())
+	require.Equal(t, int64(len(expected)), n)
 }

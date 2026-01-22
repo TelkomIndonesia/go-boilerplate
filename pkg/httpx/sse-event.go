@@ -1,7 +1,7 @@
 package httpx
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
 	"io"
 )
@@ -14,23 +14,24 @@ type SSEEvent struct {
 	dataWriter func(w io.Writer) (n int, err error)
 }
 
+var newline = []byte{'\n'}
+
 func NewSSEEvent(id string, event string, data []byte) SSEEvent {
+	return NewSSEEventIOReader(id, event, bytes.NewReader(data))
+}
+
+func NewSSEEventIOReader(id string, event string, data io.Reader) SSEEvent {
 	return SSEEvent{
 		id:    id,
 		event: event,
 		dataWriter: func(w io.Writer) (n int, err error) {
-			bw := bufio.NewWriter(w)
-			defer bw.Flush()
-
-			if n, err = bw.Write(data); err != nil {
-				return
+			n64, err := io.Copy(w, data)
+			if err != nil {
+				return int(n64), err
 			}
 
-			if err = bw.WriteByte(byte('\n')); err != nil {
-				return
-			}
-
-			return n + 1, nil
+			n, err = w.Write(newline)
+			return int(n64) + n, err
 		},
 	}
 }

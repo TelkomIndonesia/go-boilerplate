@@ -94,7 +94,7 @@ type TLSWrap struct {
 	rootCAPath   string
 	logger       log.Logger
 	cfg          *tls.Config
-	mux          sync.Mutex
+	mux          sync.RWMutex
 	listenerFunc func(c, s *tls.Config)
 	closers      []func(context.Context) error
 
@@ -198,8 +198,8 @@ func (c *TLSWrap) loadLeaf() (err error) {
 	}
 
 	c.cert = &cert
-	c.cfgs = c.serverConfig()
-	c.cfgc = c.clientConfig()
+	c.cfgs = c.createServerConfig()
+	c.cfgc = c.createClientConfig()
 	c.listenerFunc(c.cfgs, c.cfgc)
 	return
 }
@@ -219,7 +219,7 @@ func (c *TLSWrap) loadClientCA() (err error) {
 	}
 
 	c.clientCa = clientCa
-	c.cfgs = c.serverConfig()
+	c.cfgs = c.createServerConfig()
 	c.listenerFunc(c.cfgs, c.cfgc)
 	return
 }
@@ -242,50 +242,63 @@ func (c *TLSWrap) loadRootCA() (err error) {
 	}
 
 	c.rootCA = rootCA
-	c.cfgc = c.clientConfig()
+	c.cfgc = c.createClientConfig()
 	c.listenerFunc(c.cfgs, c.cfgc)
 	return
 }
 
-func (c *TLSWrap) clientConfig() *tls.Config {
+func (c *TLSWrap) createClientConfig() *tls.Config {
 	cfg := c.cfg.Clone()
 	cfg.RootCAs = c.rootCA
 	if c.cert == nil {
 		return cfg
 	}
 
+	cert := c.cert
 	cfg.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		return c.cert, nil
+		return cert, nil
 	}
 	return cfg
 }
 
-func (c *TLSWrap) serverConfig() *tls.Config {
+func (c *TLSWrap) createServerConfig() *tls.Config {
 	cfg := c.cfg.Clone()
 	if c.cert == nil {
 		return cfg
 	}
 
 	cfg.ClientCAs = c.clientCa
+	cert := c.cert
 	cfg.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		return c.cert, nil
+		return cert, nil
 	}
 	return cfg
 }
 
-func (c *TLSWrap) getCertificate() (*tls.Certificate, error) {
-	if c.cert == nil {
-		return nil, fmt.Errorf("no certificate found")
-	}
-	return c.cert, nil
+func (c *TLSWrap) clientConfig() *tls.Config {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	return c.cfgc.Clone()
+}
+
+func (c *TLSWrap) serverConfig() *tls.Config {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	return c.cfgs.Clone()
+}
+
+func (c *TLSWrap) certificate() *tls.Certificate {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	return c.cert
 }
 
 func (c *TLSWrap) Dialer(d *net.Dialer) Dialer {
-	return dialer{c: c, d: d}
+	return dialer{tw: c, d: d}
 }
 
 func (c *TLSWrap) Listener(l net.Listener) net.Listener {
-	return listener{c: c, l: l}
+	return listener{tw: c, l: l}
 }
 
 func (c *TLSWrap) Close(ctx context.Context) (err error) {
@@ -296,8 +309,8 @@ func (c *TLSWrap) Close(ctx context.Context) (err error) {
 }
 
 type dialer struct {
-	c *TLSWrap
-	d *net.Dialer
+	tw *TLSWrap
+	d  *net.Dialer
 }
 
 func (d dialer) Dial(net string, addr string) (net.Conn, error) {
@@ -305,22 +318,22 @@ func (d dialer) Dial(net string, addr string) (net.Conn, error) {
 }
 
 func (d dialer) DialContext(ctx context.Context, net string, addr string) (net.Conn, error) {
-	return (&tls.Dialer{NetDialer: d.d, Config: d.c.cfgc}).
+	return (&tls.Dialer{NetDialer: d.d, Config: d.tw.clientConfig()}).
 		DialContext(ctx, net, addr)
 }
 
 type listener struct {
-	c *TLSWrap
-	l net.Listener
+	tw *TLSWrap
+	l  net.Listener
 }
 
 func (c listener) Accept() (net.Conn, error) {
 	conn, err := c.l.Accept()
-	if err != nil || c.c.cert == nil {
+	if err != nil || c.tw.certificate() == nil {
 		return conn, err
 	}
 
-	return tls.Server(conn, c.c.cfgs), nil
+	return tls.Server(conn, c.tw.serverConfig()), nil
 }
 
 func (c listener) Close() error {

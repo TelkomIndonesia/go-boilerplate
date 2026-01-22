@@ -22,13 +22,13 @@ func NewStreamBody(stream iter.Seq[io.WriterTo]) *StreamBody {
 }
 
 func (s *StreamBody) Read(p []byte) (n int, err error) {
-	if s.buf.Len() == 0 {
+	if s.buf.Len() < len(p) {
 		for event := range s.source {
-			_, err := event.WriteTo(&s.buf)
+			n64, err := event.WriteTo(&s.buf)
 			if err != nil {
-				return 0, err
+				return int(n64), err
 			}
-			if s.buf.Len() < len(p) {
+			if s.buf.Len() >= len(p) {
 				break
 			}
 		}

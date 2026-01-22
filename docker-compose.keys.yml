@@ -4,15 +4,14 @@ services:
     volumes:
       - ${PWD:-.}:${PWD:-/src}
     working_dir: ${PWD:-/src}/.local
-    entrypoint: [sh, -c]
+    entrypoint: [ sh, -c ]
     command:
       - |-
         step certificate create ca ca.crt ca.key \
-          --profile root-ca --no-password --insecure -f 
+          --profile root-ca --no-password --insecure -f --not-after 876600h
         step certificate create profile profile.crt profile.key \
           --san profile --san localhost --san 127.0.0.1 \
-          --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f --not-after 8766h
+          --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f --not-after 876600h
         step certificate create tenant tenant.crt tenant.key \
           --san tenant --san localhost --san 127.0.0.1 \
-          --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f --not-after 8766h
-      
+          --profile leaf --ca ca.crt --ca-key ca.key --no-password --insecure -f --not-after 876600h

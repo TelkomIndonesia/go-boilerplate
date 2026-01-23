@@ -185,14 +185,13 @@ func (tw *TLSWrap) initWatcher() (err error) {
 }
 
 func (tw *TLSWrap) loadLeaf() (err error) {
-	tw.mux.Lock()
-	defer tw.mux.Unlock()
-
 	cert, err := tls.LoadX509KeyPair(tw.certPath, tw.keyPath)
 	if err != nil {
 		return fmt.Errorf("failed to load x509 key pair: %w", err)
 	}
 
+	tw.mux.Lock()
+	defer tw.mux.Unlock()
 	tw.cert.Store(&cert)
 	tw.cfgs.Store(tw.createServerConfig())
 	tw.cfgc.Store(tw.createClientConfig())
@@ -201,19 +200,18 @@ func (tw *TLSWrap) loadLeaf() (err error) {
 }
 
 func (tw *TLSWrap) loadClientCA() (err error) {
-	tw.mux.Lock()
-	defer tw.mux.Unlock()
-
-	clientCa := x509.NewCertPool()
-
 	certs, err := os.ReadFile(tw.clientCAPath)
 	if err != nil {
 		return fmt.Errorf("failed to open ca file: %w", err)
 	}
+
+	clientCa := x509.NewCertPool()
 	if ok := clientCa.AppendCertsFromPEM(certs); !ok {
 		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 
+	tw.mux.Lock()
+	defer tw.mux.Unlock()
 	tw.clientCa = clientCa
 	tw.cfgs.Store(tw.createServerConfig())
 	tw.listenerFunc(tw.cfgs.Load(), tw.cfgc.Load())
@@ -221,22 +219,21 @@ func (tw *TLSWrap) loadClientCA() (err error) {
 }
 
 func (tw *TLSWrap) loadRootCA() (err error) {
-	tw.mux.Lock()
-	defer tw.mux.Unlock()
+	certs, err := os.ReadFile(tw.rootCAPath)
+	if err != nil {
+		return fmt.Errorf("failed to open ca file: %w", err)
+	}
 
 	rootCA, err := x509.SystemCertPool()
 	if err != nil {
 		return fmt.Errorf("failed to load system cert file: %w", err)
 	}
-
-	certs, err := os.ReadFile(tw.rootCAPath)
-	if err != nil {
-		return fmt.Errorf("failed to open ca file: %w", err)
-	}
 	if ok := rootCA.AppendCertsFromPEM(certs); !ok {
 		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 
+	tw.mux.Lock()
+	defer tw.mux.Unlock()
 	tw.rootCA = rootCA
 	tw.cfgc.Store(tw.createClientConfig())
 	tw.listenerFunc(tw.cfgs.Load(), tw.cfgc.Load())
@@ -245,7 +242,7 @@ func (tw *TLSWrap) loadRootCA() (err error) {
 
 func (tw *TLSWrap) createClientConfig() *tls.Config {
 	cfg := tw.cfg.Clone()
-	cfg.RootCAs = tw.rootCA
+	cfg.RootCAs = tw.rootCA.Clone()
 
 	cert := tw.cert.Load()
 	if cert == nil {
@@ -266,7 +263,7 @@ func (tw *TLSWrap) createServerConfig() *tls.Config {
 		return cfg
 	}
 
-	cfg.ClientCAs = tw.clientCa
+	cfg.ClientCAs = tw.clientCa.Clone()
 	cfg.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return cert, nil
 	}

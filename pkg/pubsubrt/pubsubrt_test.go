@@ -173,7 +173,7 @@ func TestMultipleWaitersReceiveResults(t *testing.T) {
 	basepubsub := newMemPubSub[string](t)
 
 	ts := &testsuite.TestSuiteNormal{
-		KVFactory:     func() pubsubrt.KeyValueSvc { return kv },
+		KVFactory:     func() pubsubrt.KeyValSvc { return kv },
 		PubSubFactory: func(workerID string) pubsubrt.PubSubSvc[string] { return basepubsub.Clone(workerID) },
 		Logger:        logtest.NewLogger(t),
 		PublishToMessageQueue: func(msg pubsubrt.Message[string]) {

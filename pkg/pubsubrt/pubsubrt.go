@@ -107,9 +107,12 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 			continue
 		}
 		if len(workers) == 0 {
-			p.logger.Debug(ctx, "dropping data due to inexistent worker",
+			p.logger.Debug(ctx, "NACK due to inexistent worker",
 				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
-			msg.ACK()
+			msg.NACK(NACKReason{
+				Code:    NACKReasonNoWorker,
+				Message: "no worker",
+			})
 			continue
 		}
 

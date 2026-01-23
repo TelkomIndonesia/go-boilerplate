@@ -9,15 +9,11 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/telkomindonesia/go-boilerplate/pkg/filewatch"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
-
-type Dialer interface {
-	Dial(net string, addr string) (net.Conn, error)
-	DialContext(ctx context.Context, net string, addr string) (net.Conn, error)
-}
 
 type OptFunc func(*TLSWrap) error
 
@@ -94,15 +90,15 @@ type TLSWrap struct {
 	rootCAPath   string
 	logger       log.Logger
 	cfg          *tls.Config
-	mux          sync.RWMutex
+	mux          sync.Mutex
 	listenerFunc func(c, s *tls.Config)
 	closers      []func(context.Context) error
 
-	cert     *tls.Certificate
+	cert     atomic.Pointer[tls.Certificate]
 	clientCa *x509.CertPool
 	rootCA   *x509.CertPool
-	cfgs     *tls.Config
-	cfgc     *tls.Config
+	cfgs     atomic.Pointer[tls.Config]
+	cfgc     atomic.Pointer[tls.Config]
 }
 
 func New(opts ...OptFunc) (c *TLSWrap, err error) {
@@ -126,91 +122,91 @@ func New(opts ...OptFunc) (c *TLSWrap, err error) {
 	return cr, err
 }
 
-func (c *TLSWrap) initWatcher() (err error) {
+func (tw *TLSWrap) initWatcher() (err error) {
 	ctx := context.Background()
-	if c.certPath != "" {
-		cw, err := filewatch.New(c.certPath, func(s string, err error) {
+	if tw.certPath != "" {
+		cw, err := filewatch.New(tw.certPath, func(s string, err error) {
 			if err != nil {
-				c.logger.Error(ctx, "leaf-cert-file-watcher", log.Error("error", err))
+				tw.logger.Error(ctx, "leaf-cert-file-watcher", log.Error("error", err))
 				return
 			}
-			if err = c.loadLeaf(); err != nil {
-				c.logger.Error(ctx, "leaf-cert-file-watcher", log.Error("error", err))
+			if err = tw.loadLeaf(); err != nil {
+				tw.logger.Error(ctx, "leaf-cert-file-watcher", log.Error("error", err))
 				return
 			}
-			c.logger.Info(ctx, "leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
+			tw.logger.Info(ctx, "leaf-cert-file-watcher", log.String("info", "leaf cert file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("failed to instantiate leaf cert content watcher")
 		}
 
-		c.closers = append(c.closers, cw.Close)
+		tw.closers = append(tw.closers, cw.Close)
 	}
 
-	if c.clientCAPath != "" {
-		cw, err := filewatch.New(c.clientCAPath, func(s string, err error) {
+	if tw.clientCAPath != "" {
+		cw, err := filewatch.New(tw.clientCAPath, func(s string, err error) {
 			if err != nil {
-				c.logger.Error(ctx, "client-ca-file-watcher", log.Error("error", err))
+				tw.logger.Error(ctx, "client-ca-file-watcher", log.Error("error", err))
 				return
 			}
-			if err = c.loadClientCA(); err != nil {
-				c.logger.Error(ctx, "client-ca-file-watcher", log.Error("error", err))
+			if err = tw.loadClientCA(); err != nil {
+				tw.logger.Error(ctx, "client-ca-file-watcher", log.Error("error", err))
 				return
 			}
-			c.logger.Info(ctx, "client-ca-file-watcher", log.String("info", "ca file updated"))
+			tw.logger.Info(ctx, "client-ca-file-watcher", log.String("info", "ca file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("failed to instantiate ca content watcher")
 		}
 
-		c.closers = append(c.closers, cw.Close)
+		tw.closers = append(tw.closers, cw.Close)
 	}
 
-	if c.rootCAPath != "" {
-		cw, err := filewatch.New(c.rootCAPath, func(s string, err error) {
+	if tw.rootCAPath != "" {
+		cw, err := filewatch.New(tw.rootCAPath, func(s string, err error) {
 			if err != nil {
-				c.logger.Error(ctx, "root-ca-file-watcher", log.Error("error", err))
+				tw.logger.Error(ctx, "root-ca-file-watcher", log.Error("error", err))
 				return
 			}
-			if err = c.loadRootCA(); err != nil {
-				c.logger.Error(ctx, "root-ca-file-watcher", log.Error("error", err))
+			if err = tw.loadRootCA(); err != nil {
+				tw.logger.Error(ctx, "root-ca-file-watcher", log.Error("error", err))
 				return
 			}
-			c.logger.Info(ctx, "root-ca-file-watcher", log.String("info", "ca file updated"))
+			tw.logger.Info(ctx, "root-ca-file-watcher", log.String("info", "ca file updated"))
 		})
 		if err != nil {
 			return fmt.Errorf("failed to instantiate root ca content watcher")
 		}
 
-		c.closers = append(c.closers, cw.Close)
+		tw.closers = append(tw.closers, cw.Close)
 	}
 
 	return
 }
 
-func (c *TLSWrap) loadLeaf() (err error) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+func (tw *TLSWrap) loadLeaf() (err error) {
+	tw.mux.Lock()
+	defer tw.mux.Unlock()
 
-	cert, err := tls.LoadX509KeyPair(c.certPath, c.keyPath)
+	cert, err := tls.LoadX509KeyPair(tw.certPath, tw.keyPath)
 	if err != nil {
 		return fmt.Errorf("failed to load x509 key pair: %w", err)
 	}
 
-	c.cert = &cert
-	c.cfgs = c.createServerConfig()
-	c.cfgc = c.createClientConfig()
-	c.listenerFunc(c.cfgs, c.cfgc)
+	tw.cert.Store(&cert)
+	tw.cfgs.Store(tw.createServerConfig())
+	tw.cfgc.Store(tw.createClientConfig())
+	tw.listenerFunc(tw.cfgs.Load(), tw.cfgc.Load())
 	return
 }
 
-func (c *TLSWrap) loadClientCA() (err error) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+func (tw *TLSWrap) loadClientCA() (err error) {
+	tw.mux.Lock()
+	defer tw.mux.Unlock()
 
 	clientCa := x509.NewCertPool()
 
-	certs, err := os.ReadFile(c.clientCAPath)
+	certs, err := os.ReadFile(tw.clientCAPath)
 	if err != nil {
 		return fmt.Errorf("failed to open ca file: %w", err)
 	}
@@ -218,22 +214,22 @@ func (c *TLSWrap) loadClientCA() (err error) {
 		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 
-	c.clientCa = clientCa
-	c.cfgs = c.createServerConfig()
-	c.listenerFunc(c.cfgs, c.cfgc)
+	tw.clientCa = clientCa
+	tw.cfgs.Store(tw.createServerConfig())
+	tw.listenerFunc(tw.cfgs.Load(), tw.cfgc.Load())
 	return
 }
 
-func (c *TLSWrap) loadRootCA() (err error) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+func (tw *TLSWrap) loadRootCA() (err error) {
+	tw.mux.Lock()
+	defer tw.mux.Unlock()
 
 	rootCA, err := x509.SystemCertPool()
 	if err != nil {
 		return fmt.Errorf("failed to load system cert file: %w", err)
 	}
 
-	certs, err := os.ReadFile(c.rootCAPath)
+	certs, err := os.ReadFile(tw.rootCAPath)
 	if err != nil {
 		return fmt.Errorf("failed to open ca file: %w", err)
 	}
@@ -241,105 +237,53 @@ func (c *TLSWrap) loadRootCA() (err error) {
 		return fmt.Errorf("failed to append x509 cert pool: %w", err)
 	}
 
-	c.rootCA = rootCA
-	c.cfgc = c.createClientConfig()
-	c.listenerFunc(c.cfgs, c.cfgc)
+	tw.rootCA = rootCA
+	tw.cfgc.Store(tw.createClientConfig())
+	tw.listenerFunc(tw.cfgs.Load(), tw.cfgc.Load())
 	return
 }
 
-func (c *TLSWrap) createClientConfig() *tls.Config {
-	cfg := c.cfg.Clone()
-	cfg.RootCAs = c.rootCA
-	if c.cert == nil {
+func (tw *TLSWrap) createClientConfig() *tls.Config {
+	cfg := tw.cfg.Clone()
+	cfg.RootCAs = tw.rootCA
+
+	cert := tw.cert.Load()
+	if cert == nil {
 		return cfg
 	}
 
-	cert := c.cert
 	cfg.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 		return cert, nil
 	}
 	return cfg
 }
 
-func (c *TLSWrap) createServerConfig() *tls.Config {
-	cfg := c.cfg.Clone()
-	if c.cert == nil {
+func (tw *TLSWrap) createServerConfig() *tls.Config {
+	cfg := tw.cfg.Clone()
+
+	cert := tw.cert.Load()
+	if cert == nil {
 		return cfg
 	}
 
-	cfg.ClientCAs = c.clientCa
-	cert := c.cert
+	cfg.ClientCAs = tw.clientCa
 	cfg.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return cert, nil
 	}
 	return cfg
 }
 
-func (c *TLSWrap) clientConfig() *tls.Config {
-	c.mux.RLock()
-	defer c.mux.RUnlock()
-	return c.cfgc.Clone()
+func (tw *TLSWrap) Dialer(d *net.Dialer) Dialer {
+	return dialer{tw: tw, d: d}
 }
 
-func (c *TLSWrap) serverConfig() *tls.Config {
-	c.mux.RLock()
-	defer c.mux.RUnlock()
-	return c.cfgs.Clone()
+func (tw *TLSWrap) Listener(l net.Listener) net.Listener {
+	return listener{tw: tw, l: l}
 }
 
-func (c *TLSWrap) certificate() *tls.Certificate {
-	c.mux.RLock()
-	defer c.mux.RUnlock()
-	return c.cert
-}
-
-func (c *TLSWrap) Dialer(d *net.Dialer) Dialer {
-	return dialer{tw: c, d: d}
-}
-
-func (c *TLSWrap) Listener(l net.Listener) net.Listener {
-	return listener{tw: c, l: l}
-}
-
-func (c *TLSWrap) Close(ctx context.Context) (err error) {
-	for _, closer := range c.closers {
+func (tw *TLSWrap) Close(ctx context.Context) (err error) {
+	for _, closer := range tw.closers {
 		err = errors.Join(closer(ctx))
 	}
 	return
-}
-
-type dialer struct {
-	tw *TLSWrap
-	d  *net.Dialer
-}
-
-func (d dialer) Dial(net string, addr string) (net.Conn, error) {
-	return d.DialContext(context.Background(), net, addr)
-}
-
-func (d dialer) DialContext(ctx context.Context, net string, addr string) (net.Conn, error) {
-	return (&tls.Dialer{NetDialer: d.d, Config: d.tw.clientConfig()}).
-		DialContext(ctx, net, addr)
-}
-
-type listener struct {
-	tw *TLSWrap
-	l  net.Listener
-}
-
-func (c listener) Accept() (net.Conn, error) {
-	conn, err := c.l.Accept()
-	if err != nil || c.tw.certificate() == nil {
-		return conn, err
-	}
-
-	return tls.Server(conn, c.tw.serverConfig()), nil
-}
-
-func (c listener) Close() error {
-	return c.l.Close()
-}
-
-func (c listener) Addr() net.Addr {
-	return c.l.Addr()
 }

@@ -18,7 +18,7 @@ import (
 )
 
 type TestSuiteNormal struct {
-	KVFactory     func() pubsubrt.KeyValueSvc
+	KVFactory     func() pubsubrt.KeyValSvc
 	PubSubFactory func(workerID string) pubsubrt.PubSubSvc[string]
 
 	PublishToMessageQueue func(msg pubsubrt.Message[string])

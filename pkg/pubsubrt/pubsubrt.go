@@ -10,7 +10,7 @@ import (
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 )
 
-type KeyValueSvc interface {
+type KeyValSvc interface {
 	Start(ctx context.Context) error
 
 	Add(ctx context.Context, key string, value string) error
@@ -29,7 +29,7 @@ type PubSubSvc[T any] interface {
 type PubSubRouter[T any] struct {
 	workerID string
 
-	keyval KeyValueSvc
+	keyval KeyValSvc
 	pubsub PubSubSvc[T]
 
 	chanmap cmap.ConcurrentMap[string, *[]Channel[T]]
@@ -48,7 +48,7 @@ func WithLogger[T any](logger log.Logger) OptFunc[T] {
 
 func New[T any](
 	workerID string,
-	kvRepo func() KeyValueSvc,
+	kvRepo func() KeyValSvc,
 	pubsub func(workerID string) PubSubSvc[T],
 	opts ...OptFunc[T],
 ) (*PubSubRouter[T], error) {

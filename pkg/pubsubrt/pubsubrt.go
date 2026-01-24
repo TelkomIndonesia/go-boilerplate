@@ -132,10 +132,12 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 				log.String("channel-id", msg.ChannelID),
 				log.Error("error", err),
 			)
-			msg.NACK(NACKReason{
-				Code:    NACKReasonPubSubWorkerQueueError,
-				Message: err.Error(),
-			})
+
+			code := NACKReasonWorkerQueuePartialError
+			if len(failed) == len(workers) {
+				code = NACKReasonWorkerQueueError
+			}
+			msg.NACK(NACKReason{Code: code, Message: err.Error()})
 			continue
 		}
 

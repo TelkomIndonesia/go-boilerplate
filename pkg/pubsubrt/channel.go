@@ -24,7 +24,8 @@ type NACKReasonCode int
 const (
 	NACKReasonKVError NACKReasonCode = iota
 	NACKReasonNoWorker
-	NACKReasonPubSubWorkerQueueError
+	NACKReasonWorkerQueueError
+	NACKReasonWorkerQueuePartialError
 	NACKReasonNoSubscriber
 	NACKReasonSlowSubscriber
 	NACKReasonStoppedSubscriber

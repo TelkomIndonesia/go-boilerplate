@@ -89,7 +89,8 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 
 	for msg, err := range chanMessage {
 		if err != nil {
-			p.logger.Warn(ctx, "message queue errored", log.String("worker-id", p.workerID), log.Error("error", err))
+			p.logger.Warn(ctx, "received error from message queue",
+				log.String("worker-id", p.workerID), log.Error("error", err))
 			continue
 		}
 
@@ -98,8 +99,6 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 
 		workers, err := p.keyval.Members(ctx, msg.ChannelID)
 		if err != nil {
-			p.logger.Warn(ctx, "NACK due to failure to lookup worker for message",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK(NACKReason{
 				Code:    NACKReasonKVError,
 				Message: err.Error(),
@@ -107,8 +106,6 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 			continue
 		}
 		if len(workers) == 0 {
-			p.logger.Debug(ctx, "NACK due to inexistent worker",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK(NACKReason{
 				Code:    NACKReasonNoWorker,
 				Message: "no worker",
@@ -127,12 +124,6 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 		}
 
 		if len(failed) > 0 {
-			p.logger.Warn(ctx, "NACK due to failure to publish message to all workers",
-				log.Any("worker-id", workers),
-				log.String("channel-id", msg.ChannelID),
-				log.Error("error", err),
-			)
-
 			code := NACKReasonWorkerQueuePartialError
 			if len(failed) == len(workers) {
 				code = NACKReasonWorkerQueueError
@@ -155,9 +146,8 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 	for msg, err := range chanJob {
 		if err != nil {
-			p.logger.Warn(ctx, "worker queue errored",
-				log.String("worker-id", p.workerID),
-				log.Error("error", err))
+			p.logger.Warn(ctx, "received error from worker queue",
+				log.String("worker-id", p.workerID), log.Error("error", err))
 			continue
 		}
 
@@ -174,8 +164,6 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 			return false
 		})
 		if len(channels) == 0 {
-			p.logger.Warn(ctx, "NACK due to no subscriber",
-				log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID))
 			msg.NACK(NACKReason{
 				Code:    NACKReasonNoSubscriber,
 				Message: "no subscriber",
@@ -185,8 +173,6 @@ func (p *PubSubRouter[T]) ListenWorkerChannel(ctx context.Context) error {
 
 		for _, channel := range channels {
 			if err := channel.write(ctx, msg); err != nil {
-				p.logger.Warn(ctx, "channel write failed",
-					log.String("worker-id", p.workerID), log.String("channel-id", msg.ChannelID), log.Error("error", err))
 				continue
 			}
 

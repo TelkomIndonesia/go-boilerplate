@@ -125,18 +125,18 @@ func (p *PubSubRouter[T]) ListenMessageQueue(ctx context.Context) error {
 				continue
 			}
 		}
-		if len(failed) == len(workers) {
+
+		if len(failed) > 0 {
 			p.logger.Warn(ctx, "NACK due to failure to publish message to all workers",
-				log.Any("worker-id", workers), log.String("channel-id", msg.ChannelID))
+				log.Any("worker-id", workers),
+				log.String("channel-id", msg.ChannelID),
+				log.Error("error", err),
+			)
 			msg.NACK(NACKReason{
 				Code:    NACKReasonPubSubWorkerQueueError,
 				Message: err.Error(),
 			})
 			continue
-		}
-		if len(failed) > 0 {
-			p.logger.Warn(ctx, "failed to publish message to some workers",
-				log.Any("workers", failed), log.String("channel-id", msg.ChannelID))
 		}
 
 		msg.ACK()

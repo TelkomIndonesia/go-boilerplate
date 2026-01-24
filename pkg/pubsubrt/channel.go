@@ -112,9 +112,9 @@ func (c Channel[T]) write(ctx context.Context, msg Message[T]) (err error) {
 		return fmt.Errorf("channel has been closed")
 
 	case c.ch <- msg:
+		return
 	}
 
-	return
 }
 
 func (c Channel[T]) Messages() <-chan Message[T] {

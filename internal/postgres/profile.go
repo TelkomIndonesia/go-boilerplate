@@ -68,14 +68,14 @@ func (p *Postgres) StoreProfile(ctx context.Context, pr *profile.Profile) (err e
 func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (pr *profile.Profile, err error) {
 	spr, err := p.q.FetchProfile(ctx,
 		sqlc.FetchProfileParams{TenantID: tenantID, ID: id},
-		func(fpr *sqlc.FetchProfileRow) {
+		sqlc.PreModifer(func(fpr *sqlc.FetchProfileRow) {
 			// initiate so that we can decrypt
 			fpr.Nin = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
 			fpr.Name = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
 			fpr.Phone = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
 			fpr.Email = tinksql.AEADString(p.aeadFunc(&tenantID), "", id[:])
 			fpr.Dob = tinksql.AEADTime(p.aeadFunc(&tenantID), time.Time{}, id[:])
-		},
+		}),
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -97,51 +97,57 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 }
 
 func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qname string) (names []string, err error) {
-	return p.q.FindTextHeap(ctx, sqlc.FindTextHeapParams{
+	s, err := p.q.FindTextHeap(ctx, sqlc.FindTextHeapParams{
 		TenantID: tenantID,
 		Type:     textHeapTypeProfileName,
 		Content:  sql.NullString{String: qname, Valid: true},
-	},
-		nil, nil, // no need for initiation or additional filter
-	)
+	})
+	if err != nil {
+		return
+	}
+
+	for v := range s.Seq() {
+		names = append(names, v)
+	}
+	return names, s.Err()
 }
 
 func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, qname string) (prs []*profile.Profile, err error) {
 	// we don't need the return value since we are using the Filter func to efficiently convert the item
-	_, err = p.q.FindProfilesByName(ctx,
+	seq, err := p.q.FindProfilesByName(ctx,
 		sqlc.FindProfilesByNameParams{
 			TenantID: tenantID,
 			NameBidx: tinksql.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(pqByteArray),
 		},
-		func(fpbnr *sqlc.FindProfilesByNameRow) {
-			// initiate so that we can decrypt
-			fpbnr.Nin = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Name = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Phone = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Email = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
-			fpbnr.Dob = tinksql.AEADTime(p.aeadFunc(&fpbnr.TenantID), time.Time{}, fpbnr.ID[:])
-		},
-		func(fpbnr sqlc.FindProfilesByNameRow) (bool, error) {
-			// due to bloom filter, we need to verify if the name match
-			if fpbnr.Name.Plain() != qname {
-				return false, nil
-			}
-
-			prs = append(prs,
-				&profile.Profile{
-					ID:       fpbnr.ID,
-					TenantID: tenantID,
-					NIN:      fpbnr.Nin.Plain(),
-					Name:     fpbnr.Name.Plain(),
-					Email:    fpbnr.Email.Plain(),
-					Phone:    fpbnr.Phone.Plain(),
-					DOB:      fpbnr.Dob.Plain(),
-				})
-			return false, nil
-		},
-	)
+		sqlc.PrePostModifier(
+			func(fpbnr *sqlc.FindProfilesByNameRow) {
+				// initiate so that we can decrypt
+				fpbnr.Nin = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+				fpbnr.Name = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+				fpbnr.Phone = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+				fpbnr.Email = tinksql.AEADString(p.aeadFunc(&fpbnr.TenantID), "", fpbnr.ID[:])
+				fpbnr.Dob = tinksql.AEADTime(p.aeadFunc(&fpbnr.TenantID), time.Time{}, fpbnr.ID[:])
+			},
+			func(fpbnr *sqlc.FindProfilesByNameRow) (bool, error) {
+				// due to bloom filter, we need to verify if the name match
+				return fpbnr.Name.Plain() == qname, nil
+			},
+		))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query profile by name: %w", err)
 	}
-	return
+
+	for v := range seq.Seq() {
+		prs = append(prs, &profile.Profile{
+			ID:       v.ID,
+			TenantID: v.TenantID,
+			NIN:      v.Nin.Plain(),
+			Name:     v.Name.Plain(),
+			Phone:    v.Phone.Plain(),
+			Email:    v.Email.Plain(),
+			DOB:      v.Dob.Plain(),
+		})
+	}
+
+	return prs, seq.Err()
 }

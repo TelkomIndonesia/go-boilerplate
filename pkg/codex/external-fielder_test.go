@@ -44,7 +44,7 @@ func TestJSONMultiPart_Success(t *testing.T) {
 	w.Close()
 
 	// --- create reader ---
-	rr := NewExternalFielderMultiPartReader(multipart.NewReader(&body, w.Boundary()), "application/json")
+	rr := NewExternalFielderMultipart(multipart.NewReader(&body, w.Boundary()), "application/json")
 
 	// --- define schema registering fileref format on "photo" field ---
 	extractor := func(r io.Reader, pt *testDoc) (map[string]struct{}, error) {
@@ -63,13 +63,13 @@ func TestJSONMultiPart_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// --- verify decoded JSON ---
-	doc := jm.T()
+	doc := jm.Main()
 	assert.Equal(t, "alice", doc.Name)
 	assert.Equal(t, "fileref://photo", doc.Photo)
 
 	// --- verify parts ---
 	var parts []ExternalField
-	for part, err := range jm.Parts() {
+	for part, err := range jm.ExternalFields() {
 		require.NoError(t, err)
 
 		assert.Equal(t, "photo", part.Key())

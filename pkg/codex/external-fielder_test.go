@@ -1,4 +1,4 @@
-package jsonx
+package codex
 
 import (
 	"bytes"
@@ -44,7 +44,7 @@ func TestJSONMultiPart_Success(t *testing.T) {
 	w.Close()
 
 	// --- create reader ---
-	rr := NewJSONMultiPartReader(multipart.NewReader(&body, w.Boundary()))
+	rr := NewExternalFielderMultiPartReader(multipart.NewReader(&body, w.Boundary()), "application/json")
 
 	// --- define schema registering fileref format on "photo" field ---
 	extractor := func(r io.Reader, pt *testDoc) (map[string]struct{}, error) {
@@ -59,16 +59,16 @@ func TestJSONMultiPart_Success(t *testing.T) {
 		}, nil
 	}
 	// --- parse ---
-	jm, err := NewJSONExternalParts(rr, extractor)
+	jm, err := NewExternalFielder(rr, extractor)
 	require.NoError(t, err)
 
 	// --- verify decoded JSON ---
-	doc := jm.JSON()
+	doc := jm.T()
 	assert.Equal(t, "alice", doc.Name)
 	assert.Equal(t, "fileref://photo", doc.Photo)
 
 	// --- verify parts ---
-	var parts []JSONExternalPart
+	var parts []ExternalField
 	for part, err := range jm.Parts() {
 		require.NoError(t, err)
 

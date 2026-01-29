@@ -16,7 +16,14 @@ type BIDX interface {
 	ComputeAll(data []byte) (idxs [][]byte, err error)
 }
 
+type BIDXResizeable interface {
+	BIDX
+
+	Resize(len int) (BIDX, error)
+}
+
 var _ BIDX = bidx{}
+var _ BIDXResizeable = bidx{}
 
 type bidx struct {
 	h *keyset.Handle
@@ -117,7 +124,16 @@ func (b bidx) ComputeAll(data []byte) (idxs [][]byte, err error) {
 	return
 }
 
+func (b bidx) Resize(len int) (BIDX, error) {
+	b.len = len
+	return b, nil
+}
+
 func BIDXWithLen(t BIDX, len int) (BIDX, error) {
+	if br, ok := t.(BIDXResizeable); ok {
+		return br.Resize(len)
+	}
+
 	pb, ok := t.(PrimitiveBIDX)
 	if !ok {
 		pbp, okp := t.(*PrimitiveBIDX)

@@ -38,3 +38,7 @@ func NewPrimitiveBIDXWithLen(len int) func(h *keyset.Handle) (p PrimitiveBIDX, e
 		return
 	}
 }
+
+func (p PrimitiveBIDX) Resize(len int) (BIDX, error) {
+	return BIDXWithLen(p.BIDX, len)
+}

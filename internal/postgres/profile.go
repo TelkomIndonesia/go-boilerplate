@@ -118,7 +118,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 	seq, err := p.q.FindProfilesByName(ctx,
 		sqlc.FindProfilesByNameParams{
 			TenantID: tenantID,
-			NameBidx: tinksql.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(types.NewByteArray),
+			NameBidx: tinksql.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(types.NewArrayValuer),
 		},
 		sqlc.PrePostModifier(
 			func(fpbnr *sqlc.FindProfilesByNameRow) {

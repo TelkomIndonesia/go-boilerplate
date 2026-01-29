@@ -10,14 +10,8 @@ import (
 
 // type aliases so that it can be used by sqlc
 type (
-	AEADString = tinksql.AEAD[string, tinkx.PrimitiveAEAD]
-	AEADTime   = tinksql.AEAD[time.Time, tinkx.PrimitiveAEAD]
-	BIDXString = tinksql.BIDX[string, tinkx.PrimitiveBIDX]
+	AEADString  = tinksql.AEAD[string, tinkx.PrimitiveAEAD]
+	AEADTime    = tinksql.AEAD[time.Time, tinkx.PrimitiveAEAD]
+	BIDXString  = tinksql.BIDX[string, tinkx.PrimitiveBIDX]
+	AEADProfile = tinksql.AEAD[profile.Profile, tinkx.PrimitiveAEAD] // use tinksql.AEADMsgpack to instantiate
 )
-
-// for complex type, we can use AEADMsgpack
-type AEADProfile = tinksql.AEAD[profile.Profile, tinkx.PrimitiveAEAD]
-
-var _ AEADProfile = tinksql.AEADMsgpack(noaead, profile.Profile{}, nil)
-
-func noaead() (A tinkx.PrimitiveAEAD, err error) { return }

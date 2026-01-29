@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
@@ -43,7 +43,7 @@ func WithDerivableKeysets(aead *tinkx.DerivableKeyset[tinkx.PrimitiveAEAD], bidx
 func WithConnString(connStr string) OptFunc {
 	return func(p *Postgres) (err error) {
 		p.dbUrl = connStr
-		p.db, err = otelsql.Open("postgres", connStr)
+		p.db, err = otelsql.Open("pgx", connStr)
 		return
 	}
 }

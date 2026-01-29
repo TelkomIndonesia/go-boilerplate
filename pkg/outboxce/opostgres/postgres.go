@@ -12,7 +12,9 @@ import (
 
 	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	"go.opentelemetry.io/otel"
@@ -128,7 +130,7 @@ func (p *postgres) Store(ctx context.Context, tx *sql.Tx, ob outboxce.OutboxCE) 
 		return fmt.Errorf("failed to insert to outbox: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, ob.Time.UnixNano())
+	_, err = tx.ExecContext(ctx, "SELECT pg_notify($1, $2)", p.channelName, strconv.FormatInt(ob.Time.UnixNano(), 10))
 	if err != nil {
 		p.logger.Warn(ctx, "failed to send notify", log.WithTrace(log.Error("error", err))...)
 	}
@@ -159,11 +161,11 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 	defer unlocker()
 	p.logger.Warn(ctx, "Got lock for observing outbox")
 
-	l := pq.NewListener(p.dbUrl, time.Second, time.Minute, func(event pq.ListenerEventType, err error) {})
-	if err = l.Listen(p.channelName); err != nil {
-		return fmt.Errorf("failed to listen for outbox notification :%w", err)
+	notifs, err := p.Listen(ctx, p.dbUrl, p.channelName)
+	if err != nil {
+		return fmt.Errorf("failed to listen to outbox channel: %w", err)
 	}
-	defer l.Close()
+	p.logger.Warn(ctx, "Got channel for outbox notifications")
 
 	var last outboxce.OutboxCE
 	for {
@@ -183,10 +185,10 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 			return
 
 		case <-timer.C:
-		case event := <-l.NotificationChannel():
+		case event := <-notifs:
 			var istr string
 			if event != nil {
-				istr = event.Extra
+				istr = event.Payload
 			}
 			i, _ := strconv.ParseInt(istr, 10, 64)
 			if i < last.Time.UnixNano() {
@@ -202,6 +204,40 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 
 		stopTimer()
 	}
+}
+
+func (p *postgres) Listen(ctx context.Context, dbURL, channelName string) (<-chan *pgconn.Notification, error) {
+	conn, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Exec(ctx, "LISTEN "+channelName)
+	if err != nil {
+		conn.Close(ctx)
+		return nil, err
+	}
+
+	ch := make(chan *pgconn.Notification)
+	go func() {
+		defer close(ch)
+		defer conn.Close(ctx)
+
+		for {
+			n, err := conn.WaitForNotification(ctx)
+			if err != nil {
+				return
+			}
+
+			select {
+			case ch <- n:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
@@ -314,7 +350,11 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 		SET is_delivered = false 
 		WHERE id = ANY($1)
 	`
-	_, err = tx.ExecContext(ctx, q, pq.Array(ids))
+	_, err = tx.ExecContext(ctx, q, pgtype.Array[uuid.UUID]{
+		Elements: ids,
+		Dims:     []pgtype.ArrayDimension{{Length: int32(len(ids))}},
+		Valid:    true,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to unset delivery status: %w", err)
 	}

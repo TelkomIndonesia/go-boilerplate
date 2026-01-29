@@ -13,6 +13,7 @@ import (
 	protobufce "github.com/cloudevents/sdk-go/binding/format/protobuf/v2"
 	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/google/uuid"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
@@ -55,7 +56,7 @@ func tNewManagerPostgres(t *testing.T, opts ...OptFunc) *postgres {
 		t.Skip("no postgres url found")
 	}
 
-	db, err := sql.Open("postgres", url)
+	db, err := sql.Open("pgx", url)
 	require.NoError(t, err)
 
 	p, err := NewManager(append(opts, WithDB(db, url), WithLogger(logtest.NewLogger(t).WithAttrs(log.String("name", t.Name()))))...)

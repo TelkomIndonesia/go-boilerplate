@@ -13,7 +13,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
-	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types"
+	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types"
 )
 
 type resultModifier[T any] struct {

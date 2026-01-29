@@ -19,39 +19,39 @@ sql:
           overrides:
             - column: profile.nin
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: AEADString
             - column: profile.name
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: AEADString
             - column: profile.phone
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: AEADString
             - column: profile.email
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: AEADString
             - column: profile.dob
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: AEADTime
             - column: profile.nin_bidx
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: BIDXString
             - column: profile.name_bidx
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: BIDXString
             - column: profile.phone_bidx
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: BIDXString
             - column: profile.email_bidx
               go_type:
-                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc/types
+                import: github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types
                 type: BIDXString
 
   # used in `make explain`

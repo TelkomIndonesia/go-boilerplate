@@ -161,7 +161,7 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 	defer unlocker()
 	p.logger.Warn(ctx, "Got lock for observing outbox")
 
-	notifs, err := p.Listen(ctx, p.dbUrl, p.channelName)
+	notifs, err := p.listen(ctx, p.dbUrl, p.channelName)
 	if err != nil {
 		return fmt.Errorf("failed to listen to outbox channel: %w", err)
 	}
@@ -206,7 +206,33 @@ func (p *postgres) RelayLoop(ctx context.Context, relayFunc outboxce.RelayFunc) 
 	}
 }
 
-func (p *postgres) Listen(ctx context.Context, dbURL, channelName string) (<-chan *pgconn.Notification, error) {
+func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
+	conn, err := p.db.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain connection for lock: %w", err)
+	}
+	defer func() {
+		if conn != nil && err != nil {
+			conn.Close()
+		}
+	}()
+
+	obtain := false
+	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, p.lockID).Scan(&obtain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain lock: %w", err)
+	}
+	if !obtain {
+		return nil, fmt.Errorf("lock has been obtained by other process")
+	}
+
+	return func() {
+		conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", p.lockID)
+		conn.Close()
+	}, nil
+}
+
+func (p *postgres) listen(ctx context.Context, dbURL, channelName string) (<-chan *pgconn.Notification, error) {
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		return nil, err
@@ -238,32 +264,6 @@ func (p *postgres) Listen(ctx context.Context, dbURL, channelName string) (<-cha
 	}()
 
 	return ch, nil
-}
-
-func (p *postgres) lock(ctx context.Context) (unlocker func(), err error) {
-	conn, err := p.db.Conn(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain connection for lock: %w", err)
-	}
-	defer func() {
-		if conn != nil && err != nil {
-			conn.Close()
-		}
-	}()
-
-	obtain := false
-	err = conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, p.lockID).Scan(&obtain)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain lock: %w", err)
-	}
-	if !obtain {
-		return nil, fmt.Errorf("lock has been obtained by other process")
-	}
-
-	return func() {
-		conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", p.lockID)
-		conn.Close()
-	}, nil
 }
 
 func (p *postgres) relayOutboxes(ctx context.Context, relayFunc outboxce.RelayFunc) (last outboxce.OutboxCE, err error) {

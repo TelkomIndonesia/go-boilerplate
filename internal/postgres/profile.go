@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/outbox"
 	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/sqlc"
-	"github.com/telkomindonesia/go-boilerplate/internal/postgres/internal/types"
 	"github.com/telkomindonesia/go-boilerplate/internal/profile"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	"github.com/telkomindonesia/go-boilerplate/pkg/tinkx/tinksql"
@@ -118,7 +117,7 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 	seq, err := p.q.FindProfilesByName(ctx,
 		sqlc.FindProfilesByNameParams{
 			TenantID: tenantID,
-			NameBidx: tinksql.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(types.NewArrayValuer),
+			NameBidx: tinksql.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(tinksql.NewArrayValuer),
 		},
 		sqlc.PrePostModifier(
 			func(fpbnr *sqlc.FindProfilesByNameRow) {

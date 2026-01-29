@@ -131,3 +131,13 @@ func BIDXFloat64[B tinkx.BIDX](f BIDXFunc[B], t float64) BIDX[float64, B] {
 		t:       t,
 	}
 }
+
+type array[T any] []T
+
+func (a array[T]) Value() (driver.Value, error) {
+	return []T(a), nil
+}
+
+func NewArrayValuer[T any](arr []T) driver.Valuer {
+	return array[T](arr)
+}

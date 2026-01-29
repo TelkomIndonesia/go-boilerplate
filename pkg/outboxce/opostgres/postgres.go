@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/telkomindonesia/go-boilerplate/pkg/log"
 	"github.com/telkomindonesia/go-boilerplate/pkg/outboxce"
 	"go.opentelemetry.io/otel"
@@ -350,11 +349,7 @@ func (p *postgres) relayWithRelayErrorsHandler(ctx context.Context, tx *sql.Tx, 
 		SET is_delivered = false 
 		WHERE id = ANY($1)
 	`
-	_, err = tx.ExecContext(ctx, q, pgtype.Array[uuid.UUID]{
-		Elements: ids,
-		Dims:     []pgtype.ArrayDimension{{Length: int32(len(ids))}},
-		Valid:    true,
-	})
+	_, err = tx.ExecContext(ctx, q, ids)
 	if err != nil {
 		return fmt.Errorf("failed to unset delivery status: %w", err)
 	}

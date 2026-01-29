@@ -14,12 +14,6 @@ import (
 	"github.com/tink-crypto/tink-go/v2/prf"
 )
 
-type tByteArrayValuer [][]byte
-
-func (t tByteArrayValuer) Value() (driver.Value, error) {
-	return t, nil
-}
-
 func TestBlindIndex(t *testing.T) {
 	data := []any{
 		"test",
@@ -44,7 +38,7 @@ func TestBlindIndex(t *testing.T) {
 	m, err := tinkx.NewDerivableKeyset(h, tinkx.NewPrimitiveBIDXWithLen(16))
 	require.NoError(t, err)
 
-	rwrap := func(b [][]byte) driver.Valuer { return tByteArrayValuer(b) }
+	rwrap := func(b [][]byte) driver.Valuer { return NewArrayValuer(b) }
 	newSQLVal := func(v any) (driver.Valuer, driver.Valuer) {
 		switch v := v.(type) {
 		case string:
@@ -85,7 +79,7 @@ func TestBlindIndex(t *testing.T) {
 		require.NoError(t, err, "should successfully produce driver.Value")
 		assert.Len(t, dvs, 3, "should contains indices as much as key")
 		assert.Contains(t, dvs, dv, "index for write should be included in indices for read")
-		for _, v := range dvs.(tByteArrayValuer) {
+		for _, v := range dvs.([][]byte) {
 			assert.Len(t, v, 16, "should be truncated")
 		}
 	}

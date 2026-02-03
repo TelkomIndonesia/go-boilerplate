@@ -103,7 +103,7 @@ func (m mfReader) Main() (io.Reader, error) {
 			return nil, err
 		}
 
-		if !strings.Contains(strings.ToLower(part.Header.Get("content-type")), m.contentType) {
+		if m.contentType != "" && !strings.Contains(strings.ToLower(part.Header.Get("content-type")), m.contentType) {
 			continue
 		}
 

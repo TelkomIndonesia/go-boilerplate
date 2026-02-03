@@ -96,9 +96,6 @@ func NewExternalFielderMultipart(r *multipart.Reader, ct string) ExternalFielder
 func (m mfReader) Main() (io.Reader, error) {
 	for {
 		part, err := m.reader.NextPart()
-		if err == io.EOF {
-			return nil, nil
-		}
 		if err != nil {
 			return nil, err
 		}

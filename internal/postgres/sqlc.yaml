@@ -2,8 +2,8 @@ version: "2"
 plugins:
   - name: golang
     wasm:
-      url: https://github.com/TelkomIndonesia/sqlc-gen-go/releases/download/v1.500.0/sqlc-gen-go_1.500.0_wasip1_wasm
-      sha256: 30caffb48563dc859124a882c7d9d033043910f3a048da8385d41ec118810482
+      url: https://github.com/TelkomIndonesia/sqlc-gen-go/releases/download/v3.0.0/sqlc-gen-go_3.0.0_wasip1_wasm
+      sha256: deded930b6070a8cc906215f2f5f87762d97574115f5af895c2b73993f4e1bbe
 sql:
   # used when `generate`
   - engine: "postgresql"

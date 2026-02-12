@@ -6,7 +6,6 @@
 package sqlc
 
 import (
-	"errors"
 	"iter"
 
 	"context"
@@ -40,25 +39,6 @@ func PrePostModifier[T any](preScanFunc func(result *T), postScanFunc func(resul
 		preScanFunc:  preScanFunc,
 		postScanFunc: postScanFunc,
 	}
-}
-
-type SeqWErr[V any] struct {
-	seq iter.Seq[V]
-	err error
-}
-
-func (s *SeqWErr[V]) Seq() iter.Seq[V] {
-	if s == nil {
-		return func(yield func(V) bool) {}
-	}
-	return s.seq
-}
-
-func (s *SeqWErr[V]) Err() error {
-	if s == nil {
-		return nil
-	}
-	return s.err
 }
 
 const fetchProfile = `-- name: FetchProfile :one
@@ -150,22 +130,15 @@ type FindProfilesByNameRow struct {
 //	    profile
 //	WHERE
 //	    tenant_id = $1 and name_bidx = ANY($2)
-func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByNameParams, mods ...resultModifier[FindProfilesByNameRow]) (seq *SeqWErr[FindProfilesByNameRow], err error) {
-	rows, err := q.db.QueryContext(ctx, findProfilesByName, arg.TenantID, arg.NameBidx)
-	if err != nil {
-		return nil, err
-	}
-
-	seq = &SeqWErr[FindProfilesByNameRow]{}
-	seq.seq = func(yield func(FindProfilesByNameRow) bool) {
-		defer func() {
-			if cerr := rows.Close(); cerr != nil {
-				seq.err = errors.Join(seq.err, cerr)
-			}
-			if serr := rows.Err(); serr != nil {
-				seq.err = errors.Join(seq.err, serr)
-			}
-		}()
+func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByNameParams, mods ...resultModifier[FindProfilesByNameRow]) iter.Seq2[FindProfilesByNameRow, error] {
+	return func(yield func(FindProfilesByNameRow, error) bool) {
+		var iEmpty FindProfilesByNameRow
+		rows, err := q.db.QueryContext(ctx, findProfilesByName, arg.TenantID, arg.NameBidx)
+		if err != nil {
+			yield(iEmpty, err)
+			return
+		}
+		defer rows.Close()
 
 		for rows.Next() {
 			var i FindProfilesByNameRow
@@ -183,7 +156,7 @@ func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByName
 				&i.Email,
 				&i.Dob,
 			); err != nil {
-				seq.err = err
+				yield(iEmpty, err)
 				return
 			}
 
@@ -191,7 +164,7 @@ func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByName
 			for _, mod := range mods {
 				ok, err := mod.postScanFunc(&i)
 				if err != nil {
-					seq.err = err
+					yield(iEmpty, err)
 					return
 				}
 				added = added && ok
@@ -200,14 +173,15 @@ func (q *Queries) FindProfilesByName(ctx context.Context, arg FindProfilesByName
 				continue
 			}
 
-			if !yield(i) {
+			if !yield(i, nil) {
 				return
 			}
 		}
+		if err := rows.Err(); err != nil {
+			yield(iEmpty, err)
+		}
 		return
 	}
-
-	return
 }
 
 const findTextHeap = `-- name: FindTextHeap :many
@@ -236,22 +210,15 @@ type FindTextHeapParams struct {
 //	WHERE
 //	    tenant_id = $1 AND type = $2
 //	    AND content LIKE $3 || '%'
-func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, mods ...resultModifier[string]) (seq *SeqWErr[string], err error) {
-	rows, err := q.db.QueryContext(ctx, findTextHeap, arg.TenantID, arg.Type, arg.Content)
-	if err != nil {
-		return nil, err
-	}
-
-	seq = &SeqWErr[string]{}
-	seq.seq = func(yield func(string) bool) {
-		defer func() {
-			if cerr := rows.Close(); cerr != nil {
-				seq.err = errors.Join(seq.err, cerr)
-			}
-			if serr := rows.Err(); serr != nil {
-				seq.err = errors.Join(seq.err, serr)
-			}
-		}()
+func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, mods ...resultModifier[string]) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		var contentEmpty string
+		rows, err := q.db.QueryContext(ctx, findTextHeap, arg.TenantID, arg.Type, arg.Content)
+		if err != nil {
+			yield(contentEmpty, err)
+			return
+		}
+		defer rows.Close()
 
 		for rows.Next() {
 			var content string
@@ -261,7 +228,7 @@ func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, mods
 			}
 
 			if err := rows.Scan(&content); err != nil {
-				seq.err = err
+				yield(contentEmpty, err)
 				return
 			}
 
@@ -269,7 +236,7 @@ func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, mods
 			for _, mod := range mods {
 				ok, err := mod.postScanFunc(&content)
 				if err != nil {
-					seq.err = err
+					yield(contentEmpty, err)
 					return
 				}
 				added = added && ok
@@ -278,14 +245,15 @@ func (q *Queries) FindTextHeap(ctx context.Context, arg FindTextHeapParams, mods
 				continue
 			}
 
-			if !yield(content) {
+			if !yield(content, nil) {
 				return
 			}
 		}
+		if err := rows.Err(); err != nil {
+			yield(contentEmpty, err)
+		}
 		return
 	}
-
-	return
 }
 
 const storeProfile = `-- name: StoreProfile :exec

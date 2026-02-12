@@ -97,24 +97,24 @@ func (p *Postgres) FetchProfile(ctx context.Context, tenantID uuid.UUID, id uuid
 }
 
 func (p *Postgres) FindProfileNames(ctx context.Context, tenantID uuid.UUID, qname string) (names []string, err error) {
-	s, err := p.q.FindTextHeap(ctx, sqlc.FindTextHeapParams{
+	s := p.q.FindTextHeap(ctx, sqlc.FindTextHeapParams{
 		TenantID: tenantID,
 		Type:     textHeapTypeProfileName,
 		Content:  sql.NullString{String: qname, Valid: true},
 	})
-	if err != nil {
-		return
-	}
 
-	for v := range s.Seq() {
+	for v, err := range s {
+		if err != nil {
+			return nil, err
+		}
 		names = append(names, v)
 	}
-	return names, s.Err()
+	return names, nil
 }
 
 func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, qname string) (prs []*profile.Profile, err error) {
 	// we don't need the return value since we are using the Filter func to efficiently convert the item
-	seq, err := p.q.FindProfilesByName(ctx,
+	seq := p.q.FindProfilesByName(ctx,
 		sqlc.FindProfilesByNameParams{
 			TenantID: tenantID,
 			NameBidx: tinksql.BIDXString(p.bidxFunc(&tenantID), qname).ForRead(tinksql.NewArrayValuer),
@@ -133,11 +133,11 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 				return fpbnr.Name.Plain() == qname, nil
 			},
 		))
-	if err != nil {
-		return nil, fmt.Errorf("failed to query profile by name: %w", err)
-	}
 
-	for v := range seq.Seq() {
+	for v, err := range seq {
+		if err != nil {
+			return nil, err
+		}
 		prs = append(prs, &profile.Profile{
 			ID:       v.ID,
 			TenantID: v.TenantID,
@@ -149,5 +149,5 @@ func (p *Postgres) FindProfilesByName(ctx context.Context, tenantID uuid.UUID, q
 		})
 	}
 
-	return prs, seq.Err()
+	return prs, nil
 }

@@ -18,7 +18,7 @@ type ExternalFielder[T any] struct {
 func NewExternalFielder[T any](efr ExternalFielderReader, extract ExternalFielderDecoder[T]) (jm ExternalFielder[T], err error) {
 	mr, err := efr.Main()
 	if err != nil {
-		return ExternalFielder[T]{}, err
+		return ExternalFielder[T]{}, fmt.Errorf("failed to extract main part: %w", err)
 	}
 
 	jm.partsRef, err = extract(mr, &jm.main)
